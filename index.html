@@ -1139,7 +1139,7 @@ function showToast(msg, points) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
-  if (msg.includes('付与') || msg.includes('購入') || msg.includes('獲得')) playCoinSound(points || 500);
+  if ((msg.includes('付与') || msg.includes('獲得')) && points) playCoinSound(points || 500);
   else if (msg.includes('申請') || msg.includes('消費')) playMinusSound();
 }
 
