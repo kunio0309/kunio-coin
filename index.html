@@ -326,7 +326,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="form-group"><label class="form-label">⏱️ 作業時間</label>
       <select class="form-select"><option>2時間程度</option><option>半日（3〜4時間）</option><option selected>1日（5〜8時間）</option><option>2日以上</option></select></div>
     <div class="form-group">
-      <label class="form-label">💰 報酬ポイント（下限5,000pt）</label>
+      <label class="form-label">💰 報酬コイン（下限5,000pt）</label>
       <input class="form-input" id="reward-pt" type="number" placeholder="例：5000" min="100" step="100" oninput="updateReward(this.value)"/>
       <div id="reward-preview" style="font-size:12px;color:var(--gb);margin-top:6px;min-height:18px;"></div>
     </div>
@@ -368,7 +368,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </label>
       </div>
     </div>
-    <div style="background:var(--d3);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;color:var(--dim);line-height:1.8;">⚠️ 参加者は内容とポイントを確認してから申し込みます<br>💬 やむを得ないキャンセルはKUNIOに相談してください</div>
+    <div style="background:var(--d3);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;color:var(--dim);line-height:1.8;">⚠️ 参加者は内容とコインを確認してから申し込みます<br>💬 やむを得ないキャンセルはKUNIOに相談してください</div>
     <button class="btn-primary" onclick="postJob()">投稿する</button>
     <button class="btn-secondary" onclick="showScreen('jobs')">キャンセル</button>
   </div>
@@ -395,7 +395,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="screen" id="screen-transfer">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-top:8px;">
       <button onclick="showScreen('buy')" style="background:var(--d3);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;color:var(--text);font-size:18px;cursor:pointer;flex-shrink:0;">‹</button>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--gb);">🏦 振込でポイント購入</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--gb);">🏦 振込でコイン購入</div>
     </div>
 
     <!-- STEP 1: プラン選択 -->
@@ -515,7 +515,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="stat-grid">
       <div class="stat-box"><div class="stat-val" id="stat-pts">—</div><div class="stat-label">現在の残高（pt）</div></div>
-      <div class="stat-box"><div class="stat-val">失効なし</div><div class="stat-label">ポイント期限</div></div>
+      <div class="stat-box"><div class="stat-val">失効なし</div><div class="stat-label">コイン期限</div></div>
     </div>
     <div class="section-title">● コインを使う</div>
     <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会</div><div style="font-size:11px;color:var(--dim);">懇親会後の二次会</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">5,000 枚</div><span style="color:var(--dim);">›</span></div></div>
@@ -866,7 +866,7 @@ async function approveJobPost(jobId, posterUid) {
         icon: '🏠', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
       });
     }
-    showToast('✅ 承認しました！開催者に1,000pt付与しました', 1000);
+    showToast('✅ 承認しました！開催者に1,000枚コイン付与しました', 1000);
     loadPendingJobs();
     loadAdminYT();
     loadHomeJobs();
@@ -1033,14 +1033,14 @@ window.doGrant = async function() {
   const uid = document.getElementById('grant-uid').value;
   const pts = parseInt(document.getElementById('grant-pts').value);
   const memo = document.getElementById('grant-memo').value || 'KUNIOから';
-  if (!pts || pts <= 0) { showToast('⚠️ ポイント数を入力してください'); return; }
+  if (!pts || pts <= 0) { showToast('⚠️ コイン数を入力してください'); return; }
   try {
     await updateDoc(doc(db,'users',uid), { points: increment(pts) });
     await addDoc(collection(db,'transactions'), {
       userId: uid, points: pts, description: '👑 KUNIOから ' + memo,
       icon: '👑', createdAt: serverTimestamp(), type: 'grant'
     });
-    showToast('✅ ' + pts.toLocaleString() + 'pt付与しました！', pts);
+    showToast('✅ ' + pts.toLocaleString() + '枚コイン付与しました！', pts);
     document.getElementById('grant-pts').value = '';
     document.getElementById('grant-memo').value = '';
     if (uid === window._uid) await loadUser(uid);
@@ -1061,7 +1061,7 @@ window.doUse = async function() {
   try {
     const snap = await getDoc(doc(db,'users',window._uid));
     const current = snap.data().points || 0;
-    if (current < pts) { showToast('⚠️ ポイントが不足しています'); return; }
+    if (current < pts) { showToast('⚠️ コインが不足しています'); return; }
     await updateDoc(doc(db,'users',window._uid), { points: increment(-pts) });
     await addDoc(collection(db,'transactions'), {
       userId: window._uid, points: -pts, description: desc,
@@ -1077,7 +1077,7 @@ window.doUse = async function() {
 window.approveJob = function(btn) {
   btn.closest('.approve-item').style.opacity = '0.3';
   btn.disabled = true;
-  showToast('✅ 承認完了！ポイントを付与しました', 8000);
+  showToast('✅ 承認完了！コインを付与しました', 8000);
 };
 
 function showApp() {
@@ -1284,7 +1284,7 @@ async function postJob() {
 }
 
 // 購入
-function selectPlan(pt,price) { showToast('💳 '+pt.toLocaleString()+'pt（¥'+price.toLocaleString()+'）— 決済画面へ',pt); }
+function selectPlan(pt,price) { showToast('⏳ ただいま準備中です。ご購入希望は銀行振込をお願いします'); }
 
 // 送るボタンを専用関数で処理
 window.openSendModal = function() {
