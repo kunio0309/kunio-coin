@@ -92,8 +92,9 @@ select option{background:var(--d3);color:var(--text);}
     <div class="success-icon">✅</div>
     <div class="success-title">登録申請完了！</div>
     <div class="success-text">
-      KUNIOの承認をお待ちください。<br>
-      承認後に <a href="https://kunio0309.github.io/kunio-coin/" style="color:var(--gb);font-weight:700;">https://kunio0309.github.io/kunio-coin/</a> からログインできます。<br><br>
+      登録が完了しました！<br>
+      下記URLよりログインしてください。<br><br>
+      <a href="https://kunio0309.github.io/kunio-coin/" style="color:var(--gb);font-weight:700;">https://kunio0309.github.io/kunio-coin/</a><br><br>
       <span style="font-size:12px;color:var(--dim);line-height:1.8;">
         📱 <strong style="color:var(--text);">iPhone</strong> の場合：Safariで上記URLを開き、下の共有ボタン（□↑）→「ホーム画面に追加」<br>
         🤖 <strong style="color:var(--text);">Android</strong> の場合：Chromeで上記URLを開き、右上メニュー（⋮）→「ホーム画面に追加」
@@ -147,7 +148,7 @@ window.doRegister = async function() {
       memberType: memberType,
       points: 0,
       isAdmin: false,
-      isApproved: false,
+      isApproved: true,
       createdAt: serverTimestamp()
     });
 
