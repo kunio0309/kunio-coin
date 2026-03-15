@@ -379,10 +379,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div style="font-size:13px;font-weight:700;color:var(--gb);" id="buy-member-type">—</div>
       <div style="font-size:11px;color:var(--dim);margin-top:2px;" id="buy-member-desc">会員プランに応じた価格でご購入いただけます</div>
     </div>
-    <div class="section-title">● プランを選ぶ</div>
-    <div class="plan-card" onclick="selectPlan(1000,1000)"><div><div class="plan-pt">1,000<span> 枚</span></div></div><div class="plan-price"><div class="price" id="p1">¥1,000</div><div class="per">≒ 1.0円/枚</div></div></div>
-    <div class="plan-card" onclick="selectPlan(5000,4800)"><div><div class="plan-pt">5,000<span> 枚</span></div></div><div class="plan-price"><div class="price" id="p2">¥4,800</div><div class="per">≒ 0.96円/枚</div><div class="saving">200円お得</div></div></div>
-    <div class="plan-card recommended" onclick="selectPlan(10000,9000)"><div><div class="plan-badge">おすすめ</div><div class="plan-pt">10,000<span> 枚</span></div></div><div class="plan-price"><div class="price" id="p3">¥9,000</div><div class="per">≒ 0.9円/枚</div><div class="saving">1,000円お得</div></div></div>
+    <div class="section-title">● プランを選ぶ（カード払い）</div>
+    <div id="buy-card-plans-container"></div>
     <div class="section-title" style="margin-top:20px;">● 振込で購入</div>
     <div onclick="showScreen('transfer')" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;">
       <span style="font-size:24px;">🏦</span>
@@ -400,9 +398,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <!-- STEP 1: プラン選択 -->
     <div class="section-title">● STEP 1｜プランを選ぶ</div>
-    <div class="plan-card" onclick="selTransfer(1000,1000,this)"><div><div class="plan-pt">1,000<span> 枚</span></div></div><div class="plan-price"><div class="price">¥1,000</div><div class="per">1枚あたり1.0円</div></div></div>
-    <div class="plan-card" onclick="selTransfer(5000,4800,this)"><div><div class="plan-pt">5,000<span> 枚</span></div></div><div class="plan-price"><div class="price">¥4,800</div><div class="saving">200円お得</div></div></div>
-    <div class="plan-card recommended" onclick="selTransfer(10000,9000,this)"><div><div class="plan-badge">おすすめ</div><div class="plan-pt">10,000<span> 枚</span></div></div><div class="plan-price"><div class="price">¥9,000</div><div class="saving">1,000円お得</div></div></div>
+    <div id="transfer-plans-container"></div>
 
     <!-- STEP 2: 個数選択（プラン選択後に表示） -->
     <div id="tf-step2" style="display:none;">
@@ -1118,7 +1114,7 @@ function showScreen(name, btn) {
   if (btn) btn.classList.add('active');
   window.scrollTo(0, 0);
   if (name === 'jobs') loadJobs();
-  if (name === 'buy') renderBuyPlans();
+  if (name === 'buy' || name === 'transfer') renderBuyPlans();
   if (name === 'ranking') loadRanking();
   if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); }
 }
@@ -1585,24 +1581,42 @@ window.loadHomeJobs = loadHomeJobs;
 
 function renderBuyPlans() {
   const isRecyclers = window._userData && window._userData.memberType === 'recyclers';
-  const container = document.getElementById('buy-plans-container');
-  if (!container) return;
-  const plans = isRecyclers ? [
-    {pts:1000, price:1300},
-    {pts:5000, price:6000},
-    {pts:10000, price:11000}
-  ] : [
-    {pts:1000, price:1000},
-    {pts:5000, price:4800},
-    {pts:10000, price:9000}
+  const zeroCostPlans = [
+    {pts:1000, price:1000, saving:''},
+    {pts:5000, price:4800, saving:'200円お得'},
+    {pts:10000, price:9000, saving:'1,000円お得', badge:'おすすめ'}
   ];
-  container.innerHTML = plans.map(function(p) {
-    return '<div class="plan-card" onclick="showToast(\'⏳ 準備中です。お急ぎの方はお振込でご対応できます\')">'+  
-      '<div class="plan-pts">' + p.pts.toLocaleString() + ' 枚</div>' +
-      '<div class="plan-price">¥' + p.price.toLocaleString() + '</div>' +
-      '<div class="plan-sub">' + (isRecyclers ? 'リサイクラーズ価格' : 'ゼロコスト価格') + '</div>' +
-      '</div>';
-  }).join('');
+  const recyclerPlans = [
+    {pts:1000, price:1300, saving:''},
+    {pts:5000, price:6000, saving:''},
+    {pts:10000, price:11000, saving:'', badge:'おすすめ'}
+  ];
+  const plans = isRecyclers ? recyclerPlans : zeroCostPlans;
+  const label = isRecyclers ? 'リサイクラーズ価格' : 'ゼロコスト価格';
+
+  // カード払いボタン（準備中）
+  const cardContainer = document.getElementById('buy-card-plans-container');
+  if (cardContainer) {
+    cardContainer.innerHTML = plans.map(function(p) {
+      return '<div class="plan-card" onclick="selectPlan(' + p.pts + ',' + p.price + ')">' +
+        '<div>' + (p.badge ? '<div class="plan-badge">' + p.badge + '</div>' : '') +
+        '<div class="plan-pt">' + p.pts.toLocaleString() + '<span> 枚</span></div></div>' +
+        '<div class="plan-price"><div class="price">¥' + p.price.toLocaleString() + '</div>' +
+        (p.saving ? '<div class="saving">' + p.saving + '</div>' : '') + '</div></div>';
+    }).join('');
+  }
+
+  // 振込プラン
+  const transferContainer = document.getElementById('transfer-plans-container');
+  if (transferContainer) {
+    transferContainer.innerHTML = plans.map(function(p) {
+      return '<div class="plan-card" onclick="selTransfer(' + p.pts + ',' + p.price + ',this)">' +
+        '<div>' + (p.badge ? '<div class="plan-badge">' + p.badge + '</div>' : '') +
+        '<div class="plan-pt">' + p.pts.toLocaleString() + '<span> 枚</span></div></div>' +
+        '<div class="plan-price"><div class="price">¥' + p.price.toLocaleString() + '</div>' +
+        (p.saving ? '<div class="saving">' + p.saving + '</div>' : '') + '</div></div>';
+    }).join('');
+  }
 }
 
 async function loadRanking() {
