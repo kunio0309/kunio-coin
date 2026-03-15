@@ -261,11 +261,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:var(--dim);">ZERO COST RECYCLERS</div>
     </div>
     <!-- 最新の片付け作業会 -->
-    <div style="display:flex;align-items:center;gap:8px;margin:8px 0 8px;">
+    <div id="home-jobs-header" style="display:none;align-items:center;gap:8px;margin:8px 0 8px;">
       <div style="width:8px;height:8px;border-radius:50%;background:var(--gb);animation:pulse 1.5s ease-in-out infinite;flex-shrink:0;"></div>
       <div style="font-size:11px;letter-spacing:3px;color:var(--gb);font-family:'Bebas Neue',sans-serif;font-weight:700;">● 片付け作業会 募集中</div>
     </div>
-    <div id="home-jobs"><div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div></div>
+    <div id="home-jobs"></div>
 
     <div class="balance-display">
       <div class="balance-label">● KUNIO-COIN残高</div>
@@ -352,6 +352,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div id="pickup-no" onclick="selPickup('no')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(105,240,174,.4);background:rgba(105,240,174,.08);cursor:pointer;text-align:center;font-size:12px;color:var(--gb);font-weight:700;">なし</div>
       </div>
     </div>
+    <div class="form-group"><label class="form-label">📞 連絡先（必須）</label><input class="form-input" id="job-contact" type="text" placeholder="例：LINE ID: kunio0309 / 090-1234-5678"/></div>
     <div class="form-group"><label class="form-label">📝 作業内容の詳細</label><textarea class="form-textarea" id="job-detail-text" rows="4" placeholder="追加の注意事項があれば入力してください">・服装：汚れても良い格好
 ・持ち物：手袋（あれば）</textarea></div>
     <div style="background:linear-gradient(135deg,rgba(20,40,20,.9),rgba(10,20,10,.95));border:1px solid rgba(105,240,174,.2);border-radius:14px;padding:16px;margin-bottom:16px;">
@@ -368,7 +369,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </label>
       </div>
     </div>
-    <div style="background:var(--d3);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;color:var(--dim);line-height:1.8;">⚠️ 参加者は内容とコインを確認してから申し込みます<br>💬 やむを得ないキャンセルはKUNIOに相談してください</div>
+    <div style="background:var(--d3);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;color:var(--dim);line-height:1.8;">⚠️ 参加者は内容とコインを確認してから申し込みます<br>💬 やむを得ないキャンセルは開催者に相談してください</div>
     <button class="btn-primary" onclick="postJob()">投稿する</button>
     <button class="btn-secondary" onclick="showScreen('jobs')">キャンセル</button>
   </div>
@@ -530,7 +531,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">🚛</span><div><div style="font-size:13px;font-weight:700;color:var(--gold);">KUNIOを召喚（トラック）</div><div style="font-size:11px;color:var(--dim);">KUNIOがトラックで来る（6時間程度）</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);">60,000 枚</div></div>
       <button onclick="openModal('modal-use')" style="width:100%;padding:8px;background:rgba(255,213,79,.1);border:1px solid rgba(255,213,79,.3);border-radius:8px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">申請する</button>
     </div>
-    <button class="btn-secondary" onclick="doLogout()">ログアウト</button>
+    <div class="section-title" style="margin-top:20px;">● 参加予定の作業会</div>
+    <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
+    <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
   </div>
 
 </main>
@@ -590,7 +593,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:12px;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;line-height:1.8;">
       ✅ 内容・報酬を確認して参加確定します<br>
-      💬 やむを得ないキャンセルはKUNIOに相談してください
+      💬 やむを得ないキャンセルは開催者に相談してください
     </div>
     <button class="btn-primary" onclick="applyJob()">参加確定する</button>
     <button class="btn-secondary" onclick="closeModal('modal-apply')">キャンセル</button>
@@ -625,7 +628,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:12px;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;line-height:1.8;">
       📌 送ったコインは相手の残高にすぐ反映されます<br>
-      📌 月の送付上限あり（要設定）
     </div>
     <button class="btn-primary" onclick="doSend()">送る</button>
     <button class="btn-secondary" onclick="closeModal('modal-send')">キャンセル</button>
@@ -1076,6 +1078,9 @@ function showApp() {
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-nav').style.display = 'flex';
+  // ホーム画面を表示
+  var homeBtn = document.querySelector('.nav-item');
+  showScreen('home', homeBtn);
   setTimeout(function(){ if(window.loadHomeJobs) window.loadHomeJobs(); }, 1500);
 }
 
@@ -1115,6 +1120,7 @@ function showScreen(name, btn) {
   window.scrollTo(0, 0);
   if (name === 'jobs') loadJobs();
   if (name === 'buy' || name === 'transfer') renderBuyPlans();
+  if (name === 'profile') loadMyParticipations();
   if (name === 'ranking') loadRanking();
   if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); }
 }
@@ -1219,6 +1225,8 @@ function toggleYT(cb) {
   else{tr.style.background='var(--d4)';dt.style.background='#888';dt.style.transform='translateX(0)';}
 }
 async function postJob() {
+  const contact = document.getElementById('job-contact')?.value || '';
+  if (!contact) { showToast('⚠️ 連絡先を入力してください'); return; }
   const title = document.querySelector('#screen-post-job input[type=text]').value;
   const date = document.querySelector('#screen-post-job input[type=date]').value;
   const time = document.querySelector('#screen-post-job input[type=time]').value;
@@ -1247,6 +1255,7 @@ async function postJob() {
       postedBy: window._uid,
       postedByName: name,
       ytRequest: yt,
+      contact: contact,
       status: 'pending_approval',
       createdAt: window._ts ? window._ts() : new Date()
     });
@@ -1459,6 +1468,9 @@ async function applyJob() {
     await window._addDoc(window._collection(window._db, 'applications'), {
       jobId: currentApplyJob.id,
       jobTitle: currentApplyJob.title,
+      date: currentApplyJob.date || '',
+      time: currentApplyJob.time || '',
+      contact: currentApplyJob.contact || '',
       userId: window._uid,
       userName: window._userData ? window._userData.name : '—',
       transport: selectedTransport,
@@ -1545,7 +1557,7 @@ async function loadHomeJobs() {
   try {
     const snap = await window._getDocs(window._collection(window._db, 'jobs'));
     if (snap.empty) {
-      container.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">現在募集中の作業会はありません</div>';
+      container.innerHTML = '';
       return;
     }
     const today = new Date().toISOString().split('T')[0];
@@ -1554,11 +1566,13 @@ async function loadHomeJobs() {
     const active = jobs.filter(function(j) { return !j.date || j.date >= today; });
     active.sort(function(a,b) { return (a.date||'') < (b.date||'') ? -1 : 1; });
     if (active.length === 0) {
-      container.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">現在募集中の作業会はありません</div>';
+      container.innerHTML = '';
       return;
     }
+    const header = document.getElementById('home-jobs-header');
+    if (header) header.style.display = 'flex';
     container.innerHTML = '';
-    active.slice(0, 2).forEach(function(job) {
+    active.slice(0, 3).forEach(function(job) {
       const rc = job.recruitCount || 0;
       const div = document.createElement('div');
       div.className = 'home-job-card';
@@ -1768,6 +1782,43 @@ function selQty(qty,el) {
   document.getElementById('tf-total-box').style.display='block';
   document.getElementById('tf-step3').style.display='block';
 }
+async function loadMyParticipations() {
+  const container = document.getElementById('my-participations');
+  if (!container || !window._db || !window._uid) return;
+  try {
+    const snap = await window._getDocs(
+      window._query(
+        window._collection(window._db, 'applications'),
+        window._where('userId', '==', window._uid)
+      )
+    );
+    if (snap.empty) {
+      container.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">参加予定の作業会はありません</div>';
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const items = [];
+    snap.forEach(d => items.push(d.data()));
+    const upcoming = items.filter(a => !a.date || a.date >= today);
+    upcoming.sort((a,b) => (a.date||'') < (b.date||'') ? -1 : 1);
+    if (upcoming.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">参加予定の作業会はありません</div>';
+      return;
+    }
+    container.innerHTML = upcoming.map(a => {
+      const dateStr = a.date ? a.date.replace(/-/g,'/') : '—';
+      const timeStr = a.time || '';
+      return '<div style="background:var(--card);border:1px solid rgba(105,240,174,.3);border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
+        '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">🚛 ' + (a.jobTitle||'作業会') + '</div>' +
+        '<div style="font-size:12px;color:var(--gb);">📅 ' + dateStr + (timeStr ? ' ' + timeStr : '') + '　参加予定</div>' +
+        (a.contact ? '<div style="font-size:11px;color:var(--dim);margin-top:4px;">📞 開催者連絡先：' + a.contact + '</div>' : '') +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込みエラー</div>';
+  }
+}
+
 function submitTransfer() {
   const name=document.getElementById('tf-name').value;
   if(!name){showToast('⚠️ お名前を入力してください');return;}
