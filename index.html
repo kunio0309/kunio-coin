@@ -352,7 +352,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div id="pickup-no" onclick="selPickup('no')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(105,240,174,.4);background:rgba(105,240,174,.08);cursor:pointer;text-align:center;font-size:12px;color:var(--gb);font-weight:700;">なし</div>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">📞 連絡先（必須）</label><input class="form-input" id="job-contact" type="text" placeholder="例：LINE ID: kunio0309 / 090-1234-5678"/></div>
+    <div class="form-group"><label class="form-label">📱 携帯番号（必須）</label><input class="form-input" id="job-contact" type="tel" placeholder="例：090-1234-5678"/></div>
+    <div class="form-group"><label class="form-label">💬 LINE ID（任意）</label><input class="form-input" id="job-line" type="text" placeholder="例：kunio0309"/></div>
     <div class="form-group"><label class="form-label">📝 作業内容の詳細</label><textarea class="form-textarea" id="job-detail-text" rows="4" placeholder="追加の注意事項があれば入力してください">・服装：汚れても良い格好
 ・持ち物：手袋（あれば）</textarea></div>
     <div style="background:linear-gradient(135deg,rgba(20,40,20,.9),rgba(10,20,10,.95));border:1px solid rgba(105,240,174,.2);border-radius:14px;padding:16px;margin-bottom:16px;">
@@ -1256,6 +1257,7 @@ async function postJob() {
       postedByName: name,
       ytRequest: yt,
       contact: contact,
+      lineId: document.getElementById('job-line')?.value || '',
       status: 'pending_approval',
       createdAt: window._ts ? window._ts() : new Date()
     });
@@ -1811,7 +1813,7 @@ async function loadMyParticipations() {
       return '<div style="background:var(--card);border:1px solid rgba(105,240,174,.3);border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
         '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">🚛 ' + (a.jobTitle||'作業会') + '</div>' +
         '<div style="font-size:12px;color:var(--gb);">📅 ' + dateStr + (timeStr ? ' ' + timeStr : '') + '　参加予定</div>' +
-        (a.contact ? '<div style="font-size:11px;color:var(--dim);margin-top:4px;">📞 開催者連絡先：' + a.contact + '</div>' : '') +
+        (a.contact ? '<div style="font-size:11px;color:var(--dim);margin-top:4px;">📱 ' + a.contact + (a.lineId ? '　💬 LINE: ' + a.lineId : '') + '</div>' : '') +
         '</div>';
     }).join('');
   } catch(e) {
