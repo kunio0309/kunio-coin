@@ -423,10 +423,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
     </div>
 
-    <!-- STEP 3: 振込情報＋申請（個数選択後に表示） -->
+    <!-- STEP 3: 申請ボタン（個数選択後に表示） -->
     <div id="tf-step3" style="display:none;">
-      <div class="section-title" style="margin-top:20px;">● STEP 3｜振込先</div>
-      <div style="background:linear-gradient(135deg,rgba(26,42,26,.95),rgba(10,20,10,.98));border:1px solid rgba(105,240,174,.25);border-radius:16px;padding:18px;margin-bottom:16px;">
+      <div class="card" style="margin-top:20px;">
+        <div class="form-group"><label class="form-label">お名前</label><input class="form-input" id="tf-name" type="text" placeholder="例：田中 太郎"/></div>
+        <button class="btn-primary" onclick="submitTransfer()">申請する</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: 振込先（申請後に表示） -->
+    <div id="tf-step4" style="display:none;margin-top:20px;">
+      <div class="section-title">● 振込先口座</div>
+      <div style="background:linear-gradient(135deg,rgba(26,42,26,.95),rgba(10,20,10,.98));border:1px solid rgba(105,240,174,.4);border-radius:16px;padding:18px;margin-bottom:16px;">
         <div class="transfer-info-row"><span style="font-size:12px;color:var(--dim);">金融機関名</span><span style="font-size:13px;font-weight:700;">PayPay銀行</span></div>
         <div class="transfer-info-row"><span style="font-size:12px;color:var(--dim);">金融機関コード</span><span style="font-size:13px;font-weight:700;">0033</span></div>
         <div class="transfer-info-row"><span style="font-size:12px;color:var(--dim);">支店名</span><span style="font-size:13px;font-weight:700;">ビジネス営業部（005）</span></div>
@@ -434,14 +442,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div class="transfer-info-row"><span style="font-size:12px;color:var(--dim);">口座番号</span><span style="font-size:14px;font-weight:900;color:var(--gb);">7101397</span></div>
         <div class="transfer-info-row" style="border:none;padding-top:12px;"><span style="font-size:12px;color:var(--dim);">口座名義</span><span style="font-size:12px;font-weight:700;text-align:right;line-height:1.5;">ユ）ナルトウシューパーツ<br>リサイクルショップケイケイネット</span></div>
       </div>
-
-      <div class="card">
-        <div class="form-group"><label class="form-label">お名前</label><input class="form-input" id="tf-name" type="text" placeholder="例：田中 太郎"/></div>
-        <div style="font-size:11px;color:var(--dim);line-height:1.8;margin-bottom:12px;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;">
-          📌 上記口座へ振込後にこのボタンを押してください<br>
-          📌 KUNIOが確認後、ポイントを付与します（1〜2営業日）
-        </div>
-        <button class="btn-primary" onclick="submitTransfer()">振込しました！申請する</button>
+      <div style="font-size:11px;color:var(--dim);line-height:1.8;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;">
+        📌 上記口座へお振込をお願いします<br>
+        📌 KUNIOが確認後、コインを付与します（1〜2営業日）
       </div>
     </div>
   </div>
@@ -1760,8 +1763,9 @@ function submitTransfer() {
   const name=document.getElementById('tf-name').value;
   if(!name){showToast('⚠️ お名前を入力してください');return;}
   if(!tfPlan||!tfQty){showToast('⚠️ プランと個数を選んでください');return;}
-  showToast('✅ 申請を送りました！KUNIOが確認後に付与します');
-  setTimeout(()=>showScreen('home'),2000);
+  showToast('✅ 申請を受け付けました！下記口座へお振込をお願いします');
+  document.getElementById('tf-step3').style.display='none';
+  document.getElementById('tf-step4').style.display='block';
 }
 </script>
 
