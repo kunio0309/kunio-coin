@@ -271,6 +271,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="balance-label">● KUNIO-COIN残高</div>
       <div class="balance-num" id="balance-num">—<span>枚</span></div>
       <div class="balance-sub" id="balance-sub">読み込み中...</div>
+      <div id="expiry-notice" style="display:none;font-size:10px;color:var(--gold);margin-top:6px;line-height:1.6;">コインの増減が最後にあってから<br>180日経つと枚数が０になります</div>
     </div>
     <div class="quick-actions">
       <div class="qa-btn" onclick="showScreen('buy')"><div class="qa-icon">💳</div><div class="qa-label">コイン購入</div><div class="qa-sub">1,000〜10,000枚</div></div>
@@ -513,7 +514,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="stat-grid">
       <div class="stat-box"><div class="stat-val" id="stat-pts">—</div><div class="stat-label">現在の残高（pt）</div></div>
-      <div class="stat-box"><div class="stat-val">失効なし</div><div class="stat-label">コイン期限</div></div>
+      <div class="stat-box" id="expiry-stat-box"><div class="stat-val" id="stat-expiry">—</div><div class="stat-label">コイン期限</div></div>
     </div>
     <div class="section-title">● コインを使う</div>
     <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会</div><div style="font-size:11px;color:var(--dim);">懇親会後の二次会</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">5,000 枚</div><span style="color:var(--dim);">›</span></div></div>
@@ -714,10 +715,64 @@ async function loadUser(uid) {
 
 
 
+    // リサイクラーズ: 最終取引から180日経過でコインを0にする
+    const isRecyclers = d.memberType === 'recyclers';
+    if (isRecyclers && d.points > 0) {
+      try {
+        const txSnap = await getDocs(
+          query(collection(db,'transactions'), where('userId','==',uid), orderBy('createdAt','desc'), limit(1))
+        );
+        if (!txSnap.empty) {
+          const lastTx = txSnap.docs[0].data();
+          const lastDate = lastTx.createdAt ? lastTx.createdAt.toDate() : null;
+          if (lastDate) {
+            const diffDays = Math.floor((new Date() - lastDate) / (1000*60*60*24));
+            if (diffDays >= 180) {
+              // 期限切れ → コインを0に
+              await updateDoc(doc(db,'users',uid), { points: 0 });
+              await addDoc(collection(db,'transactions'), {
+                userId: uid, points: -(d.points), description: '⏰ コイン期限切れ（180日経過）',
+                icon: '⏰', createdAt: serverTimestamp(), type: 'expire'
+              });
+              d.points = 0;
+            }
+          }
+        }
+      } catch(e) { console.error('期限チェックエラー:', e); }
+    }
+
     // UI更新
     const pts = (d.points || 0).toLocaleString();
     document.getElementById('balance-num').innerHTML = pts + '<span>枚</span>';
-    document.getElementById('balance-sub').textContent = '失効なし';
+    if (isRecyclers) {
+      // 最終取引日を取得して残り日数を表示
+      try {
+        const txSnap2 = await getDocs(
+          query(collection(db,'transactions'), where('userId','==',uid), orderBy('createdAt','desc'), limit(1))
+        );
+        if (!txSnap2.empty) {
+          const lastTx2 = txSnap2.docs[0].data();
+          const lastDate2 = lastTx2.createdAt ? lastTx2.createdAt.toDate() : null;
+          if (lastDate2) {
+            const diffDays2 = Math.floor((new Date() - lastDate2) / (1000*60*60*24));
+            const remaining = 180 - diffDays2;
+            if (remaining > 0) {
+              document.getElementById('balance-sub').textContent = '⏰ 最終増減から残り' + remaining + '日で失効';
+            } else {
+              document.getElementById('balance-sub').textContent = '期限切れ';
+            }
+          } else {
+            document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効';
+          }
+        } else {
+          document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効';
+        }
+      } catch(e) { document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効'; }
+    const noticeEl = document.getElementById('expiry-notice');
+    if (noticeEl) noticeEl.style.display = isRecyclers ? 'block' : 'none';
+    } else {
+      document.getElementById('balance-sub').textContent = '失効なし';
+    }
     const type = d.memberType === 'zero-cost' ? 'ゼロコスト' : 'リサイクラーズ';
     const shortName = (d.name || '—').length > 8 ? (d.name || '—').substring(0,8) + '…' : (d.name || '—');
     const shortType = d.memberType === 'recyclers' ? 'リサイクラーズ' : 'ゼロコスト';
@@ -729,6 +784,8 @@ async function loadUser(uid) {
     if (buyTypeEl) buyTypeEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ会員' : 'ゼロコストリサイクラーズ会員';
     if (buyDescEl) buyDescEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ価格でご購入いただけます' : 'ゼロコストリサイクラーズ価格でご購入いただけます';
     document.getElementById('stat-pts').textContent = (d.points || 0).toLocaleString();
+    const expiryEl = document.getElementById('stat-expiry');
+    if (expiryEl) expiryEl.textContent = isRecyclers ? '180日失効' : '失効なし';
     // 管理者タブ
     if (d.isAdmin) {
       document.getElementById('admin-nav').style.display = 'flex';
