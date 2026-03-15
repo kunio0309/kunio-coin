@@ -115,7 +115,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .job-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .tag{font-size:10px;padding:3px 10px;border-radius:20px;background:var(--d3);border:1px solid var(--border);color:var(--dim);}
 .tag.truck{border-color:rgba(255,213,79,.3);color:var(--gold);}
-.fab{position:fixed;bottom:100px;right:20px;z-index:200;width:52px;height:52px;
+.fab{position:relative;width:52px;height:52px;
   border-radius:50%;background:linear-gradient(135deg,var(--gb),var(--green));
   border:none;cursor:pointer;font-size:26px;box-shadow:0 4px 20px rgba(105,240,174,.4);
   transition:transform .2s;display:flex;align-items:center;justify-content:center;color:#0a0f0a;font-weight:900;}
@@ -295,10 +295,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="text-align:center;color:var(--dim);font-size:13px;padding:30px;">読み込み中...</div>
       </div>
     </div>
-    <div style="position:fixed;bottom:108px;right:20px;z-index:200;display:flex;align-items:center;gap:8px;">
-    <div style="background:rgba(10,15,10,.9);border:1px solid rgba(105,240,174,.3);border-radius:20px;padding:6px 12px;font-size:11px;color:var(--gb);white-space:nowrap;">作業会を開催する</div>
-    <button class="fab" onclick="showScreen('post-job')">＋</button>
-  </div>
+    <div style="position:fixed;bottom:108px;right:20px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+      <div style="background:rgba(10,15,10,.9);border:1px solid rgba(105,240,174,.3);border-radius:20px;padding:6px 12px;font-size:11px;color:var(--gb);white-space:nowrap;">作業会を開催する</div>
+      <button class="fab" onclick="showScreen('post-job')" style="position:relative;bottom:auto;right:auto;">＋</button>
+    </div>
   </div>
 
   <!-- 作業会作成 -->
@@ -376,8 +376,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <!-- 購入 -->
   <div class="screen" id="screen-buy">
     <div style="background:rgba(105,240,174,.08);border:1px solid rgba(105,240,174,.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;margin-top:8px;">
-      <div style="font-size:13px;font-weight:700;color:var(--gb);" id="buy-member-type">ゼロコストリサイクラーズ</div>
-      <div style="font-size:11px;color:var(--dim);margin-top:2px;">ゼロコストリサイクラーズメンバーはお安くなっております</div>
+      <div style="font-size:13px;font-weight:700;color:var(--gb);" id="buy-member-type">—</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:2px;" id="buy-member-desc">会員プランに応じた価格でご購入いただけます</div>
     </div>
     <div class="section-title">● プランを選ぶ</div>
     <div class="plan-card" onclick="selectPlan(1000,1000)"><div><div class="plan-pt">1,000<span> 枚</span></div></div><div class="plan-price"><div class="price" id="p1">¥1,000</div><div class="per">≒ 1.0円/枚</div></div></div>
@@ -713,16 +713,7 @@ async function loadUser(uid) {
     const d = snap.data();
     window._userData = d;
 
-    // 承認確認
-    if (d.isApproved === false) {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('main-header').style.display = 'none';
-      document.getElementById('main-content').style.display = 'none';
-      document.getElementById('main-nav').style.display = 'none';
-      document.body.innerHTML += '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--dark);padding:40px;text-align:center;"><div style="font-size:48px;margin-bottom:16px;">⏳</div><div style="font-family:Bebas Neue,sans-serif;font-size:24px;letter-spacing:3px;color:var(--gb);margin-bottom:12px;">承認待ち</div><div style="font-size:13px;color:var(--dim);line-height:1.8;">KUNIOの承認をお待ちください。<br>承認後に自動でアプリが使えるようになります。</div></div>';
-      return;
-    }
+
 
     // UI更新
     const pts = (d.points || 0).toLocaleString();
@@ -734,6 +725,10 @@ async function loadUser(uid) {
     document.getElementById('user-badge').innerHTML = shortName + ' / <span>' + shortType + '</span>';
     document.getElementById('profile-name').textContent = d.name || '—';
     document.getElementById('profile-type').textContent = d.memberType === 'zero-cost' ? 'ゼロコストリサイクラーズ' : 'リサイクラーズ';
+    const buyTypeEl = document.getElementById('buy-member-type');
+    const buyDescEl = document.getElementById('buy-member-desc');
+    if (buyTypeEl) buyTypeEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ会員' : 'ゼロコストリサイクラーズ会員';
+    if (buyDescEl) buyDescEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ価格でご購入いただけます' : 'ゼロコストリサイクラーズ価格でご購入いただけます';
     document.getElementById('stat-pts').textContent = (d.points || 0).toLocaleString();
     // 管理者タブ
     if (d.isAdmin) {
