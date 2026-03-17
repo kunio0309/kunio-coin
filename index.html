@@ -451,6 +451,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <!-- 管理（KUNIO専用） -->
   <div class="screen" id="screen-admin">
     <div style="background:rgba(255,213,79,.08);border:1px solid rgba(255,213,79,.2);border-radius:12px;padding:10px 14px;margin-bottom:16px;margin-top:8px;font-size:12px;color:var(--gold);">👑 KUNIO管理画面</div>
+    <div class="section-title">● 振込申請 確認待ち</div>
+    <div class="admin-card" id="admin-transfers">
+      <div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div>
+    </div>
     <div class="section-title">● 作業会 承認待ち</div>
     <div class="admin-card" id="admin-pending-jobs">
       <div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div>
@@ -794,6 +798,7 @@ async function loadUser(uid) {
       loadPendingJobs();
       loadApplications();
       loadGrantMembers();
+      loadTransferRequests();
     }
 
     // 履歴読み込み
@@ -1179,6 +1184,7 @@ function showScreen(name, btn) {
   if (name === 'jobs') loadJobs();
   if (name === 'buy' || name === 'transfer') renderBuyPlans();
   if (name === 'profile') loadMyParticipations();
+  if (name === 'admin') loadTransferRequests();
   if (name === 'ranking') loadRanking();
   if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); }
 }
@@ -1841,6 +1847,50 @@ function selQty(qty,el) {
   document.getElementById('tf-total-box').style.display='block';
   document.getElementById('tf-step3').style.display='block';
 }
+async function loadTransferRequests() {
+  const el = document.getElementById('admin-transfers');
+  if (!el || !window._db) return;
+  try {
+    const snap = await window._getDocs(
+      window._query(window._collection(window._db,'transferRequests'),
+        window._where('status','==','pending'))
+    );
+    if (snap.empty) {
+      el.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">振込申請はありません</div>';
+      return;
+    }
+    el.innerHTML = '';
+    snap.forEach(function(d) {
+      const req = d.data();
+      const date = req.createdAt && req.createdAt.toDate ? req.createdAt.toDate().toLocaleDateString('ja-JP') : '—';
+      el.innerHTML += '<div style="background:var(--d3);border-radius:10px;padding:12px;margin-bottom:8px;">' +
+        '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">💰 ' + req.userName + '</div>' +
+        '<div style="font-size:12px;color:var(--gb);margin-bottom:2px;">' + req.planLabel + '　¥' + (req.price||0).toLocaleString() + '</div>' +
+        '<div style="font-size:11px;color:var(--dim);margin-bottom:8px;">申請日：' + date + '</div>' +
+        '<button onclick="approveTransfer('' + d.id + '','' + req.userId + '',' + req.pts + ','' + req.userName + '')" ' +
+        'style="width:100%;padding:8px;background:rgba(105,240,174,.15);border:1px solid rgba(105,240,174,.4);border-radius:8px;color:var(--gb);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">✅ 入金確認済み・コイン付与</button>' +
+        '</div>';
+    });
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込みエラー</div>';
+  }
+}
+
+async function approveTransfer(reqId, userId, pts, userName) {
+  if (!confirm(userName + 'に' + pts.toLocaleString() + '枚のコインを付与しますか？')) return;
+  try {
+    await window._updateDoc(window._doc(window._db,'transferRequests',reqId), { status: 'approved' });
+    await window._updateDoc(window._doc(window._db,'users',userId), { points: window._inc(pts) });
+    await window._addDoc(window._collection(window._db,'transactions'), {
+      userId, points: pts,
+      description: '💰 振込購入（' + pts.toLocaleString() + '枚）',
+      icon: '💰', createdAt: window._ts ? window._ts() : new Date(), type: 'purchase'
+    });
+    showToast('✅ コインを付与しました！', pts);
+    loadTransferRequests();
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+}
+
 async function loadMyParticipations() {
   const container = document.getElementById('my-participations');
   if (!container || !window._db || !window._uid) return;
@@ -1878,10 +1928,21 @@ async function loadMyParticipations() {
   }
 }
 
-function submitTransfer() {
+async function submitTransfer() {
   const name=document.getElementById('tf-name').value;
   if(!name){showToast('⚠️ お名前を入力してください');return;}
   if(!tfPlan||!tfQty){showToast('⚠️ プランと個数を選んでください');return;}
+  try {
+    await window._addDoc(window._collection(window._db,'transferRequests'),{
+      userId: window._uid,
+      userName: name,
+      pts: tfPlan.pt * tfQty,
+      price: tfPlan.price * tfQty,
+      planLabel: tfPlan.pt.toLocaleString()+'枚 × '+tfQty+'セット',
+      status: 'pending',
+      createdAt: window._ts ? window._ts() : new Date()
+    });
+  } catch(e) { console.error('振込申請エラー:',e); }
   showToast('✅ 申請を受け付けました！下記口座へお振込をお願いします');
   document.getElementById('tf-step3').style.display='none';
   document.getElementById('tf-step4').style.display='block';
