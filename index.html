@@ -1092,7 +1092,10 @@ window.approveJob = function(btn) {
 };
 
 function showApp() {
-  document.getElementById('login-screen').style.display = 'none';
+  var loginScreen = document.getElementById('login-screen');
+  var loading = document.getElementById('loading');
+  if (loginScreen) { loginScreen.style.display = 'none'; loginScreen.style.pointerEvents = 'none'; }
+  if (loading) { loading.style.display = 'none'; loading.style.pointerEvents = 'none'; }
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-nav').style.display = 'flex';
