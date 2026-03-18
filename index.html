@@ -1825,8 +1825,8 @@ async function loadTransferRequests() {
         '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">💰 ' + req.userName + '</div>' +
         '<div style="font-size:12px;color:var(--gb);margin-bottom:2px;">' + req.planLabel + '　¥' + (req.price||0).toLocaleString() + '</div>' +
         '<div style="font-size:11px;color:var(--dim);margin-bottom:8px;">申請日：' + date + '</div>' +
-        '<button onclick="approveTransfer('' + d.id + '','' + req.userId + '',' + req.pts + ','' + req.userName + '')" ' +
-        'style="width:100%;padding:8px;background:rgba(105,240,174,.15);border:1px solid rgba(105,240,174,.4);border-radius:8px;color:var(--gb);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">✅ 入金確認済み・コイン付与</button>' +
+        '<button onclick="approveTransfer(\'' + d.id + '\',\'' + req.userId + '\',' + req.pts + ',\'' + req.userName + '\')" ' +
+        'style="width:100%;padding:8px;background:rgba(105,240,174,.15);border:1px solid rgba(105,240,174,.4);border-radius:8px;color:var(--gb);font-size:12px;font-weight:700;cursor:pointer;">✅ 入金確認済み・コイン付与</button>' +
         '</div>';
     });
   } catch(e) {
