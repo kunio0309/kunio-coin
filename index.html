@@ -719,59 +719,12 @@ async function loadUser(uid) {
 
 
 
-    // リサイクラーズ: 最終取引から180日経過でコインを0にする
-    const isRecyclers = d.memberType === 'recyclers';
-    if (isRecyclers && d.points > 0) {
-      try {
-        const txSnap = await getDocs(
-          query(collection(db,'transactions'), where('userId','==',uid), orderBy('createdAt','desc'), limit(1))
-        );
-        if (!txSnap.empty) {
-          const lastTx = txSnap.docs[0].data();
-          const lastDate = lastTx.createdAt ? lastTx.createdAt.toDate() : null;
-          if (lastDate) {
-            const diffDays = Math.floor((new Date() - lastDate) / (1000*60*60*24));
-            if (diffDays >= 180) {
-              // 期限切れ → コインを0に
-              await updateDoc(doc(db,'users',uid), { points: 0 });
-              await addDoc(collection(db,'transactions'), {
-                userId: uid, points: -(d.points), description: '⏰ コイン期限切れ（180日経過）',
-                icon: '⏰', createdAt: serverTimestamp(), type: 'expire'
-              });
-              d.points = 0;
-            }
-          }
-        }
-      } catch(e) { console.error('期限チェックエラー:', e); }
-    }
-
     // UI更新
+    const isRecyclers = d.memberType === 'recyclers';
     const pts = (d.points || 0).toLocaleString();
     document.getElementById('balance-num').innerHTML = pts + '<span>枚</span>';
     if (isRecyclers) {
-      // 最終取引日を取得して残り日数を表示
-      try {
-        const txSnap2 = await getDocs(
-          query(collection(db,'transactions'), where('userId','==',uid), orderBy('createdAt','desc'), limit(1))
-        );
-        if (!txSnap2.empty) {
-          const lastTx2 = txSnap2.docs[0].data();
-          const lastDate2 = lastTx2.createdAt ? lastTx2.createdAt.toDate() : null;
-          if (lastDate2) {
-            const diffDays2 = Math.floor((new Date() - lastDate2) / (1000*60*60*24));
-            const remaining = 180 - diffDays2;
-            if (remaining > 0) {
-              document.getElementById('balance-sub').textContent = '⏰ 最終増減から残り' + remaining + '日で失効';
-            } else {
-              document.getElementById('balance-sub').textContent = '期限切れ';
-            }
-          } else {
-            document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効';
-          }
-        } else {
-          document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効';
-        }
-      } catch(e) { document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効'; }
+      document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効';
       const noticeEl = document.getElementById('expiry-notice');
       if (noticeEl) noticeEl.style.display = 'block';
     } else {
