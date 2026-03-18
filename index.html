@@ -772,10 +772,12 @@ async function loadUser(uid) {
           document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効';
         }
       } catch(e) { document.getElementById('balance-sub').textContent = '⏰ 最終増減から180日で失効'; }
-    const noticeEl = document.getElementById('expiry-notice');
-    if (noticeEl) noticeEl.style.display = isRecyclers ? 'block' : 'none';
+      const noticeEl = document.getElementById('expiry-notice');
+      if (noticeEl) noticeEl.style.display = 'block';
     } else {
       document.getElementById('balance-sub').textContent = '失効なし';
+      const noticeEl2 = document.getElementById('expiry-notice');
+      if (noticeEl2) noticeEl2.style.display = 'none';
     }
     const type = d.memberType === 'zero-cost' ? 'ゼロコスト' : 'リサイクラーズ';
     const shortName = (d.name || '—').length > 8 ? (d.name || '—').substring(0,8) + '…' : (d.name || '—');
