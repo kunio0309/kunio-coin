@@ -214,6 +214,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
 </style>
 
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>emailjs.init("0uhBBn4zAbesuKsSx");</script>
 </head>
 <body>
 
@@ -1099,25 +1101,14 @@ window.doUse = async function() {
   // メール通知（try-catchの外で実行）
   const now = new Date().toLocaleString('ja-JP');
   const uNameFinal = window._userData ? window._userData.name : '不明';
-  fetch('https://api.emailjs.com/api/v1.0/email/send', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      service_id: 'service_flktjwg',
-      template_id: 'pmuw6pr',
-      user_id: '0uhBBn4zAbesuKsSx',
-      template_params: {
-        title: 'コイン使用申請：' + desc,
-        from_name: uNameFinal,
-        message: '名前：' + uNameFinal + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
-        name: uNameFinal,
-        email: 'recyclemasterkunio@gmail.com'
-      }
-    })
-  }).then(function(r){ 
-    if(r.ok){ showToast('📧 通知送信完了'); }
-    else { showToast('📧 メール失敗:' + r.status); }
-  }).catch(function(e){ showToast('📧 エラー:' + e.message); });
+  emailjs.send('service_flktjwg', 'pmuw6pr', {
+    title: 'コイン使用申請：' + desc,
+    from_name: uNameFinal,
+    message: '名前：' + uNameFinal + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
+    name: uNameFinal,
+    email: 'recyclemasterkunio@gmail.com'
+  }).then(function(r){ showToast('📧 通知送信完了'); })
+    .catch(function(e){ showToast('📧 エラー:' + e.text); });
   try { await loadUser(uid); } catch(e2) { console.error('loadUser error:', e2); }
 };
 
