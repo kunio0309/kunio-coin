@@ -213,8 +213,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .loading-coin img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
 </style>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-  <script>document.addEventListener("DOMContentLoaded", function(){ if(typeof emailjs !== "undefined"){ emailjs.init({publicKey:"0uhBBn4zAbesuKsSx"}); console.log("EmailJS initialized"); } });</script>
+
 </head>
 <body>
 
@@ -1076,10 +1075,12 @@ window.doUse = async function() {
     const current = snap.data().points || 0;
     if (current < pts) { showToast('⚠️ コインが不足しています'); return; }
     await window._updateDoc(window._doc(window._db,'users',window._uid), { points: window._inc(-pts) });
-    await window._addDoc(window._collection(window._db,'transactions'), {
-      userId: window._uid, points: -pts, description: desc,
-      icon: '💸', createdAt: window._ts ? window._ts() : new Date(), type: 'spend'
-    });
+    try {
+      await window._addDoc(window._collection(window._db,'transactions'), {
+        userId: window._uid, points: -pts, description: desc,
+        icon: '💸', createdAt: window._ts ? window._ts() : new Date(), type: 'spend'
+      });
+    } catch(histErr) { console.error('履歴保存エラー:', histErr.message); }
     closeModal('modal-use');
     showToast('✅ 申請を送りました！');
     const useName = window._userData ? window._userData.name : '不明';
@@ -1912,18 +1913,25 @@ async function submitTransfer() {
   document.getElementById('tf-step4').style.display='block';
 }
 
-// メール通知
+// メール通知（EmailJS REST API）
 window.sendNotification = function(subject, fromName, message) {
-  try {
-    emailjs.send('service_flktjwg', 'pmuw6pr', {
-      title: subject,
-      from_name: fromName,
-      message: message,
-      name: fromName,
-      email: 'kknetrecycle@gmail.com'
-    }).then(function(r){ console.log('通知送信成功:', r.status); },
-            function(e){ console.log('通知エラー:', JSON.stringify(e)); });
-  } catch(e2) { console.log('通知例外:', e2.message); }
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      service_id: 'service_flktjwg',
+      template_id: 'pmuw6pr',
+      user_id: '0uhBBn4zAbesuKsSx',
+      template_params: {
+        title: subject,
+        from_name: fromName,
+        message: message,
+        name: fromName,
+        email: 'kknetrecycle@gmail.com'
+      }
+    })
+  }).then(function(r){ console.log('通知送信:', r.status); })
+    .catch(function(e){ console.log('通知エラー:', e); });
 }
 </script>
 
