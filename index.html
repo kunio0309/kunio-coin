@@ -1095,28 +1095,29 @@ window.doUse = async function() {
     });
     closeModal('modal-use');
     showToast('✅ 申請を送りました！');
-    // メール通知
-    const now = new Date().toLocaleString('ja-JP');
-    fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        service_id: 'service_flktjwg',
-        template_id: 'pmuw6pr',
-        user_id: '0uhBBn4zAbesuKsSx',
-        template_params: {
-          title: 'コイン使用申請：' + desc,
-          from_name: uName,
-          message: '名前：' + uName + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
-          name: uName
-        }
-      })
-    }).then(function(r){ 
-      if(r.ok){ showToast('📧 通知メール送信完了'); }
-      else { showToast('📧 メール送信失敗:' + r.status); }
-    }).catch(function(e){ showToast('📧 メールエラー:' + e.message); });
-    await loadUser(uid);
-  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); return; }
+  // メール通知（try-catchの外で実行）
+  const now = new Date().toLocaleString('ja-JP');
+  const uNameFinal = window._userData ? window._userData.name : '不明';
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      service_id: 'service_flktjwg',
+      template_id: 'pmuw6pr',
+      user_id: '0uhBBn4zAbesuKsSx',
+      template_params: {
+        title: 'コイン使用申請：' + desc,
+        from_name: uNameFinal,
+        message: '名前：' + uNameFinal + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
+        name: uNameFinal
+      }
+    })
+  }).then(function(r){ 
+    if(r.ok){ showToast('📧 通知送信完了'); }
+    else { showToast('📧 メール失敗:' + r.status); }
+  }).catch(function(e){ showToast('📧 エラー:' + e.message); });
+  try { await loadUser(uid); } catch(e2) { console.error('loadUser error:', e2); }
 };
 
 // 作業会承認
