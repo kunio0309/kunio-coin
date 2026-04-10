@@ -528,6 +528,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="stat-box" id="expiry-stat-box"><div class="stat-val" id="stat-expiry">—</div><div class="stat-label">コイン期限</div></div>
     </div>
     <div class="section-title">● コインを使う</div>
+    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">▶️ YouTube作業会メンバー募集</div><div style="font-size:11px;color:var(--dim);">※卒業生は対象外</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">5,000 枚</div><span style="color:var(--dim);">›</span></div></div>
     <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会</div><div style="font-size:11px;color:var(--dim);">懇親会後の二次会</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">5,000 枚</div><span style="color:var(--dim);">›</span></div></div>
     <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🤝 個別面談（30分）</div><div style="font-size:11px;color:var(--dim);">KUNIOと1対1</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">15,000 枚</div><span style="color:var(--dim);">›</span></div></div>
     <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🤝 個別面談＋一緒に作業（1時間）</div><div style="font-size:11px;color:var(--dim);">面談後に実作業もサポート</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">28,000 枚</div><span style="color:var(--dim);">›</span></div></div>
@@ -568,6 +569,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="modal-title">🎯 コインを使う</div>
     <div class="form-group"><label class="form-label">使い道</label>
       <select class="form-select" id="use-type">
+        <option value="5000">▶️ YouTube作業会メンバー募集 — 5,000pt</option>
         <option value="5000">🍻 二次会 — 5,000pt</option>
         <option value="15000">🤝 個別面談（30分） — 15,000pt</option>
         <option value="28000">🤝 個別面談＋一緒に作業（1時間） — 28,000pt</option>
