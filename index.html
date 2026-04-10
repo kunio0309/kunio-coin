@@ -1102,7 +1102,7 @@ window.doUse = async function() {
   const now = new Date().toLocaleString('ja-JP');
   const uNameFinal = window._userData ? window._userData.name : '不明';
   window.emailjs.send('service_flktjwg', 'template_p06pjne', {
-    title: 'コイン使用申請：' + desc,
+    title: '【コイン使用】' + desc + ' - ' + uNameFinal,
     from_name: uNameFinal,
     message: '名前：' + uNameFinal + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
     name: uNameFinal,
@@ -1354,6 +1354,16 @@ async function postJob() {
     }
 
     showToast(yt ? '✅ 投稿＆YouTube募集依頼しました！' : '✅ 投稿しました！KUNIOの承認をお待ちください');
+    // メール通知（作業会募集）
+    const jobPosterName = window._userData ? window._userData.name : '不明';
+    const jobDate = document.querySelector('#screen-jobs .form-input[type="date"]') ? document.querySelector('#screen-jobs .form-input[type="date"]').value : '';
+    window.emailjs.send('service_flktjwg', 'template_p06pjne', {
+      title: '【作業会募集】' + (document.getElementById('job-title') ? document.getElementById('job-title').value : ''),
+      from_name: jobPosterName,
+      message: '作業会の募集が投稿されました。\n投稿者：' + jobPosterName + '\n承認をお願いします。',
+      name: jobPosterName,
+      email: 'recyclemasterkunio@gmail.com'
+    }).catch(function(e){ console.log('通知エラー:', e); });
     setTimeout(() => showScreen('jobs'), 1500);
 
   } catch(e) {
@@ -1971,7 +1981,7 @@ async function submitTransfer() {
       template_id: 'template_p06pjne',
       user_id: '0uhBBn4zAbesuKsSx',
       template_params: {
-        title: 'コイン購入申請',
+        title: '【振込申請】コイン購入 - ' + tfName,
         from_name: tfName,
         message: '名前：' + tfName + '\nプラン：' + (tfPlan ? tfPlan.pt.toLocaleString()+'枚 × '+tfQty+'セット' : '') + '\n金額：¥' + (tfPlan ? (tfPlan.price*tfQty).toLocaleString() : '') + '\n日時：' + nowT,
         name: tfName,
