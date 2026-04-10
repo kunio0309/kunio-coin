@@ -214,8 +214,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
 </style>
 
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <script>emailjs.init("0uhBBn4zAbesuKsSx");</script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script>window.addEventListener("load", function(){ emailjs.init("0uhBBn4zAbesuKsSx"); });</script>
 </head>
 <body>
 
@@ -1101,7 +1101,7 @@ window.doUse = async function() {
   // メール通知（try-catchの外で実行）
   const now = new Date().toLocaleString('ja-JP');
   const uNameFinal = window._userData ? window._userData.name : '不明';
-  emailjs.send('service_flktjwg', 'pmuw6pr', {
+  window.emailjs.send('service_flktjwg', 'pmuw6pr', {
     title: 'コイン使用申請：' + desc,
     from_name: uNameFinal,
     message: '名前：' + uNameFinal + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
