@@ -1161,7 +1161,7 @@ async function loadSpendList() {
     });
     el.innerHTML = '';
     list.slice(0,30).forEach(tx => {
-      const date = tx.createdAt ? new Date(tx.createdAt.toDate ? tx.createdAt.toDate() : tx.createdAt).toLocaleDateString('ja-JP') : '—';
+      const date = tx.createdAt ? new Date(tx.createdAt.toDate ? tx.createdAt.toDate() : tx.createdAt).toLocaleString('ja-JP') : '—';
       el.innerHTML += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<div><div style="font-weight:700;color:var(--text);">' + (tx.userName || '不明') + '</div>' +
