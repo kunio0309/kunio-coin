@@ -811,6 +811,12 @@ async function loadHistory(uid) {
 // グローバルに公開（更新ボタン用）
 window._refreshHistory = () => { if(window._uid) loadHistory(window._uid); };
 window._loadUser = (uid) => loadUser(uid);
+window.loadAdminMembers = loadAdminMembers;
+window.loadAdminYT = loadAdminYT;
+window.loadPendingJobs = loadPendingJobs;
+window.loadApplications = loadApplications;
+window.loadGrantMembers = loadGrantMembers;
+window.loadTransferRequests = loadTransferRequests;
 
 async function loadApplications() {
   const el = document.getElementById('admin-applications');
@@ -1204,7 +1210,7 @@ function showScreen(name, btn) {
   if (name === 'profile') loadMyParticipations();
   if (name === 'admin') loadTransferRequests();
   if (name === 'ranking') loadRanking();
-  if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); if(window.loadSpendList) window.loadSpendList(); loadTransferRequests(); }
+  if (name === 'admin') { if(window.loadAdminMembers) window.loadAdminMembers(); if(window.loadAdminYT) window.loadAdminYT(); if(window.loadPendingJobs) window.loadPendingJobs(); if(window.loadApplications) window.loadApplications(); if(window.loadGrantMembers) window.loadGrantMembers(); if(window.loadSpendList) window.loadSpendList(); if(window.loadTransferRequests) window.loadTransferRequests(); }
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
