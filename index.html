@@ -1106,9 +1106,9 @@ window.doUse = async function() {
         user_id: '0uhBBn4zAbesuKsSx',
         template_params: {
           title: 'コイン使用申請：' + desc,
-          from_name: useName,
-          message: '名前：' + useName + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
-          name: useName
+          from_name: uName,
+          message: '名前：' + uName + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
+          name: uName
         }
       })
     }).then(function(r){ console.log('通知送信:', r.status); }).catch(function(e){ console.log('通知エラー:', e); });
