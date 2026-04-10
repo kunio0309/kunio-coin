@@ -769,17 +769,24 @@ async function loadUser(uid) {
 
 async function loadHistory(uid) {
   try {
-    const q = query(collection(db,'transactions'), where('userId','==',uid), limit(20));
+    const q = query(collection(db,'transactions'), where('userId','==',uid));
     const snap = await getDocs(q);
     const list = document.getElementById('history-list');
     if (snap.empty) { list.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:13px;padding:20px;">まだ履歴がありません</div>'; return; }
+    // 日付でソートしてから表示
+    const txList = [];
+    snap.forEach(d => txList.push(d.data()));
+    txList.sort((a, b) => {
+      const ta = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()) : 0;
+      const tb = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime()) : 0;
+      return tb - ta;
+    });
     list.innerHTML = '';
-    snap.forEach(d => {
-      const tx = d.data();
+    txList.slice(0, 20).forEach(tx => {
       const plus = tx.points > 0;
       const icon = tx.icon || (plus ? '✅' : '💸');
       const pts = plus ? '+' + tx.points.toLocaleString() : tx.points.toLocaleString();
-      const date = tx.createdAt ? new Date(tx.createdAt.toDate()).toLocaleDateString('ja-JP') : '';
+      const date = tx.createdAt ? new Date(tx.createdAt.toDate ? tx.createdAt.toDate() : tx.createdAt).toLocaleDateString('ja-JP') : '';
       list.innerHTML += '<div class="history-item">' +
         '<div class="history-icon ' + (plus?'hi-plus':'hi-minus') + '">' + icon + '</div>' +
         '<div class="history-info"><div class="history-name">' + tx.description + '</div><div class="history-date">' + date + '</div></div>' +
@@ -1069,23 +1076,22 @@ window.doUse = async function() {
     return;
   }
   const pts = parseInt(ptsRaw);
-  if (!window._uid || !window._db) return;
+  const uid = window._uid;
+  if (!uid) return;
   try {
-    const snap = await window._getDoc(window._doc(window._db,'users',window._uid));
+    const snap = await getDoc(doc(db,'users',uid));
     const current = snap.data().points || 0;
     if (current < pts) { showToast('⚠️ コインが不足しています'); return; }
-    await window._updateDoc(window._doc(window._db,'users',window._uid), { points: window._inc(-pts) });
-    try {
-      await window._addDoc(window._collection(window._db,'transactions'), {
-        userId: window._uid, points: -pts, description: desc,
-        icon: '💸', createdAt: window._ts ? window._ts() : new Date(), type: 'spend'
-      });
-    } catch(histErr) { console.error('履歴保存エラー:', histErr.message); }
+    await updateDoc(doc(db,'users',uid), { points: increment(-pts) });
+    await addDoc(collection(db,'transactions'), {
+      userId: uid, points: -pts, description: desc,
+      icon: '💸', createdAt: serverTimestamp(), type: 'spend'
+    });
     closeModal('modal-use');
     showToast('✅ 申請を送りました！');
     const useName = window._userData ? window._userData.name : '不明';
     if(window.sendNotification) window.sendNotification('コイン使用申請', useName, 'コインの使用申請がありました。\n名前：' + useName + '\n使用内容：' + desc + '\n枚数：' + pts + '枚');
-    if (window._loadUser) await window._loadUser(window._uid);
+    await loadUser(uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
