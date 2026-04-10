@@ -1088,13 +1088,13 @@ window.doUse = async function() {
     const current = snap.data().points || 0;
     if (current < pts) { showToast('⚠️ コインが不足しています'); return; }
     await updateDoc(doc(db,'users',uid), { points: increment(-pts) });
+    const uName = window._userData ? window._userData.name : '不明';
     await addDoc(collection(db,'transactions'), {
-      userId: uid, points: -pts, description: desc,
+      userId: uid, userName: uName, points: -pts, description: desc,
       icon: '💸', createdAt: serverTimestamp(), type: 'spend'
     });
     closeModal('modal-use');
     showToast('✅ 申請を送りました！');
-    const useName = window._userData ? window._userData.name : '不明';
     // メール通知
     const now = new Date().toLocaleString('ja-JP');
     fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -1108,8 +1108,8 @@ window.doUse = async function() {
           title: 'コイン使用申請：' + desc,
           from_name: useName,
           message: '名前：' + useName + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
-          name: useName,
-          email: 'kknetrecycle@gmail.com'
+          name: uName,
+          email: 'recyclemasterkunio@gmail.com'
         }
       })
     }).then(function(r){ console.log('通知送信:', r.status); }).catch(function(e){ console.log('通知エラー:', e); });
@@ -1165,7 +1165,7 @@ async function loadSpendList() {
       const date = tx.createdAt ? new Date(tx.createdAt.toDate ? tx.createdAt.toDate() : tx.createdAt).toLocaleDateString('ja-JP') : '—';
       el.innerHTML += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div style="font-weight:700;color:var(--text);">' + (tx.userName || tx.userId || '不明') + '</div>' +
+        '<div><div style="font-weight:700;color:var(--text);">' + (tx.userName || '不明') + '</div>' +
         '<div style="color:var(--dim);">' + (tx.description || '—') + '　' + date + '</div></div>' +
         '<div style="color:var(--red);font-weight:700;">' + (tx.points || 0).toLocaleString() + '枚</div>' +
         '</div></div>';
@@ -1980,7 +1980,7 @@ async function submitTransfer() {
         from_name: tfName,
         message: '名前：' + tfName + '\nプラン：' + (tfPlan ? tfPlan.pt.toLocaleString()+'枚 × '+tfQty+'セット' : '') + '\n金額：¥' + (tfPlan ? (tfPlan.price*tfQty).toLocaleString() : '') + '\n日時：' + nowT,
         name: tfName,
-        email: 'kknetrecycle@gmail.com'
+        email: 'recyclemasterkunio@gmail.com'
       }
     })
   }).then(function(r){ console.log('購入通知送信:', r.status); }).catch(function(e){ console.log('購入通知エラー:', e); });
