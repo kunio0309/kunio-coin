@@ -213,6 +213,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .loading-coin img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
 </style>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script>emailjs.init("0uhBBn4zAbesuKsSx");</script>
 </head>
 <body>
 
@@ -1080,6 +1082,8 @@ window.doUse = async function() {
     });
     closeModal('modal-use');
     showToast('✅ 申請を送りました！');
+    const useName = window._userData ? window._userData.name : '不明';
+    sendNotification('コイン使用申請', useName, 'コインの使用申請がありました。\n名前：' + useName + '\n使用内容：' + desc + '\n枚数：' + pts + '枚');
     if (window._loadUser) await window._loadUser(window._uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
@@ -1901,9 +1905,22 @@ async function submitTransfer() {
       createdAt: window._ts ? window._ts() : new Date()
     });
   } catch(e) { console.error('振込申請エラー:',e); }
+  const tfName = document.getElementById('tf-name').value;
+  sendNotification('コイン購入申請', tfName, 'コイン購入の振込申請がありました。\n名前：' + tfName + '\nプラン：' + (tfPlan ? tfPlan.pt.toLocaleString()+'枚 × '+tfQty+'セット' : '') + '\n金額：¥' + (tfPlan ? (tfPlan.price*tfQty).toLocaleString() : ''));
   showToast('✅ 申請を受け付けました！下記口座へお振込をお願いします');
   document.getElementById('tf-step3').style.display='none';
   document.getElementById('tf-step4').style.display='block';
+}
+
+// メール通知
+function sendNotification(subject, fromName, message) {
+  emailjs.send('service_flktjwg', 'pmuw6pr', {
+    title: subject,
+    from_name: fromName,
+    message: message,
+    name: fromName,
+    email: 'noreply@kuniocoin.app'
+  }).catch(function(e){ console.log('通知エラー:', e); });
 }
 </script>
 
