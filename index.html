@@ -1111,7 +1111,10 @@ window.doUse = async function() {
           name: uName
         }
       })
-    }).then(function(r){ console.log('通知送信:', r.status); }).catch(function(e){ console.log('通知エラー:', e); });
+    }).then(function(r){ 
+      if(r.ok){ showToast('📧 通知メール送信完了'); }
+      else { showToast('📧 メール送信失敗:' + r.status); }
+    }).catch(function(e){ showToast('📧 メールエラー:' + e.message); });
     await loadUser(uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
