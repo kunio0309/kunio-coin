@@ -758,7 +758,7 @@ async function loadUser(uid) {
       loadPendingJobs();
       loadApplications();
       loadGrantMembers();
-      loadSpendList();
+      if(window.loadSpendList) window.loadSpendList();
       loadTransferRequests();
     }
 
@@ -1128,6 +1128,36 @@ function showLoginScreen() {
   document.getElementById('main-nav').style.display = 'none';
 }
 
+
+// コイン使用申請一覧（管理者）
+async function loadSpendList() {
+  const el = document.getElementById('admin-spend-list');
+  if (!el) return;
+  try {
+    const snap = await getDocs(query(collection(db,'transactions'), where('type','==','spend')));
+    if (snap.empty) { el.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">使用履歴がありません</div>'; return; }
+    const list = [];
+    snap.forEach(d => list.push(d.data()));
+    list.sort((a,b) => {
+      const ta = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0) : 0;
+      const tb = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0) : 0;
+      return tb - ta;
+    });
+    el.innerHTML = '';
+    list.slice(0,30).forEach(tx => {
+      const date = tx.createdAt ? new Date(tx.createdAt.toDate ? tx.createdAt.toDate() : tx.createdAt).toLocaleDateString('ja-JP') : '—';
+      el.innerHTML += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-weight:700;color:var(--text);">' + (tx.userName || tx.userId || '不明') + '</div>' +
+        '<div style="color:var(--dim);">' + (tx.description || '—') + '　' + date + '</div></div>' +
+        '<div style="color:var(--red);font-weight:700;">' + (tx.points || 0).toLocaleString() + '枚</div>' +
+        '</div></div>';
+    });
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">エラー: ' + e.message + '</div>';
+  }
+}
+window.loadSpendList = loadSpendList;
 </script>
 
 <script>
@@ -1160,7 +1190,7 @@ function showScreen(name, btn) {
   if (name === 'profile') loadMyParticipations();
   if (name === 'admin') loadTransferRequests();
   if (name === 'ranking') loadRanking();
-  if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); loadSpendList(); loadTransferRequests(); }
+  if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); if(window.loadSpendList) window.loadSpendList(); loadTransferRequests(); }
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
@@ -1822,33 +1852,6 @@ function selQty(qty,el) {
   document.getElementById('tf-step3').style.display='block';
 }
 
-async function loadSpendList() {
-  const el = document.getElementById('admin-spend-list');
-  if (!el) return;
-  try {
-    const snap = await getDocs(query(collection(db,'transactions'), where('type','==','spend')));
-    if (snap.empty) { el.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">使用履歴がありません</div>'; return; }
-    const list = [];
-    snap.forEach(d => list.push(d.data()));
-    list.sort((a,b) => {
-      const ta = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0) : 0;
-      const tb = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0) : 0;
-      return tb - ta;
-    });
-    el.innerHTML = '';
-    list.slice(0,30).forEach(tx => {
-      const date = tx.createdAt ? new Date(tx.createdAt.toDate ? tx.createdAt.toDate() : tx.createdAt).toLocaleDateString('ja-JP') : '—';
-      el.innerHTML += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div style="font-weight:700;color:var(--text);">' + (tx.userName || tx.userId || '不明') + '</div>' +
-        '<div style="color:var(--dim);">' + (tx.description || '—') + '　' + date + '</div></div>' +
-        '<div style="color:var(--red);font-weight:700;">' + (tx.points || 0).toLocaleString() + '枚</div>' +
-        '</div></div>';
-    });
-  } catch(e) {
-    el.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">エラー: ' + e.message + '</div>';
-  }
-}
 async function loadTransferRequests() {
   const el = document.getElementById('admin-transfers');
   if (!el || !window._db) return;
