@@ -1101,7 +1101,7 @@ window.doUse = async function() {
   // メール通知（try-catchの外で実行）
   const now = new Date().toLocaleString('ja-JP');
   const uNameFinal = window._userData ? window._userData.name : '不明';
-  window.emailjs.send('service_flktjwg', 'pmuw6pr', {
+  window.emailjs.send('service_flktjwg', 'template_p06pjne', {
     title: 'コイン使用申請：' + desc,
     from_name: uNameFinal,
     message: '名前：' + uNameFinal + '\n使用内容：' + desc + '\n枚数：' + pts + '枚\n日時：' + now,
@@ -1968,7 +1968,7 @@ async function submitTransfer() {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
       service_id: 'service_flktjwg',
-      template_id: 'pmuw6pr',
+      template_id: 'template_p06pjne',
       user_id: '0uhBBn4zAbesuKsSx',
       template_params: {
         title: 'コイン購入申請',
