@@ -712,7 +712,11 @@ onAuthStateChanged(auth, async (user) => {
   document.getElementById('loading').style.display = 'none';
   if (user) {
     window._uid = user.uid;
-    await loadUser(user.uid);
+    try {
+      await loadUser(user.uid);
+    } catch(e) {
+      console.error('loadUser error:', e);
+    }
     showApp();
   } else {
     showLoginScreen();
