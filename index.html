@@ -698,6 +698,15 @@ window._deleteDoc = deleteDoc;
 // loadHistory をグローバルに公開
 window._refreshHistory = null; // will be set after module loads
 
+// ローディングタイムアウト（5秒）
+setTimeout(function() {
+  var loading = document.getElementById('loading');
+  if (loading && loading.style.display !== 'none') {
+    loading.style.display = 'none';
+    showLoginScreen();
+  }
+}, 5000);
+
 // 認証監視
 onAuthStateChanged(auth, async (user) => {
   document.getElementById('loading').style.display = 'none';
