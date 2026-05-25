@@ -861,8 +861,8 @@ async function loadPendingJobs() {
           '<div class="approve-sub">' + (job.date||'') + '　報酬：' + (job.reward||0).toLocaleString() + 'pt　主催：' + (job.postedByName||'—') + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;">' +
-          '<button class="btn-approve yes" onclick="approveJobPost(\"' + jobId + '\",\"' + (job.postedBy||'') + '\")">✓</button>' +
-          '<button class="btn-approve no" onclick="rejectJobPost(\"' + jobId + '\")">✗</button>' +
+          '<button class="btn-approve yes" onclick="approveJobPost(\'' + jobId + '\',\'' + (job.postedBy||'') + '\')">✓</button>' +
+          '<button class="btn-approve no" onclick="rejectJobPost(\'' + jobId + '\')">✗</button>' +
         '</div>';
       el.appendChild(div);
     });
@@ -1466,6 +1466,22 @@ async function openApplyModal(job) {
     return;
   }
 
+  // 定員チェック
+  try {
+    const allApps = await window._getDocs(
+      window._query(
+        window._collection(window._db, 'applications'),
+        window._where('jobId', '==', job.id)
+      )
+    );
+    const count = allApps.size;
+    const max = job.recruitCount || 0;
+    if (max > 0 && count >= max) {
+      showToast('🈵 定員に達しました（' + max + '名）');
+      return;
+    }
+  } catch(e) { console.error(e); }
+
   // 申込済み確認
   try {
     const existing = await window._getDocs(
@@ -1543,9 +1559,17 @@ async function loadJobs() {
       container.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:13px;padding:30px;">現在募集中の作業会はありません</div>';
       return;
     }
+    // 各作業会の申込数を取得
+    const appSnap = await window._getDocs(window._collection(window._db, 'applications'));
+    const appCountMap = {};
+    appSnap.forEach(function(d) {
+      const jobId = d.data().jobId;
+      if (jobId) appCountMap[jobId] = (appCountMap[jobId] || 0) + 1;
+    });
+
     container.innerHTML = '';
     snap.forEach(function(d) {
-      const job = Object.assign({ id: d.id }, d.data());
+      const job = Object.assign({ id: d.id, _appCount: appCountMap[d.id] || 0 }, d.data());
       const isMyJob = job.postedBy === window._uid;
       const isAdmin = window._userData && window._userData.isAdmin;
       const isPendingApproval = job.status === 'pending_approval';
@@ -1566,9 +1590,14 @@ async function loadJobs() {
         ? '<button onclick="event.stopPropagation();deleteJob(\'' + job.id + '\')" style="margin-top:10px;width:100%;padding:7px;background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.2);border-radius:8px;color:#ef5350;font-size:12px;cursor:pointer;">🗑 この募集を削除する</button>'
         : '';
       const recruitCount = job.recruitCount || 0;
-      const recruitBadge = recruitCount > 0
-        ? '<span style="display:inline-block;background:rgba(105,240,174,.15);border:1px solid rgba(105,240,174,.3);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;color:var(--gb);">👥 ' + recruitCount + '名募集！</span>'
-        : '';
+      const appCount = job._appCount || 0;
+      const isFull = recruitCount > 0 && appCount >= recruitCount;
+      const remaining = recruitCount > 0 ? recruitCount - appCount : 0;
+      const recruitBadge = isFull
+        ? '<span style="display:inline-block;background:rgba(239,83,80,.15);border:1px solid rgba(239,83,80,.3);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;color:#ef5350;">🈵 満員</span>'
+        : recruitCount > 0
+          ? '<span style="display:inline-block;background:rgba(105,240,174,.15);border:1px solid rgba(105,240,174,.3);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;color:var(--gb);">👥 残り' + remaining + '名</span>'
+          : '';
       div.innerHTML =
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
           '<div style="font-size:13px;font-weight:700;flex:1;">' + job.title + '</div>' +
