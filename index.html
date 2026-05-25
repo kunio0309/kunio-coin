@@ -1149,9 +1149,9 @@ function showScreen(name, btn) {
   if (name === 'jobs') loadJobs();
   if (name === 'buy' || name === 'transfer') renderBuyPlans();
   if (name === 'profile') loadMyParticipations();
-  if (name === 'admin') loadTransferRequests();
+
   if (name === 'ranking') loadRanking();
-  if (name === 'admin') { loadAdminMembers(); loadAdminYT(); loadPendingJobs(); loadApplications(); loadGrantMembers(); }
+  if (name === 'admin') { if(window.loadAdminMembers)window.loadAdminMembers(); if(window.loadAdminYT)window.loadAdminYT(); if(window.loadPendingJobs)window.loadPendingJobs(); if(window.loadApplications)window.loadApplications(); if(window.loadGrantMembers)window.loadGrantMembers(); if(window.loadTransferRequests)window.loadTransferRequests(); }
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
@@ -1622,6 +1622,12 @@ async function loadHomeJobs() {
   }
 }
 window.loadHomeJobs = loadHomeJobs;
+window.loadAdminMembers = loadAdminMembers;
+window.loadAdminYT = loadAdminYT;
+window.loadPendingJobs = loadPendingJobs;
+window.loadApplications = loadApplications;
+window.loadGrantMembers = loadGrantMembers;
+window.loadTransferRequests = loadTransferRequests;
 
 function renderBuyPlans() {
   const isRecyclers = window._userData && window._userData.memberType === 'recyclers';
