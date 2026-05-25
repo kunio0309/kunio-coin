@@ -870,6 +870,7 @@ async function loadPendingJobs() {
 }
 
 async function approveJobPost(jobId, posterUid) {
+  if (!confirm('この作業会を承認しますか？\n開催者に1,000枚のコインが付与されます。')) return;
   try {
     await window._updateDoc(window._doc(window._db, 'jobs', jobId), { status: 'active' });
     if (posterUid) {
@@ -1632,7 +1633,7 @@ async function loadHomeJobs() {
     const today = new Date().toISOString().split('T')[0];
     const jobs = [];
     snap.forEach(function(d) { jobs.push(Object.assign({ id: d.id }, d.data())); });
-    const active = jobs.filter(function(j) { return !j.date || j.date >= today; });
+    const active = jobs.filter(function(j) { return j.status === 'active' && (!j.date || j.date >= today); });
     active.sort(function(a,b) { return (a.date||'') < (b.date||'') ? -1 : 1; });
     if (active.length === 0) {
       container.innerHTML = '';
