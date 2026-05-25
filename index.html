@@ -1116,6 +1116,16 @@ function showLoginScreen() {
   document.getElementById('main-nav').style.display = 'none';
 }
 
+// HTML onclick ハンドラーおよび非モジュールスクリプトから呼び出せるようグローバル公開
+window.loadAdminMembers = loadAdminMembers;
+window.loadAdminYT = loadAdminYT;
+window.loadPendingJobs = loadPendingJobs;
+window.loadApplications = loadApplications;
+window.loadGrantMembers = loadGrantMembers;
+window.approveJobPost = approveJobPost;
+window.rejectJobPost = rejectJobPost;
+window.checkAllMembers = checkAllMembers;
+
 </script>
 
 <script>
@@ -1622,11 +1632,8 @@ async function loadHomeJobs() {
   }
 }
 window.loadHomeJobs = loadHomeJobs;
-window.loadAdminMembers = loadAdminMembers;
-window.loadAdminYT = loadAdminYT;
-window.loadPendingJobs = loadPendingJobs;
-window.loadApplications = loadApplications;
-window.loadGrantMembers = loadGrantMembers;
+// loadAdminMembers / loadAdminYT / loadPendingJobs / loadApplications / loadGrantMembers は
+// モジュールスクリプト側で window.* に公開済み
 window.loadTransferRequests = loadTransferRequests;
 
 function renderBuyPlans() {
