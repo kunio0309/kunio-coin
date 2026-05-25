@@ -212,6 +212,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .loading-coin{width:80px;height:80px;min-width:80px;min-height:80px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;animation:coinFloat 1.5s ease-in-out infinite;flex-shrink:0;-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;}
 .loading-coin img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
+#login-screen.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
+#loading.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
 </style>
 </head>
 <body>
@@ -701,7 +703,7 @@ window._refreshHistory = null; // will be set after module loads
 // 認証監視
 onAuthStateChanged(auth, async (user) => {
   var loadingEl = document.getElementById('loading');
-  if (loadingEl) { loadingEl.style.display = 'none'; loadingEl.style.pointerEvents = 'none'; }
+  if (loadingEl) { loadingEl.classList.add('hidden'); }
   if (user) {
     window._uid = user.uid;
     try { await loadUser(user.uid); } catch(e) { console.error('loadUser error:', e); }
@@ -1095,16 +1097,8 @@ window.approveJob = function(btn) {
 function showApp() {
   var loginScreen = document.getElementById('login-screen');
   var loading = document.getElementById('loading');
-  if (loginScreen) {
-    loginScreen.style.display = 'none';
-    loginScreen.style.pointerEvents = 'none';
-    loginScreen.style.zIndex = '-1';
-  }
-  if (loading) {
-    loading.style.display = 'none';
-    loading.style.pointerEvents = 'none';
-    loading.style.zIndex = '-1';
-  }
+  if (loginScreen) { loginScreen.classList.add('hidden'); }
+  if (loading) { loading.classList.add('hidden'); }
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-nav').style.display = 'flex';
@@ -1114,8 +1108,9 @@ function showApp() {
 }
 
 function showLoginScreen() {
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-screen').style.pointerEvents = 'all';
+  var loginScreen = document.getElementById('login-screen');
+  loginScreen.classList.remove('hidden');
+  loginScreen.style.display = 'flex';
   document.getElementById('main-header').style.display = 'none';
   document.getElementById('main-content').style.display = 'none';
   document.getElementById('main-nav').style.display = 'none';
