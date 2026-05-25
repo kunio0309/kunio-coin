@@ -1860,7 +1860,7 @@ async function handleApprove(btn) {
   await approveTransfer(docId, uid, pts, uname);
 }
 
-async function approveTransferasync function approveTransfer(reqId, userId, pts, userName) {
+async function approveTransfer(reqId, userId, pts, userName) {
   if (!confirm(userName + 'に' + pts.toLocaleString() + '枚のコインを付与しますか？')) return;
   try {
     await window._updateDoc(window._doc(window._db,'transferRequests',reqId), { status: 'approved' });
