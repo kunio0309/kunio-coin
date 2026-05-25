@@ -1095,8 +1095,16 @@ window.approveJob = function(btn) {
 function showApp() {
   var loginScreen = document.getElementById('login-screen');
   var loading = document.getElementById('loading');
-  if (loginScreen) { loginScreen.style.cssText += ';display:none!important;pointer-events:none!important;'; }
-  if (loading) { loading.style.cssText += ';display:none!important;pointer-events:none!important;'; }
+  if (loginScreen) {
+    loginScreen.style.display = 'none';
+    loginScreen.style.pointerEvents = 'none';
+    loginScreen.style.zIndex = '-1';
+  }
+  if (loading) {
+    loading.style.display = 'none';
+    loading.style.pointerEvents = 'none';
+    loading.style.zIndex = '-1';
+  }
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-nav').style.display = 'flex';
