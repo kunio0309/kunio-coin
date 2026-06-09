@@ -240,7 +240,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <button id="login-btn" class="btn-primary" onclick="doLogin()">ログイン</button>
     <div id="login-error" style="text-align:center;margin-top:10px;font-size:12px;color:var(--red);display:none;"></div>
-    <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
+    <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <div style="font-size:11px;color:var(--dim);">または</div>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+    <button id="google-login-btn" onclick="doGoogleLogin()" style="width:100%;padding:13px;background:#fff;border:none;border-radius:10px;color:#333;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-family:'Noto Sans JP',sans-serif;">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Googleでログイン（セミナー参加者）
+    </button>
+    <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">通常アカウントはKUNIOから発行されます</div>
   </div>
 </div>
 
@@ -471,6 +480,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="admin-card" id="admin-yt-list">
       <div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div>
     </div>
+    <div class="section-title">🎟 セミナーカウントスタート</div>
+    <div class="admin-card">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">
+        セミナー参加者全員のコイン有効期限を<br>本日から<strong style="color:var(--gold);">10日後</strong>に一括設定します
+      </div>
+      <div id="seminar-countdown-preview" style="font-size:13px;color:var(--text);background:var(--d3);border-radius:10px;padding:12px;margin-bottom:12px;line-height:1.7;"></div>
+      <button class="btn-primary" onclick="startSeminarCountdown()" id="seminar-start-btn">カウントスタート</button>
+      <div id="seminar-countdown-result" style="margin-top:12px;font-size:12px;"></div>
+    </div>
     <div class="section-title">● コイン配布</div>
     <div class="admin-card">
       <div class="form-group">
@@ -545,6 +563,49 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 
 </main>
+
+<!-- ─── セミナー生専用画面 ─── -->
+<div id="screen-seminar" style="display:none;position:fixed;inset:0;z-index:800;background:var(--dark);flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+  <div style="font-size:13px;color:var(--dim);margin-bottom:6px;letter-spacing:1px;">🎟 セミナー特典コイン</div>
+  <div id="seminar-name" style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:28px;">こんにちは、ゲストさん</div>
+
+  <div style="width:100%;max-width:320px;background:var(--d2);border:1px solid var(--border);border-radius:20px;padding:32px 24px;margin-bottom:16px;text-align:center;">
+    <div style="font-size:11px;color:var(--dim);letter-spacing:3px;margin-bottom:12px;">保有コイン</div>
+    <div id="seminar-balance" style="font-family:'Bebas Neue',sans-serif;font-size:60px;color:var(--gb);line-height:1.1;">0<span style="font-size:22px;margin-left:6px;">枚</span></div>
+    <div id="seminar-expiry-info" style="font-size:12px;color:var(--dim);margin-top:16px;line-height:1.8;padding:10px;background:rgba(255,255,255,.03);border-radius:8px;">有効期限は後日お知らせします</div>
+  </div>
+
+  <button onclick="doLogout()" style="font-size:12px;color:var(--dim);background:none;border:none;cursor:pointer;padding:8px;text-decoration:underline;">ログアウト</button>
+</div>
+
+<!-- ─── セミナー期限切れ画面 ─── -->
+<div id="screen-seminar-expired" style="display:none;position:fixed;inset:0;z-index:800;background:var(--dark);flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;overflow-y:auto;">
+
+  <div style="font-size:44px;margin-bottom:20px;">🙏</div>
+  <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:16px;text-align:center;line-height:1.6;">
+    セミナーに最後までご参加いただき<br>ありがとうございました！
+  </div>
+  <div style="font-size:13px;color:var(--dim);text-align:center;margin-bottom:20px;line-height:1.9;max-width:300px;">
+    引き続き、リサイクルマスター<strong style="color:var(--gb);">KUNIO</strong>を<br>よろしくお願いします！
+  </div>
+
+  <div style="width:100%;max-width:300px;display:flex;flex-direction:column;gap:14px;">
+    <a id="seminar-mailmag-link" href="https://masterkunio.com/fm/31521/fGrTGvoU" target="_blank"
+       style="display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(105,240,174,.1);border:1px solid rgba(105,240,174,.3);border-radius:14px;padding:18px;color:var(--gb);text-decoration:none;font-size:14px;font-weight:700;">
+      📧 メルマガに登録する
+    </a>
+    <a id="seminar-youtube-link" href="https://www.youtube.com/@KUNIO-ip2fq" target="_blank"
+       style="display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.25);border-radius:14px;padding:18px;color:#ff6b6b;text-decoration:none;font-size:14px;font-weight:700;">
+      ▶️ YouTubeチャンネルを見る
+    </a>
+    <button onclick="shareSeminar()"
+       style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:rgba(255,213,79,.08);border:1px solid rgba(255,213,79,.3);border-radius:14px;padding:18px;color:var(--gold);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+      🔗 知り合いに教える
+    </button>
+  </div>
+
+  <button onclick="doLogout()" style="margin-top:32px;font-size:12px;color:var(--dim);background:none;border:none;cursor:pointer;padding:8px;text-decoration:underline;">ログアウト</button>
+</div>
 
 <!-- ボトムナビ -->
 <nav class="nav" id="main-nav" style="display:none;">
@@ -660,10 +721,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, getDoc, updateDoc, addDoc, collection,
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
          query, where, orderBy, limit, getDocs, serverTimestamp, increment, deleteDoc
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence,
+         GoogleAuthProvider, signInWithPopup
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -679,6 +741,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(console.error);
+const googleProvider = new GoogleAuthProvider();
 
 // グローバル公開
 window._db = db;
@@ -719,6 +782,30 @@ async function loadUser(uid) {
     if (!snap.exists()) { showToast('⚠️ ユーザーデータが見つかりません'); return; }
     const d = snap.data();
     window._userData = d;
+
+    // ─── セミナー生の処理 ───
+    if (d.memberType === 'seminar') {
+      // 通常のアプリUIは非表示にする
+      const mainHeader = document.getElementById('main-header');
+      const mainContent = document.getElementById('main-content');
+      const nav = document.getElementById('bottom-nav');
+      if (mainHeader) mainHeader.style.display = 'none';
+      if (mainContent) mainContent.style.display = 'none';
+      if (nav) nav.style.display = 'none';
+      // 有効期限チェック
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (d.seminarExpiry) {
+        const expiry = new Date(d.seminarExpiry); expiry.setHours(0,0,0,0);
+        if (today > expiry) {
+          showSeminarExpiredScreen();
+        } else {
+          showSeminarScreen(d);
+        }
+      } else {
+        showSeminarScreen(d); // 期限未設定（カウント前）
+      }
+      return; // 通常のUI処理をスキップ
+    }
 
 
 
@@ -797,6 +884,80 @@ async function loadHistory(uid) {
 // グローバルに公開（更新ボタン用）
 window._refreshHistory = () => { if(window._uid) loadHistory(window._uid); };
 window._loadUser = (uid) => loadUser(uid);
+
+// ─── セミナー生専用画面 ───
+function showSeminarScreen(d) {
+  const el = document.getElementById('screen-seminar');
+  if (!el) return;
+  el.style.display = 'flex';
+  // 残高
+  const balEl = document.getElementById('seminar-balance');
+  if (balEl) balEl.innerHTML = (d.points||0).toLocaleString() + '<span style="font-size:20px;margin-left:4px;">枚</span>';
+  // 名前
+  const nameEl = document.getElementById('seminar-name');
+  if (nameEl) nameEl.textContent = 'こんにちは、' + (d.name || 'ゲスト') + 'さん';
+  // 有効期限
+  const expEl = document.getElementById('seminar-expiry-info');
+  if (expEl) {
+    if (d.seminarExpiry) {
+      const expiry = new Date(d.seminarExpiry);
+      const today = new Date(); today.setHours(0,0,0,0);
+      const diff = Math.ceil((expiry - today) / (1000*60*60*24));
+      const mm = expiry.getMonth()+1, dd = expiry.getDate();
+      if (diff > 0) {
+        expEl.innerHTML = '⏳ 有効期限：<strong style="color:var(--gb);">' + mm + '月' + dd + '日</strong>まで（残り<strong style="color:var(--gold);">' + diff + '日</strong>）';
+      } else {
+        expEl.textContent = '有効期限：本日まで';
+      }
+    } else {
+      expEl.textContent = '（有効期限は後日お知らせします）';
+    }
+  }
+}
+
+function showSeminarExpiredScreen() {
+  const seminarEl = document.getElementById('screen-seminar');
+  const expiredEl = document.getElementById('screen-seminar-expired');
+  if (seminarEl) seminarEl.style.display = 'none';
+  if (expiredEl) expiredEl.style.display = 'flex';
+}
+window.showSeminarScreen = showSeminarScreen;
+window.showSeminarExpiredScreen = showSeminarExpiredScreen;
+
+// ─── Googleログイン ───
+window.doGoogleLogin = async function() {
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('google-login-btn');
+  if (btn) { btn.textContent = '接続中...'; btn.disabled = true; }
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    window._uid = user.uid;
+    // Firestoreにユーザーが存在しなければセミナー生として作成
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists()) {
+      await setDoc(doc(db, 'users', user.uid), {
+        name: user.displayName || user.email || 'ゲスト',
+        email: user.email || '',
+        points: 0,
+        memberType: 'seminar',
+        seminarExpiry: null,
+        createdAt: serverTimestamp()
+      });
+    }
+    // onAuthStateChangedが自動でloadUserを呼ぶ
+  } catch(e) {
+    if (btn) { btn.textContent = 'Googleでログイン'; btn.disabled = false; }
+    if (errEl) {
+      if (e.code === 'auth/popup-closed-by-user') {
+        errEl.textContent = 'ログインがキャンセルされました';
+      } else {
+        errEl.textContent = 'Googleログイン失敗: ' + e.message;
+      }
+      errEl.style.display = 'block';
+    }
+  }
+};
 
 async function loadApplications() {
   const el = document.getElementById('admin-applications');
@@ -979,8 +1140,36 @@ window.doLogin = async function() {
 
 // ログアウト
 window.doLogout = async function() {
+  // セミナー画面を非表示
+  const semEl = document.getElementById('screen-seminar');
+  const expEl = document.getElementById('screen-seminar-expired');
+  if (semEl) semEl.style.display = 'none';
+  if (expEl) expEl.style.display = 'none';
   await signOut(auth);
   showToast('ログアウトしました');
+};
+
+// セミナーカウントスタート・プレビューはモジュールスクリプト側で定義済み
+// window.loadSeminarCountdownPreview / window.startSeminarCountdown はモジュール末尾で公開
+
+// ─── セミナー シェア機能 ───
+window.shareSeminar = async function() {
+  const shareData = {
+    title: 'リサイクルマスターKUNIO',
+    text: 'KUNIOさんのセミナーに参加しました！YouTubeチャンネルもぜひチェックしてみてください👇',
+    url: 'https://www.youtube.com/@KUNIO-ip2fq'
+  };
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      // Web Share API非対応ブラウザはURLをコピー
+      await navigator.clipboard.writeText(shareData.url);
+      showToast('✅ URLをコピーしました！');
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') showToast('⚠️ シェアできませんでした');
+  }
 };
 
 // ポイント付与（管理者）
@@ -1117,6 +1306,55 @@ function showLoginScreen() {
   document.getElementById('main-nav').style.display = 'none';
 }
 
+// ─── セミナーカウントスタート プレビュー（モジュールスクリプトから db を直接使用）───
+async function loadSeminarCountdownPreviewModule() {
+  const previewEl = document.getElementById('seminar-countdown-preview');
+  if (!previewEl) return;
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    let count = 0;
+    snap.forEach(function(d) { if (d.data().memberType === 'seminar') count++; });
+    const expiry = new Date(); expiry.setDate(expiry.getDate() + 10);
+    const mm = expiry.getMonth()+1, dd = expiry.getDate();
+    if (count === 0) {
+      previewEl.innerHTML = '<span style="color:var(--dim);">セミナー参加者がまだいません<br>（Googleログインで入った方が対象になります）</span>';
+    } else {
+      previewEl.innerHTML =
+        '10日後 = <strong style="color:var(--gb);">' + mm + '月' + dd + '日</strong> に設定します<br>' +
+        'セミナー参加者 <strong style="color:var(--gold);">' + count + '名</strong> に適用されます';
+    }
+  } catch(e) { if (previewEl) previewEl.textContent = '読み込みエラー: ' + e.message; }
+}
+
+async function startSeminarCountdownModule() {
+  const btn = document.getElementById('seminar-start-btn');
+  const resultEl = document.getElementById('seminar-countdown-result');
+  let seminarUsers = [];
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    snap.forEach(function(d) { if (d.data().memberType === 'seminar') seminarUsers.push(d.id); });
+  } catch(e) { showToast('⚠️ 取得エラー: ' + e.message); return; }
+  if (seminarUsers.length === 0) { showToast('⚠️ セミナー参加者がいません'); return; }
+  const expiry = new Date(); expiry.setDate(expiry.getDate() + 10);
+  const mm = expiry.getMonth()+1, dd = expiry.getDate();
+  const expiryStr = expiry.getFullYear() + '-' + String(mm).padStart(2,'0') + '-' + String(dd).padStart(2,'0');
+  if (!confirm(seminarUsers.length + '名に有効期限を設定します\n期限：' + mm + '月' + dd + '日\nよろしいですか？')) return;
+  if (btn) { btn.textContent = '設定中...'; btn.disabled = true; }
+  try {
+    for (const uid of seminarUsers) {
+      await updateDoc(doc(db, 'users', uid), { seminarExpiry: expiryStr });
+    }
+    if (resultEl) resultEl.innerHTML = '<span style="color:var(--gb);">✅ 完了！' + seminarUsers.length + '名に ' + mm + '月' + dd + '日まで を設定しました</span>';
+    showToast('✅ カウントスタート完了！');
+    loadSeminarCountdownPreviewModule();
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = '<span style="color:var(--red);">⚠️ エラー: ' + e.message + '</span>';
+    showToast('⚠️ エラー: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = 'カウントスタート'; btn.disabled = false; }
+  }
+}
+
 // HTML onclick ハンドラーおよび非モジュールスクリプトから呼び出せるようグローバル公開
 window.loadAdminMembers = loadAdminMembers;
 window.loadAdminYT = loadAdminYT;
@@ -1126,6 +1364,8 @@ window.loadGrantMembers = loadGrantMembers;
 window.approveJobPost = approveJobPost;
 window.rejectJobPost = rejectJobPost;
 window.checkAllMembers = checkAllMembers;
+window.loadSeminarCountdownPreview = loadSeminarCountdownPreviewModule;
+window.startSeminarCountdown = startSeminarCountdownModule;
 
 </script>
 
@@ -1162,7 +1402,7 @@ function showScreen(name, btn) {
   if (name === 'profile') loadMyParticipations();
 
   if (name === 'ranking') loadRanking();
-  if (name === 'admin') { if(window.loadAdminMembers)window.loadAdminMembers(); if(window.loadAdminYT)window.loadAdminYT(); if(window.loadPendingJobs)window.loadPendingJobs(); if(window.loadApplications)window.loadApplications(); if(window.loadGrantMembers)window.loadGrantMembers(); if(window.loadTransferRequests)window.loadTransferRequests(); }
+  if (name === 'admin') { if(window.loadAdminMembers)window.loadAdminMembers(); if(window.loadAdminYT)window.loadAdminYT(); if(window.loadPendingJobs)window.loadPendingJobs(); if(window.loadApplications)window.loadApplications(); if(window.loadGrantMembers)window.loadGrantMembers(); if(window.loadTransferRequests)window.loadTransferRequests(); if(window.loadSeminarCountdownPreview)window.loadSeminarCountdownPreview(); }
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
