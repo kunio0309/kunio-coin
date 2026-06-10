@@ -307,7 +307,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
-         collection, serverTimestamp, increment, Timestamp }
+         deleteDoc, collection, serverTimestamp, increment, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -476,6 +476,7 @@ async function loadAdminData(){
           <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
           <button class="btn-grant" onclick="grantCoin('${d.id}',this)">配布</button>
           <button class="btn-ban" onclick="toggleBan('${d.id}',${u.banned?'true':'false'})">${u.banned?'退出解除':'退出させる'}</button>
+          <button class="btn-ban" style="background:rgba(180,0,0,.12);border-color:rgba(180,0,0,.3);" onclick="deleteUser('${d.id}','${escHtml(u.bandName||u.email||'名前なし')}')">🗑️ 削除</button>
         </div>
       </div>`;
     });
@@ -553,6 +554,14 @@ window.startCountdown = async function(){
     expiryDate:Timestamp.fromDate(exp), startedAt:serverTimestamp(), startedBy:currentUser.email
   });
   showToast(`✅ ${exp.toLocaleDateString('ja-JP')} まで設定しました`);
+  await loadAdminData();
+};
+
+// ── ユーザー削除 ─────────────────────────────────
+window.deleteUser = async function(uid, name){
+  if(!confirm(`「${name}」を完全に削除しますか？\nこの操作は元に戻せません。`)) return;
+  await deleteDoc(doc(db,'seminar_users',uid));
+  showToast(`🗑️ ${name} を削除しました`);
   await loadAdminData();
 };
 
