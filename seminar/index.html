@@ -122,6 +122,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border-radius:8px;padding:8px 12px;color:var(--gb);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;}
 .btn-ban{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.3);
   border-radius:8px;padding:8px 12px;color:var(--red);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;}
+.btn-reduce{background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.35);
+  border-radius:8px;padding:8px 12px;color:#ff6b6b;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;}
 .badge-banned{font-size:10px;color:var(--red);background:rgba(239,83,80,.1);
   border:1px solid rgba(239,83,80,.3);border-radius:6px;padding:2px 8px;margin-left:6px;}
 
@@ -261,14 +263,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="header-badge" style="color:var(--gold);">KUNIO</div>
   </div>
   <div class="content">
-
-    <!-- QRコード -->
-    <div class="card" style="text-align:center;">
-      <div class="section-title" style="text-align:left;">● 参加者用QRコード</div>
-      <div style="font-size:12px;color:var(--dim);margin-bottom:14px;">スクリーンに映してスキャンしてもらうだけ</div>
-      <div id="qr-code" style="display:inline-block;background:#fff;padding:12px;border-radius:12px;"></div>
-      <div style="margin-top:8px;font-size:10px;color:var(--dim);">kunio0309.github.io/kunio-coin/seminar/</div>
-    </div>
 
     <!-- カウントダウン -->
     <div class="card">
@@ -554,7 +548,6 @@ function generateQR(){
 
 // ── 管理者データ読み込み ─────────────────────────
 async function loadAdminData(){
-  generateQR();
 
   // カウントダウン状況
   const cfgSnap = await getDoc(doc(db,'seminar_config','main'));
@@ -611,8 +604,9 @@ async function loadAdminData(){
           <span class="user-coins-badge">${(u.coins||0).toLocaleString()}枚</span>
         </div>
         <div class="user-row-actions">
-          <input type="number" class="grant-input" value="100" data-uid="${d.id}" title="マイナス値で減算できます">
-          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this)">調整</button>
+          <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
+          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.parentElement,1)">＋配布</button>
+          <button class="btn-reduce" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.parentElement,-1)">ー減算</button>
           <button class="btn-ban" onclick="toggleBan('${d.id}',${u.banned?'true':'false'})">${u.banned?'退出解除':'退出させる'}</button>
           <button class="btn-ban" style="background:rgba(180,0,0,.12);border-color:rgba(180,0,0,.3);" onclick="deleteUser('${d.id}','${escHtml(u.bandName||u.email||'名前なし')}')">🗑️ 削除</button>
         </div>
@@ -684,18 +678,20 @@ window.grantAllCoins = async function(){
   await loadAdminData();
 };
 
-// ── 個別コイン調整（プラスもマイナスも可）──────────
-window.grantCoin = async function(uid,btn){
-  const amount = parseInt(btn.previousElementSibling.value);
-  const name   = btn.dataset.name || uid;
-  if(!amount || isNaN(amount)){ showToast('枚数を入力してください'); return; }
-  const label  = amount >= 0 ? `+${amount.toLocaleString()}枚 を配布` : `${amount.toLocaleString()}枚 を減算`;
+// ── 個別コイン配布・減算 ─────────────────────────
+window.grantCoin = async function(uid, container, sign){
+  const input  = container.querySelector('input.grant-input');
+  const amount = parseInt(input.value);
+  const name   = container.querySelector('[data-name]').dataset.name || uid;
+  if(!amount || amount <= 0 || isNaN(amount)){ showToast('枚数を入力してください'); return; }
+  const realAmount = amount * sign;
+  const label = sign > 0 ? `${amount.toLocaleString()}枚を配布` : `${amount.toLocaleString()}枚を減算`;
   if(!confirm(`「${name}」に ${label} しますか？`)) return;
-  await updateDoc(doc(db,'seminar_users',uid),{ coins:increment(amount) });
+  await updateDoc(doc(db,'seminar_users',uid),{ coins:increment(realAmount) });
   await addDoc(collection(db,'seminar_coin_history'),{
-    type:'individual', uid, name, amount, grantedAt:serverTimestamp()
+    type:'individual', uid, name, amount:realAmount, grantedAt:serverTimestamp()
   });
-  showToast(`✅ ${name} に ${label}しました`);
+  showToast(`✅ ${name} の ${label}が完了しました`);
   await loadAdminData();
 };
 
