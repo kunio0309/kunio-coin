@@ -396,45 +396,46 @@ onAuthStateChanged(auth, async(user)=>{
   if(!user){ showScreen('screen-login'); return; }
   currentUser = user;
 
-  if(user.email===ADMIN_EMAIL){ showScreen('screen-admin'); await loadAdminData(); return; }
+  try{
+    if(user.email===ADMIN_EMAIL){ showScreen('screen-admin'); await loadAdminData(); return; }
 
-  const userRef  = doc(db,'seminar_users',user.uid);
-  const userSnap = await getDoc(userRef);
+    const userRef  = doc(db,'seminar_users',user.uid);
+    const userSnap = await getDoc(userRef);
 
-  if(!userSnap.exists()){
-    // 初回登録 → BAND名入力へ
-    showScreen('screen-name');
-    return;
+    if(!userSnap.exists()){
+      showScreen('screen-name');
+      return;
+    }
+
+    const ud = userSnap.data();
+    if(!ud.bandName){ showScreen('screen-name'); return; }
+
+    document.getElementById('coin-balance').textContent = (ud.coins||0).toLocaleString();
+    document.getElementById('user-name-badge').textContent = ud.bandName.substring(0,8);
+    document.getElementById('display-band-name').textContent = ud.bandName;
+    document.getElementById('band-name-edit').value = ud.bandName;
+
+    const cfgSnap = await getDoc(doc(db,'seminar_config','main'));
+    if(cfgSnap.exists() && cfgSnap.data().expiryDate){
+      const exp = cfgSnap.data().expiryDate.toDate();
+      const now = new Date();
+      if(now > exp){ showScreen('screen-expired'); return; }
+      const diff = exp-now;
+      const days = Math.floor(diff/86400000);
+      const hrs  = Math.floor((diff%86400000)/3600000);
+      document.getElementById('expiry-display').textContent =
+        `残り ${days}日 ${hrs}時間（${exp.toLocaleDateString('ja-JP')} まで）`;
+    } else {
+      document.getElementById('expiry-display').textContent = '未設定';
+    }
+
+    showScreen('screen-seminar');
+    loadRanking(user.uid);
+
+  } catch(err){
+    showToast('エラー: ' + (err.code||err.message));
+    console.error(err);
   }
-
-  const ud = userSnap.data();
-
-  // BAND名が未設定なら入力へ
-  if(!ud.bandName){ showScreen('screen-name'); return; }
-
-  // コイン表示
-  document.getElementById('coin-balance').textContent = (ud.coins||0).toLocaleString();
-  document.getElementById('user-name-badge').textContent = ud.bandName.substring(0,8);
-  document.getElementById('display-band-name').textContent = ud.bandName;
-  document.getElementById('band-name-edit').value = ud.bandName;
-
-  // カウントダウン確認
-  const cfgSnap = await getDoc(doc(db,'seminar_config','main'));
-  if(cfgSnap.exists() && cfgSnap.data().expiryDate){
-    const exp = cfgSnap.data().expiryDate.toDate();
-    const now = new Date();
-    if(now > exp){ showScreen('screen-expired'); return; }
-    const diff = exp-now;
-    const days = Math.floor(diff/86400000);
-    const hrs  = Math.floor((diff%86400000)/3600000);
-    document.getElementById('expiry-display').textContent =
-      `残り ${days}日 ${hrs}時間（${exp.toLocaleDateString('ja-JP')} まで）`;
-  } else {
-    document.getElementById('expiry-display').textContent = '未設定';
-  }
-
-  showScreen('screen-seminar');
-  loadRanking(user.uid);
 });
 
 // ── ランキング読み込み ───────────────────────────
