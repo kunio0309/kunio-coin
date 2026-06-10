@@ -390,19 +390,26 @@ onAuthStateChanged(auth, async(user)=>{
   if(!user){ showScreen('screen-login'); return; }
   currentUser = user;
 
-  try{
-    if(user.email===ADMIN_EMAIL){ showScreen('screen-admin'); await loadAdminData(); return; }
+  // ログイン成功 → 絶対にログイン画面に戻さない
+  if(user.email===ADMIN_EMAIL){
+    showScreen('screen-admin');
+    loadAdminData();
+    return;
+  }
 
+  // まず名前入力画面を表示（Firestoreが遅くても画面は変わる）
+  showScreen('screen-name');
+
+  try{
     const userRef  = doc(db,'seminar_users',user.uid);
     const userSnap = await getDoc(userRef);
 
-    if(!userSnap.exists()){
-      showScreen('screen-name');
+    if(!userSnap.exists() || !userSnap.data().bandName){
+      // 初回 or 名前未設定 → 名前入力画面のまま
       return;
     }
 
     const ud = userSnap.data();
-    if(!ud.bandName){ showScreen('screen-name'); return; }
 
     document.getElementById('coin-balance').textContent = (ud.coins||0).toLocaleString();
     document.getElementById('user-name-badge').textContent = ud.bandName.substring(0,8);
@@ -427,8 +434,7 @@ onAuthStateChanged(auth, async(user)=>{
     loadRanking(user.uid);
 
   } catch(err){
-    showToast('エラー: ' + (err.code||err.message));
-    console.error(err);
+    showToast('読み込みエラー: ' + (err.code||err.message));
   }
 });
 
