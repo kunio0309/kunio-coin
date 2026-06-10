@@ -374,20 +374,13 @@ getRedirectResult(auth).then(result=>{
 // ── 認証 ────────────────────────────────────────
 window.doGoogleLogin = async function(){
   const provider = new GoogleAuthProvider();
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if(isMobile){
-    // スマホはリダイレクト方式
-    await signInWithRedirect(auth, provider);
-  } else {
-    // PC・Mac はポップアップ方式
-    try{
-      await signInWithPopup(auth, provider);
-    } catch(e){
-      if(e.code==='auth/popup-blocked'){
-        await signInWithRedirect(auth, provider);
-      } else if(e.code!=='auth/popup-closed-by-user'){
-        showToast('ログインエラー: ' + (e.code||e.message));
-      }
+  try{
+    await signInWithPopup(auth, provider);
+  } catch(e){
+    if(e.code==='auth/popup-blocked'){
+      showToast('ポップアップがブロックされました。アドレスバー右の許可ボタンを押してください。');
+    } else if(e.code!=='auth/popup-closed-by-user'){
+      showToast('ログインエラー: ' + (e.code||e.message));
     }
   }
 };
