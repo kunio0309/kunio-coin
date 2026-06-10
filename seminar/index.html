@@ -374,12 +374,15 @@ getRedirectResult(auth).then(result=>{
 // ── 認証 ────────────────────────────────────────
 window.doGoogleLogin = async function(){
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   try{
     await signInWithPopup(auth, provider);
   } catch(e){
     if(e.code==='auth/popup-blocked'){
       showToast('ポップアップがブロックされました。アドレスバー右の許可ボタンを押してください。');
-    } else if(e.code!=='auth/popup-closed-by-user'){
+    } else if(e.code==='auth/popup-closed-by-user'){
+      showToast('⚠️ ポップアップが閉じられました。もう一度ログインしてください。');
+    } else {
       showToast('ログインエラー: ' + (e.code||e.message));
     }
   }
