@@ -132,6 +132,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .check-bar input[type=number]{background:var(--d3);border:1px solid var(--border);
   border-radius:8px;padding:8px 10px;color:var(--text);font-size:14px;width:80px;text-align:right;}
 
+/* ランキング */
+.rank-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.rank-row:last-child{border-bottom:none;}
+.rank-num{font-family:'Bebas Neue',sans-serif;font-size:20px;width:28px;text-align:center;flex-shrink:0;color:var(--dim);}
+.rank-num.gold{color:#ffd54f;}
+.rank-num.silver{color:#b0bec5;}
+.rank-num.bronze{color:#a1887f;}
+.rank-me{background:rgba(105,240,174,.08);border-radius:10px;padding:8px 10px;margin:-8px -10px;}
+.rank-name{flex:1;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rank-coin{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gb);}
+.rank-coin-unit{font-size:11px;color:var(--dim);margin-left:2px;}
+
 .loading{text-align:center;padding:40px;color:var(--dim);font-size:13px;}
 .toast{position:fixed;bottom:30px;left:50%;
   transform:translateX(-50%) translateY(100px);
@@ -220,6 +232,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         コインの使い道は...<br>
         <strong style="color:var(--gb);">最後のお楽しみ♩</strong>
       </div>
+    </div>
+
+    <!-- ランキング -->
+    <div class="card">
+      <div class="section-title">🏆 コインランキング</div>
+      <div id="ranking-list"><div class="loading">読み込み中...</div></div>
     </div>
 
     <button class="btn-secondary" onclick="doSignOut()">ログアウト</button>
@@ -387,7 +405,40 @@ onAuthStateChanged(auth, async(user)=>{
   }
 
   showScreen('screen-seminar');
+  loadRanking(user.uid);
 });
+
+// ── ランキング読み込み ───────────────────────────
+async function loadRanking(myUid){
+  const snap = await getDocs(collection(db,'seminar_users'));
+  const users = [];
+  snap.forEach(d=>{ const u=d.data(); if(!u.banned) users.push({uid:d.id, name:u.bandName||'名前なし', coins:u.coins||0}); });
+  users.sort((a,b)=>b.coins-a.coins);
+
+  const crownColors=['#ffd54f','#cfd8dc','#bf9169'];
+  let html='';
+  users.forEach((u,i)=>{
+    const isMe = u.uid===myUid;
+    let badge;
+    if(i<3){
+      badge=`<div style="display:flex;flex-direction:column;align-items:center;width:32px;flex-shrink:0;gap:1px;">
+        <span style="font-size:15px;line-height:1;">👑</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${crownColors[i]};line-height:1;">${i+1}</span>
+      </div>`;
+    } else {
+      badge=`<span class="rank-num">${i+1}</span>`;
+    }
+    html+=`<div class="rank-row${isMe?' rank-me':''}">
+      ${badge}
+      <div class="rank-name" style="${i<3?`color:${crownColors[i]};`:''}">
+        ${escHtml(u.name)}${isMe?' <span style="font-size:10px;color:var(--gb);">← あなた</span>':''}
+      </div>
+      <span class="rank-coin" style="${i<3?`color:${crownColors[i]};`:''}">
+        ${u.coins.toLocaleString()}</span><span class="rank-coin-unit">枚</span>
+    </div>`;
+  });
+  document.getElementById('ranking-list').innerHTML = html||'<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ参加者がいません</div>';
+}
 
 // ── BAND名登録（初回） ───────────────────────────
 window.submitName = async function(){
