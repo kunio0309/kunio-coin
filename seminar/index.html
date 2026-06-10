@@ -372,8 +372,33 @@ getRedirectResult(auth).then(result=>{
   if(e && e.code) showToast('ログインエラー: ' + e.code);
 });
 
+// ── LINE自動リダイレクト（ページ読み込み時に即実行）──────
+(function(){
+  const ua = navigator.userAgent || '';
+  const isLine = /Line\//i.test(ua);
+  if(isLine && location.search.indexOf('openExternalBrowser') === -1){
+    // LINEブラウザならSafariで開き直す（LINEの隠し機能）
+    const url = new URL(location.href);
+    url.searchParams.set('openExternalBrowser','1');
+    location.replace(url.toString());
+  }
+})();
+
+// ── アプリ内ブラウザ検出（LINE以外のWebView用）──────────
+function isInAppBrowser(){
+  const ua = navigator.userAgent || '';
+  // LINEは上のリダイレクトで処理済みなので除外
+  // BAND, Instagram, Facebook, Twitterなど他のアプリ内WebViewを検出
+  return /FBAN|FBAV|Instagram|KAKAOTALK|Snapchat|Twitter\/|trill\/|Musical/i.test(ua);
+}
+
 // ── 認証 ────────────────────────────────────────
 window.doGoogleLogin = async function(){
+  // その他アプリ内ブラウザ判定
+  if(isInAppBrowser()){
+    document.getElementById('inapp-modal').style.display='flex';
+    return;
+  }
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   try{
@@ -694,6 +719,11 @@ window.toggleBan = async function(uid,isBanned){
   await loadAdminData();
 };
 
+// ── アプリ内ブラウザ警告モーダルを閉じる ──────────────
+window.closeInAppModal = function(){
+  document.getElementById('inapp-modal').style.display='none';
+};
+
 // ── シェア ───────────────────────────────────────
 window.doShare = async function(){
   const text='リサイクルマスターKUNIOをよろしくお願いします！\nhttps://www.youtube.com/@KUNIO-ip2fq';
@@ -701,5 +731,23 @@ window.doShare = async function(){
   else{ try{ await navigator.clipboard.writeText(text); showToast('📋 コピーしました'); }catch(e){} }
 };
 </script>
+
+<!-- アプリ内ブラウザ警告モーダル -->
+<div id="inapp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+    <div style="font-size:17px;font-weight:700;color:#111;margin-bottom:10px;">このブラウザではログインできません</div>
+    <div style="font-size:14px;color:#444;line-height:1.7;margin-bottom:20px;">
+      LINEやBANDなどのアプリ内ブラウザでは<br>Googleログインが使えません。<br><br>
+      <strong>以下の手順で開き直してください：</strong><br><br>
+      📱 <strong>iPhoneの場合</strong><br>
+      右下の「…」→「ブラウザで開く」<br>または「Safariで開く」を選択<br><br>
+      🤖 <strong>Androidの場合</strong><br>
+      右上の「…」→「ブラウザで開く」<br>またはChromeで開く
+    </div>
+    <button onclick="closeInAppModal()" style="background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;width:100%;">閉じる</button>
+  </div>
+</div>
+
 </body>
 </html>
