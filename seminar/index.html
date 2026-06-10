@@ -394,27 +394,27 @@ function isInAppBrowser(){
 }
 
 // ── 認証 ────────────────────────────────────────
-window.doGoogleLogin = async function(){
-  // その他アプリ内ブラウザ判定
+// ※ async にすると iOS Safari がユーザー操作と認識せずポップアップをリダイレクトに
+//   切り替えてしまうため、あえて同期関数にして signInWithPopup を直接呼ぶ
+window.doGoogleLogin = function(){
   if(isInAppBrowser()){
     document.getElementById('inapp-modal').style.display='flex';
     return;
   }
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  try{
-    // browserPopupRedirectResolver を明示指定することで
-    // iOS Safari のITPによるリダイレクトエラーを回避する
-    await signInWithPopup(auth, provider, browserPopupRedirectResolver);
-  } catch(e){
-    if(e.code==='auth/popup-blocked'){
-      showToast('ポップアップがブロックされました。アドレスバー右の許可ボタンを押してください。');
-    } else if(e.code==='auth/popup-closed-by-user'){
-      showToast('⚠️ ポップアップが閉じられました。もう一度ログインしてください。');
-    } else {
-      showToast('ログインエラー: ' + (e.code||e.message));
-    }
-  }
+  // 同期的に呼ぶことで iOS Safari がユーザー操作直後と認識し、
+  // ポップアップが正しく開いてリダイレクト fallback を防ぐ
+  signInWithPopup(auth, provider, browserPopupRedirectResolver)
+    .catch(function(e){
+      if(e.code==='auth/popup-blocked'){
+        showToast('ポップアップがブロックされました。アドレスバー右の許可ボタンを押してください。');
+      } else if(e.code==='auth/popup-closed-by-user'){
+        showToast('⚠️ ポップアップが閉じられました。もう一度ログインしてください。');
+      } else {
+        showToast('ログインエラー: ' + (e.code||e.message));
+      }
+    });
 };
 window.doSignOut = async function(){ await signOut(auth); showScreen('screen-login'); };
 
