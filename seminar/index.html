@@ -305,6 +305,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="admin-user-list"><div class="loading">読み込み中...</div></div>
     </div>
 
+    <!-- ランキング -->
+    <div class="card">
+      <div class="section-title">● コインランキング</div>
+      <div id="admin-ranking"><div class="loading">読み込み中...</div></div>
+    </div>
+
     <!-- 配布履歴 -->
     <div class="card">
       <div class="section-title">● コイン配布履歴</div>
@@ -566,6 +572,28 @@ async function loadAdminData(){
   document.getElementById('check-all').checked = false;
   updateCheckCount();
 
+  // ランキング表示
+  const rankEl = document.getElementById('admin-ranking');
+  if(snap.empty){
+    rankEl.innerHTML='<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">参加者はまだいません</div>';
+  } else {
+    const medals=['🥇','🥈','🥉'];
+    const sorted=[...snap.docs].sort((a,b)=>(b.data().coins||0)-(a.data().coins||0));
+    let rhtml='';
+    sorted.forEach((d,i)=>{
+      const u=d.data();
+      const rank=i<3?`<span style="font-size:20px;">${medals[i]}</span>`
+        :`<span style="font-size:13px;font-weight:700;color:var(--dim);min-width:24px;text-align:center;">${i+1}</span>`;
+      rhtml+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+        ${rank}
+        <span style="flex:1;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||u.email||'名前なし')}</span>
+        <span style="color:var(--gb);font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:20px;">${(u.coins||0).toLocaleString()}</span>
+        <span style="font-size:11px;color:var(--dim);">枚</span>
+      </div>`;
+    });
+    rankEl.innerHTML=rhtml;
+  }
+
   if(snap.empty){
     listEl.innerHTML='<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">参加者はまだいません</div>';
   } else {
@@ -583,8 +611,8 @@ async function loadAdminData(){
           <span class="user-coins-badge">${(u.coins||0).toLocaleString()}枚</span>
         </div>
         <div class="user-row-actions">
-          <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
-          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this)">配布</button>
+          <input type="number" class="grant-input" value="100" data-uid="${d.id}" title="マイナス値で減算できます">
+          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this)">調整</button>
           <button class="btn-ban" onclick="toggleBan('${d.id}',${u.banned?'true':'false'})">${u.banned?'退出解除':'退出させる'}</button>
           <button class="btn-ban" style="background:rgba(180,0,0,.12);border-color:rgba(180,0,0,.3);" onclick="deleteUser('${d.id}','${escHtml(u.bandName||u.email||'名前なし')}')">🗑️ 削除</button>
         </div>
@@ -656,16 +684,18 @@ window.grantAllCoins = async function(){
   await loadAdminData();
 };
 
-// ── 個別配布 ─────────────────────────────────────
+// ── 個別コイン調整（プラスもマイナスも可）──────────
 window.grantCoin = async function(uid,btn){
   const amount = parseInt(btn.previousElementSibling.value);
   const name   = btn.dataset.name || uid;
-  if(!amount||amount<=0){ showToast('枚数を入力してください'); return; }
+  if(!amount || isNaN(amount)){ showToast('枚数を入力してください'); return; }
+  const label  = amount >= 0 ? `+${amount.toLocaleString()}枚 を配布` : `${amount.toLocaleString()}枚 を減算`;
+  if(!confirm(`「${name}」に ${label} しますか？`)) return;
   await updateDoc(doc(db,'seminar_users',uid),{ coins:increment(amount) });
   await addDoc(collection(db,'seminar_coin_history'),{
     type:'individual', uid, name, amount, grantedAt:serverTimestamp()
   });
-  showToast(`✅ ${name} に ${amount.toLocaleString()}枚 を配布しました`);
+  showToast(`✅ ${name} に ${label}しました`);
   await loadAdminData();
 };
 
