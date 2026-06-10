@@ -162,15 +162,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="app-title">KUNIO-COIN</div>
   <div class="app-subtitle">参加者専用コイン</div>
   <div class="app-desc">お金を貰って始める物販セミナー<br>参加者だけの特別なコインです。<br><span style="color:var(--gb);">何に使えるかは最後のお楽しみ♩</span></div>
-  <button class="btn-google" onclick="doGoogleLogin()">
-    <svg width="20" height="20" viewBox="0 0 48 48">
-      <path fill="#FFC107" d="M43.6 20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.7 6.1 29.1 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.9C14.7 16 19 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.7 6.1 29.1 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 44c5 0 9.5-1.9 12.9-5l-6-4.9C29.2 35.6 26.7 36.5 24 36.5c-5.2 0-9.6-3.3-11.3-7.9l-6.6 5C9.7 39.5 16.3 44 24 44z"/>
-      <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6 4.9C40.6 35.8 44 30.3 44 24c0-1.3-.1-2.7-.4-4z"/>
-    </svg>
-    Googleでログイン
-  </button>
+  <input type="email" id="login-email" class="form-input" placeholder="メールアドレス" autocomplete="email" style="max-width:320px;">
+  <input type="password" id="login-password" class="form-input" placeholder="パスワード（6文字以上）" autocomplete="current-password" style="max-width:320px;">
+  <button class="btn-primary" onclick="doLogin()" style="max-width:320px;">ログイン</button>
+  <button class="btn-primary" onclick="doRegister()" style="max-width:320px;background:linear-gradient(135deg,#1a73e8,#1557b0);margin-top:0;">新規登録（初回）</button>
+  <button class="btn-text" onclick="doResetPassword()">パスワードを忘れた方はこちら</button>
 </div>
 
 <!-- BAND名入力（初回 or 変更） -->
@@ -329,9 +325,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-         getRedirectResult, signOut, onAuthStateChanged,
-         browserPopupRedirectResolver }
+import { getAuth, signOut, onAuthStateChanged,
+         createUserWithEmailAndPassword, signInWithEmailAndPassword,
+         sendPasswordResetEmail }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
          deleteDoc, collection, query, orderBy, limit,
@@ -366,55 +362,56 @@ function escHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// リダイレクト後の結果処理
-getRedirectResult(auth).then(result=>{
-  if(result && result.user) console.log('redirect ok:', result.user.email);
-}).catch(e=>{
-  if(e && e.code) showToast('ログインエラー: ' + e.code);
-});
 
-// ── LINE自動リダイレクト（ページ読み込み時に即実行）──────
-(function(){
-  const ua = navigator.userAgent || '';
-  const isLine = /Line\//i.test(ua);
-  if(isLine && location.search.indexOf('openExternalBrowser') === -1){
-    // LINEブラウザならSafariで開き直す（LINEの隠し機能）
-    const url = new URL(location.href);
-    url.searchParams.set('openExternalBrowser','1');
-    location.replace(url.toString());
+// ── メール認証 ────────────────────────────────────
+window.doLogin = async function(){
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if(!email || !password){ showToast('メールアドレスとパスワードを入力してください'); return; }
+  try{
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch(e){
+    if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'){
+      showToast('メールアドレスまたはパスワードが違います');
+    } else if(e.code==='auth/invalid-email'){
+      showToast('メールアドレスの形式が正しくありません');
+    } else if(e.code==='auth/too-many-requests'){
+      showToast('試行回数が多すぎます。しばらく待ってからお試しください');
+    } else {
+      showToast('ログインエラー: '+(e.code||e.message));
+    }
   }
-})();
+};
 
-// ── アプリ内ブラウザ検出（LINE以外のWebView用）──────────
-function isInAppBrowser(){
-  const ua = navigator.userAgent || '';
-  // LINEは上のリダイレクトで処理済みなので除外
-  // BAND, Instagram, Facebook, Twitterなど他のアプリ内WebViewを検出
-  return /FBAN|FBAV|Instagram|KAKAOTALK|Snapchat|Twitter\/|trill\/|Musical/i.test(ua);
-}
-
-// ── 認証 ────────────────────────────────────────
-// ※ async にすると iOS Safari がユーザー操作と認識せずポップアップをリダイレクトに
-//   切り替えてしまうため、あえて同期関数にして signInWithPopup を直接呼ぶ
-window.doGoogleLogin = function(){
-  if(isInAppBrowser()){
-    document.getElementById('inapp-modal').style.display='flex';
-    return;
+window.doRegister = async function(){
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if(!email || !password){ showToast('メールアドレスとパスワードを入力してください'); return; }
+  if(password.length < 6){ showToast('パスワードは6文字以上で設定してください'); return; }
+  try{
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch(e){
+    if(e.code==='auth/email-already-in-use'){
+      showToast('このメールアドレスは登録済みです。ログインしてください');
+    } else if(e.code==='auth/invalid-email'){
+      showToast('メールアドレスの形式が正しくありません');
+    } else if(e.code==='auth/weak-password'){
+      showToast('パスワードは6文字以上で設定してください');
+    } else {
+      showToast('登録エラー: '+(e.code||e.message));
+    }
   }
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
-  // 同期的に呼ぶことで iOS Safari がユーザー操作直後と認識し、
-  // ポップアップが正しく開いてリダイレクト fallback を防ぐ
-  signInWithPopup(auth, provider, browserPopupRedirectResolver)
-    .catch(function(e){
-      if(e.code==='auth/popup-blocked'){
-        showToast('ポップアップがブロックされました。アドレスバー右の許可ボタンを押してください。');
-      } else if(e.code==='auth/popup-closed-by-user'){
-        showToast('⚠️ ポップアップが閉じられました。もう一度ログインしてください。');
-      } else {
-        showToast('ログインエラー: ' + (e.code||e.message));
-      }
-    });
+};
+
+window.doResetPassword = async function(){
+  const email = document.getElementById('login-email').value.trim();
+  if(!email){ showToast('上のメールアドレス欄に入力してから押してください'); return; }
+  try{
+    await sendPasswordResetEmail(auth, email);
+    showToast('パスワードリセットメールを送りました📧');
+  } catch(e){
+    showToast('送信エラー: '+(e.code||e.message));
+  }
 };
 window.doSignOut = async function(){ await signOut(auth); showScreen('screen-login'); };
 
@@ -722,10 +719,6 @@ window.toggleBan = async function(uid,isBanned){
   await loadAdminData();
 };
 
-// ── アプリ内ブラウザ警告モーダルを閉じる ──────────────
-window.closeInAppModal = function(){
-  document.getElementById('inapp-modal').style.display='none';
-};
 
 // ── シェア ───────────────────────────────────────
 window.doShare = async function(){
@@ -735,22 +728,6 @@ window.doShare = async function(){
 };
 </script>
 
-<!-- アプリ内ブラウザ警告モーダル -->
-<div id="inapp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">
-    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
-    <div style="font-size:17px;font-weight:700;color:#111;margin-bottom:10px;">このブラウザではログインできません</div>
-    <div style="font-size:14px;color:#444;line-height:1.7;margin-bottom:20px;">
-      LINEやBANDなどのアプリ内ブラウザでは<br>Googleログインが使えません。<br><br>
-      <strong>以下の手順で開き直してください：</strong><br><br>
-      📱 <strong>iPhoneの場合</strong><br>
-      右下の「…」→「ブラウザで開く」<br>または「Safariで開く」を選択<br><br>
-      🤖 <strong>Androidの場合</strong><br>
-      右上の「…」→「ブラウザで開く」<br>またはChromeで開く
-    </div>
-    <button onclick="closeInAppModal()" style="background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;width:100%;">閉じる</button>
-  </div>
-</div>
 
 </body>
 </html>
