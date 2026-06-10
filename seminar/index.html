@@ -328,7 +328,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+         getRedirectResult, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
          deleteDoc, collection, query, orderBy, limit,
@@ -363,10 +364,33 @@ function escHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// リダイレクト後の結果処理（onAuthStateChangedが自動で拾うので基本不要だがエラー検知用）
+getRedirectResult(auth).catch(e=>{
+  if(e && e.code && e.code!=='auth/popup-closed-by-user'){
+    console.error('redirect error', e.code);
+  }
+});
+
 // ── 認証 ────────────────────────────────────────
 window.doGoogleLogin = async function(){
-  try{ await signInWithPopup(auth, new GoogleAuthProvider()); }
-  catch(e){ if(e.code!=='auth/popup-closed-by-user') showToast('ログインに失敗しました'); }
+  const provider = new GoogleAuthProvider();
+  // モバイルまたはSafariはリダイレクト方式
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  if(isMobile || isSafari){
+    await signInWithRedirect(auth, provider);
+    return;
+  }
+  try{
+    await signInWithPopup(auth, provider);
+  } catch(e){
+    if(e.code==='auth/popup-blocked'){
+      // ポップアップブロック時はリダイレクトに切り替え
+      await signInWithRedirect(auth, provider);
+    } else if(e.code!=='auth/popup-closed-by-user'){
+      showToast('ログインエラー: ' + (e.code||e.message));
+    }
+  }
 };
 window.doSignOut = async function(){ await signOut(auth); showScreen('screen-login'); };
 
