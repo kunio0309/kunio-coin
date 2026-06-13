@@ -922,7 +922,7 @@ async function loadUserCoinHistory(uid, joinedAt){
       if(h.type==='join_bonus'){ icon='🎉'; label='新規参加ボーナス'; }
       else if(h.type==='all')  { icon='🎁'; label='全員配布'; }
       else if(h.type==='checked'){ icon='🎁'; label='管理者から配布'; }
-      else if(h.type==='exchange'){ icon='🎫'; label=`${Math.abs(amt).toLocaleString()}枚を申請`; }
+      else if(h.type==='exchange'){ icon='🎫'; label=`${Math.abs(amt).toLocaleString()}枚を値引きに申請`; }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
