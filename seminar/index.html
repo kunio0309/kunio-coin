@@ -109,6 +109,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .tease-box{background:rgba(105,240,174,.05);border:1px solid rgba(105,240,174,.15);
   border-radius:14px;padding:20px;text-align:center;margin-bottom:16px;}
 
+/* 確認モーダル */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);
+  z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.show{opacity:1;pointer-events:all;}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:28px 24px;max-width:340px;width:100%;
+  transform:scale(.95);transition:transform .2s;}
+.modal-overlay.show .modal-box{transform:scale(1);}
+
 /* トグルスイッチ */
 .toggle-switch{position:relative;display:inline-block;width:52px;height:28px;}
 .toggle-switch input{opacity:0;width:0;height:0;}
@@ -380,6 +390,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
     <button class="btn-secondary" onclick="doSignOut()">ログアウト</button>
+  </div>
+</div>
+
+<!-- 申請確認モーダル -->
+<div id="exchange-confirm-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div style="font-size:28px;text-align:center;margin-bottom:12px;">🎫</div>
+    <div style="font-size:17px;font-weight:900;text-align:center;margin-bottom:10px;">申請の確認</div>
+    <div style="font-size:13px;color:var(--dim);text-align:center;line-height:1.8;margin-bottom:24px;">
+      <strong id="confirm-coins-text" style="color:var(--gb);font-size:16px;">0枚</strong>を<br>
+      入会費用に充てて申請します。<br>
+      申請するとコインは0枚になります。<br>よろしいですか？
+    </div>
+    <button class="btn-primary" onclick="confirmExchange()" style="margin-bottom:8px;">✅ はい、申請する</button>
+    <button class="btn-secondary" onclick="cancelExchange()" style="margin-bottom:0;">いいえ、戻る</button>
   </div>
 </div>
 
@@ -754,7 +779,8 @@ window.saveExchangeEnabled = async function(){
   showToast(enabled?'✅ 特典交換ページを公開しました':'特典交換ページを非公開にしました');
 };
 
-// ── 申請する（ユーザー） ───────────────────────────
+// ── 申請ボタン → モーダル表示 ────────────────────
+let _pendingExchangeCoins = 0;
 window.submitExchangeRequest = async function(){
   if(!currentUser) return;
   const userRef=doc(db,'seminar_users',currentUser.uid);
@@ -766,6 +792,25 @@ window.submitExchangeRequest = async function(){
   const reqSnap=await getDocs(query(collection(db,'seminar_requests'),
     where('uid','==',currentUser.uid),where('status','in',['pending','approved']),limit(1)));
   if(!reqSnap.empty){showToast('すでに申請済みです');return;}
+  _pendingExchangeCoins=coins;
+  document.getElementById('confirm-coins-text').textContent=`${coins.toLocaleString()}枚`;
+  document.getElementById('exchange-confirm-modal').classList.add('show');
+};
+
+// ── 申請キャンセル ────────────────────────────────
+window.cancelExchange = function(){
+  document.getElementById('exchange-confirm-modal').classList.remove('show');
+};
+
+// ── 申請実行（モーダルで「はい」） ────────────────
+window.confirmExchange = async function(){
+  document.getElementById('exchange-confirm-modal').classList.remove('show');
+  if(!currentUser||_pendingExchangeCoins<=0) return;
+  const coins=_pendingExchangeCoins;
+  const userRef=doc(db,'seminar_users',currentUser.uid);
+  const userSnap=await getDoc(userRef);
+  if(!userSnap.exists()) return;
+  const ud=userSnap.data();
   await addDoc(collection(db,'seminar_requests'),{
     uid:currentUser.uid, name:ud.bandName,
     email:ud.email||currentUser.email,
@@ -877,7 +922,7 @@ async function loadUserCoinHistory(uid, joinedAt){
       if(h.type==='join_bonus'){ icon='🎉'; label='新規参加ボーナス'; }
       else if(h.type==='all')  { icon='🎁'; label='全員配布'; }
       else if(h.type==='checked'){ icon='🎁'; label='管理者から配布'; }
-      else if(h.type==='exchange'){ icon='🎫'; label='入会費用に充てた'; }
+      else if(h.type==='exchange'){ icon='🎫'; label=`${Math.abs(amt).toLocaleString()}枚を申請`; }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
