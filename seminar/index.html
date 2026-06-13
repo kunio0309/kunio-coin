@@ -635,12 +635,20 @@ window.submitName = async function(){
         uid:currentUser.uid, email:currentUser.email,
         bandName: name, coins: joinBonus, joinedAt:serverTimestamp()
       });
-      // 0枚より多い場合は履歴に記録
+      // ボーナス履歴が重複しないよう、すでに存在する場合はスキップ
       if(joinBonus > 0){
-        await addDoc(collection(db,'seminar_coin_history'),{
-          type:'join_bonus', uid:currentUser.uid, name,
-          amount:joinBonus, grantedAt:serverTimestamp()
-        });
+        const existingBonus = await getDocs(query(
+          collection(db,'seminar_coin_history'),
+          where('uid','==',currentUser.uid),
+          where('type','==','join_bonus'),
+          limit(1)
+        ));
+        if(existingBonus.empty){
+          await addDoc(collection(db,'seminar_coin_history'),{
+            type:'join_bonus', uid:currentUser.uid, name,
+            amount:joinBonus, grantedAt:serverTimestamp()
+          });
+        }
       }
     }
     location.reload();
@@ -941,7 +949,16 @@ async function loadUserCoinHistory(uid, joinedAt){
       return;
     }
     let html='';
-    all.slice(0,20).forEach(d=>{
+    // join_bonus は最新の1件だけ表示（複数押しによる重複を除去）
+    let joinBonusShown = false;
+    const deduped = all.filter(d=>{
+      if(d.data().type==='join_bonus'){
+        if(joinBonusShown) return false;
+        joinBonusShown = true;
+      }
+      return true;
+    });
+    deduped.slice(0,20).forEach(d=>{
       const h   = d.data();
       const amt = h.amount||0;
       const dt  = h.grantedAt ? h.grantedAt.toDate().toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}) : '';
