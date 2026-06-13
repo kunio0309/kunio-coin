@@ -165,8 +165,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="app-desc">お金を貰って始める物販セミナー<br>参加者だけの特別なコインです。<br><span style="color:var(--gb);">何に使えるかは最後のお楽しみ♩</span></div>
   <input type="email" id="login-email" class="form-input" placeholder="メールアドレス" autocomplete="email" style="max-width:320px;">
   <input type="password" id="login-password" class="form-input" placeholder="パスワード（6文字以上）" autocomplete="current-password" style="max-width:320px;">
-  <button class="btn-primary" onclick="doLogin()" style="max-width:320px;">ログイン</button>
-  <button class="btn-primary" onclick="doRegister()" style="max-width:320px;background:linear-gradient(135deg,#1a73e8,#1557b0);margin-top:0;">新規登録（初回）</button>
+  <button class="btn-primary" onclick="doAuth()" style="max-width:320px;">参加する / ログイン</button>
   <button class="btn-text" onclick="doResetPassword()">パスワードを忘れた方はこちら</button>
 </div>
 
@@ -380,44 +379,47 @@ function escHtml(s){
 
 
 // ── メール認証 ────────────────────────────────────
-window.doLogin = async function(){
-  const email    = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  if(!email || !password){ showToast('メールアドレスとパスワードを入力してください'); return; }
-  try{
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch(e){
-    if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'){
-      showToast('メールアドレスまたはパスワードが違います');
-    } else if(e.code==='auth/invalid-email'){
-      showToast('メールアドレスの形式が正しくありません');
-    } else if(e.code==='auth/too-many-requests'){
-      showToast('試行回数が多すぎます。しばらく待ってからお試しください');
-    } else {
-      showToast('ログインエラー: '+(e.code||e.message));
-    }
-  }
-};
-
-window.doRegister = async function(){
+// ログイン・新規登録を1つに統合
+window.doAuth = async function(){
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   if(!email || !password){ showToast('メールアドレスとパスワードを入力してください'); return; }
   if(password.length < 6){ showToast('パスワードは6文字以上で設定してください'); return; }
+  // まずログインを試みる
   try{
-    await createUserWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(auth, email, password);
+    return;
   } catch(e){
-    if(e.code==='auth/email-already-in-use'){
-      showToast('このメールアドレスは登録済みです。ログインしてください');
+    // アカウントがない場合のみ新規登録へ
+    if(e.code==='auth/user-not-found' || e.code==='auth/invalid-credential'){
+      try{
+        await createUserWithEmailAndPassword(auth, email, password);
+        return;
+      } catch(e2){
+        if(e2.code==='auth/email-already-in-use'){
+          showToast('パスワードが違います');
+        } else if(e2.code==='auth/invalid-email'){
+          showToast('メールアドレスの形式が正しくありません');
+        } else if(e2.code==='auth/weak-password'){
+          showToast('パスワードは6文字以上で設定してください');
+        } else {
+          showToast('エラー: '+(e2.code||e2.message));
+        }
+      }
+    } else if(e.code==='auth/wrong-password'){
+      showToast('パスワードが違います');
     } else if(e.code==='auth/invalid-email'){
       showToast('メールアドレスの形式が正しくありません');
-    } else if(e.code==='auth/weak-password'){
-      showToast('パスワードは6文字以上で設定してください');
+    } else if(e.code==='auth/too-many-requests'){
+      showToast('試行回数が多すぎます。しばらく待ってください');
     } else {
-      showToast('登録エラー: '+(e.code||e.message));
+      showToast('エラー: '+(e.code||e.message));
     }
   }
 };
+// 後方互換（念のため）
+window.doLogin    = window.doAuth;
+window.doRegister = window.doAuth;
 
 window.doResetPassword = async function(){
   const email = document.getElementById('login-email').value.trim();
