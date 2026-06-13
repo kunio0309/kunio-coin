@@ -614,29 +614,41 @@ window.submitName = async function(){
   const name = document.getElementById('band-name-input').value.trim();
   if(!name){ showToast('名前を入力してください'); return; }
 
-  const userRef = doc(db,'seminar_users',currentUser.uid);
-  const snap    = await getDoc(userRef);
-  if(snap.exists()){
-    await updateDoc(userRef,{ bandName: name });
-  } else {
-    // 新規登録：参加ボーナスを設定から取得（未設定なら1000枚）
-    const cfgSnap   = await getDoc(doc(db,'seminar_config','main'));
-    const joinBonus = (cfgSnap.exists() && cfgSnap.data().joinBonus !== undefined)
-                      ? Number(cfgSnap.data().joinBonus) : 3000;
-    await setDoc(userRef,{
-      uid:currentUser.uid, email:currentUser.email,
-      bandName: name, coins: joinBonus, joinedAt:serverTimestamp()
-    });
-    // 0枚より多い場合は履歴に記録
-    if(joinBonus > 0){
-      await addDoc(collection(db,'seminar_coin_history'),{
-        type:'join_bonus', uid:currentUser.uid, name,
-        amount:joinBonus, grantedAt:serverTimestamp()
+  // ボタンをすぐに処理中表示にして二重送信を防ぐ
+  const btn = document.querySelector('#screen-name .btn-primary');
+  if(btn){ btn.disabled=true; btn.textContent='登録中...'; }
+
+  try{
+    const userRef = doc(db,'seminar_users',currentUser.uid);
+    // ユーザー情報とconfig設定を並列取得（速くなる）
+    const [snap, cfgSnap] = await Promise.all([
+      getDoc(userRef),
+      getDoc(doc(db,'seminar_config','main'))
+    ]);
+    if(snap.exists()){
+      await updateDoc(userRef,{ bandName: name });
+    } else {
+      // 新規登録：参加ボーナスを設定から取得（未設定なら3000枚）
+      const joinBonus = (cfgSnap.exists() && cfgSnap.data().joinBonus !== undefined)
+                        ? Number(cfgSnap.data().joinBonus) : 3000;
+      await setDoc(userRef,{
+        uid:currentUser.uid, email:currentUser.email,
+        bandName: name, coins: joinBonus, joinedAt:serverTimestamp()
       });
+      // 0枚より多い場合は履歴に記録
+      if(joinBonus > 0){
+        await addDoc(collection(db,'seminar_coin_history'),{
+          type:'join_bonus', uid:currentUser.uid, name,
+          amount:joinBonus, grantedAt:serverTimestamp()
+        });
+      }
     }
+    location.reload();
+  } catch(e){
+    // エラー時はボタンを復活させる
+    if(btn){ btn.disabled=false; btn.textContent='登録して始める'; }
+    showToast('エラーが発生しました。もう一度お試しください');
   }
-  // 再ロードして通常画面へ
-  location.reload();
 };
 
 // ── BAND名変更 ──────────────────────────────────
