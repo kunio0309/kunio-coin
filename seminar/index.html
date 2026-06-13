@@ -109,6 +109,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .tease-box{background:rgba(105,240,174,.05);border:1px solid rgba(105,240,174,.15);
   border-radius:14px;padding:20px;text-align:center;margin-bottom:16px;}
 
+/* トグルスイッチ */
+.toggle-switch{position:relative;display:inline-block;width:52px;height:28px;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+  background:var(--d3);border:1px solid var(--border);border-radius:28px;transition:.3s;}
+.toggle-slider:before{position:absolute;content:"";height:20px;width:20px;
+  left:3px;bottom:3px;background:var(--dim);border-radius:50%;transition:.3s;}
+.toggle-switch input:checked + .toggle-slider{background:rgba(105,240,174,.2);border-color:var(--gb);}
+.toggle-switch input:checked + .toggle-slider:before{transform:translateX(24px);background:var(--gb);}
+
 /* 管理者ユーザー行 */
 .user-row{padding:12px 0;border-bottom:1px solid var(--border);}
 .user-row:last-child{border-bottom:none;}
@@ -231,12 +241,28 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
     </div>
 
+    <!-- 非公開時：ティーズ表示 -->
     <div id="tease-section" class="tease-box">
       <div style="font-size:36px;margin-bottom:10px;">🎁</div>
       <div style="font-size:14px;color:var(--dim);line-height:1.8;">
         コインの使い道は...<br>
         <strong style="color:var(--gb);">最後のお楽しみ♩</strong>
       </div>
+    </div>
+
+    <!-- 公開時：コイン交換セクション -->
+    <div id="exchange-section" class="card" style="display:none;">
+      <div class="section-title">🎁 コインを使う</div>
+      <div style="font-size:13px;color:var(--dim);margin-bottom:16px;line-height:1.6;">保有コインを入会費用に充てることができます。</div>
+      <div style="background:rgba(105,240,174,.07);border:1px solid rgba(105,240,174,.2);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:4px;">現在の保有コイン</div>
+        <div style="font-size:28px;font-weight:900;color:var(--gb);" id="exchange-coin-display">0<span style="font-size:14px;margin-left:4px;">枚</span></div>
+      </div>
+      <div id="exchange-applied-msg" style="display:none;background:rgba(105,240,174,.1);border:1px solid rgba(105,240,174,.4);border-radius:12px;padding:14px;font-size:13px;color:var(--gb);text-align:center;margin-bottom:14px;">
+        ✅ 申請済みです。手続きをお待ちください。
+      </div>
+      <button class="btn-primary" id="exchange-btn" onclick="submitExchangeRequest()" style="max-width:none;">✅ 全額使って申請する</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px;text-align:center;line-height:1.6;">申請後、運営から連絡があるまでお待ちください</div>
     </div>
 
     <!-- コイン受け取り履歴 -->
@@ -281,6 +307,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="section-title">● カウントダウン開始</div>
       <div id="admin-expiry-status" style="font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.6;">読み込み中...</div>
       <button class="btn-primary" onclick="startCountdown()">🚀 カウントダウン開始（今日から10日間）</button>
+    </div>
+
+    <!-- 特典交換 公開設定 -->
+    <div class="card">
+      <div class="section-title">● 特典交換ページ 公開設定</div>
+      <div style="font-size:13px;color:var(--dim);margin-bottom:16px;line-height:1.6;">ONにするとユーザーに「コインを使う」セクションが表示されます</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <label class="toggle-switch">
+          <input type="checkbox" id="exchange-enabled-toggle" onchange="saveExchangeEnabled()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span id="exchange-enabled-label" style="font-size:14px;font-weight:700;color:var(--dim);">OFF（非公開）</span>
+      </div>
     </div>
 
     <!-- 新規参加ボーナス -->
@@ -485,9 +524,28 @@ onAuthStateChanged(auth, async(user)=>{
       document.getElementById('expiry-display').textContent = '未設定';
     }
 
+    // 特典交換セクション 表示制御
+    const exchangeEnabled = cfgSnap.exists() && cfgSnap.data().exchangeEnabled === true;
+    document.getElementById('tease-section').style.display    = exchangeEnabled ? 'none'  : '';
+    document.getElementById('exchange-section').style.display = exchangeEnabled ? ''      : 'none';
+    if(exchangeEnabled){
+      document.getElementById('exchange-coin-display').innerHTML =
+        `${(ud.coins||0).toLocaleString()}<span style="font-size:14px;margin-left:4px;">枚</span>`;
+      // 申請済みチェック
+      getDocs(query(collection(db,'seminar_requests'),
+        where('uid','==',user.uid), where('status','in',['pending','approved']), limit(1)))
+        .then(sq=>{
+          if(!sq.empty){
+            document.getElementById('exchange-applied-msg').style.display='block';
+            const btn=document.getElementById('exchange-btn');
+            btn.disabled=true; btn.style.opacity='0.5';
+          }
+        }).catch(()=>{});
+    }
+
     showScreen('screen-seminar');
     loadRanking(user.uid);
-    loadUserCoinHistory(user.uid);
+    loadUserCoinHistory(user.uid, ud.joinedAt);
 
   } catch(err){
     showToast('読み込みエラー: ' + (err.code||err.message));
@@ -588,6 +646,16 @@ async function loadAdminData(){
       : `✅ ${d.toLocaleDateString('ja-JP')} まで有効`;
   } else { stEl.textContent='未設定（カウントダウンはまだ始まっていません）'; }
 
+  // 特典交換トグル状態を反映
+  const toggleEl = document.getElementById('exchange-enabled-toggle');
+  const labelEl  = document.getElementById('exchange-enabled-label');
+  if(toggleEl){
+    const enabled = cfgSnap.exists() && cfgSnap.data().exchangeEnabled === true;
+    toggleEl.checked = enabled;
+    labelEl.textContent = enabled ? 'ON（公開中）' : 'OFF（非公開）';
+    labelEl.style.color = enabled ? 'var(--gb)' : 'var(--dim)';
+  }
+
   // 参加ボーナス設定を反映
   const bonusEl = document.getElementById('join-bonus-amount');
   if(bonusEl){
@@ -652,28 +720,127 @@ async function loadAdminData(){
     listEl.innerHTML=html;
   }
 
-  // 申請履歴
-  const reqEl   = document.getElementById('admin-requests');
-  const reqSnap = await getDocs(collection(db,'seminar_requests'));
-  if(reqSnap.empty){
-    reqEl.innerHTML='<div style="font-size:13px;color:var(--dim);text-align:center;padding:12px;">申請はまだありません</div>';
-  } else {
-    let html='';
-    reqSnap.forEach(d=>{
-      const r=d.data();
-      html+=`<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
-        <span style="color:var(--gb);font-weight:700;">${escHtml(r.name||r.email)}</span>
-        が <span style="color:var(--gold);">${escHtml(r.benefitName)}</span>（${(r.cost||0).toLocaleString()}枚）を申請
-      </div>`;
-    });
-    reqEl.innerHTML=html;
-  }
+  // 申請一覧
+  await loadExchangeRequests();
 
   await loadHistory();
 }
 
+// ── コイン音 ──────────────────────────────────────
+function playCoinSound(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [523,659,784,1047].forEach((freq,i)=>{
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value=freq; osc.type='sine';
+      const t=ctx.currentTime+i*0.09;
+      gain.gain.setValueAtTime(0,t);
+      gain.gain.linearRampToValueAtTime(0.3,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+      osc.start(t); osc.stop(t+0.5);
+    });
+  }catch(e){}
+}
+
+// ── 特典交換 ON/OFF（管理） ────────────────────────
+window.saveExchangeEnabled = async function(){
+  const el=document.getElementById('exchange-enabled-toggle');
+  const enabled=el.checked;
+  await setDoc(doc(db,'seminar_config','main'),{exchangeEnabled:enabled},{merge:true});
+  const lb=document.getElementById('exchange-enabled-label');
+  lb.textContent=enabled?'ON（公開中）':'OFF（非公開）';
+  lb.style.color=enabled?'var(--gb)':'var(--dim)';
+  showToast(enabled?'✅ 特典交換ページを公開しました':'特典交換ページを非公開にしました');
+};
+
+// ── 申請する（ユーザー） ───────────────────────────
+window.submitExchangeRequest = async function(){
+  if(!currentUser) return;
+  const userRef=doc(db,'seminar_users',currentUser.uid);
+  const userSnap=await getDoc(userRef);
+  if(!userSnap.exists()) return;
+  const ud=userSnap.data();
+  const coins=ud.coins||0;
+  if(coins<=0){showToast('使えるコインがありません');return;}
+  const reqSnap=await getDocs(query(collection(db,'seminar_requests'),
+    where('uid','==',currentUser.uid),where('status','in',['pending','approved']),limit(1)));
+  if(!reqSnap.empty){showToast('すでに申請済みです');return;}
+  await addDoc(collection(db,'seminar_requests'),{
+    uid:currentUser.uid, name:ud.bandName,
+    email:ud.email||currentUser.email,
+    coins:coins, status:'pending', requestedAt:serverTimestamp()
+  });
+  await updateDoc(userRef,{coins:0});
+  await addDoc(collection(db,'seminar_coin_history'),{
+    type:'exchange', uid:currentUser.uid, name:ud.bandName,
+    amount:-coins, grantedAt:serverTimestamp()
+  });
+  playCoinSound();
+  document.getElementById('coin-balance').textContent='0';
+  document.getElementById('exchange-coin-display').innerHTML='0<span style="font-size:14px;margin-left:4px;">枚</span>';
+  const btn=document.getElementById('exchange-btn');
+  btn.disabled=true; btn.style.opacity='0.5';
+  document.getElementById('exchange-applied-msg').style.display='block';
+  showToast('✅ 申請が完了しました！');
+};
+
+// ── 申請一覧（管理） ──────────────────────────────
+async function loadExchangeRequests(){
+  const el=document.getElementById('admin-requests');
+  if(!el) return;
+  try{
+    const snap=await getDocs(query(collection(db,'seminar_requests'),limit(100)));
+    if(snap.empty){
+      el.innerHTML='<div style="font-size:13px;color:var(--dim);text-align:center;padding:12px;">申請はまだありません</div>';
+      return;
+    }
+    const docs=[...snap.docs].sort((a,b)=>(b.data().requestedAt?.seconds||0)-(a.data().requestedAt?.seconds||0));
+    let html='';
+    docs.forEach(d=>{
+      const h=d.data();
+      const dt=h.requestedAt?h.requestedAt.toDate().toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+      const sc=h.status==='approved'?'var(--gb)':h.status==='rejected'?'var(--red)':'var(--gold)';
+      const st=h.status==='approved'?'✅ 承認済み':h.status==='rejected'?'❌ 却下':'⏳ 申請中';
+      html+=`<div style="padding:12px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:13px;font-weight:700;">${escHtml(h.name||'—')}</span>
+          <span style="font-size:12px;color:${sc};font-weight:700;">${st}</span>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-bottom:6px;">${escHtml(h.email||'')} ／ ${(h.coins||0).toLocaleString()}枚 ／ ${dt}</div>
+        ${h.status==='pending'?`<div style="display:flex;gap:8px;">
+          <button class="btn-grant" onclick="approveRequest('${d.id}')" style="flex:1;">✅ 承認</button>
+          <button class="btn-secondary" onclick="rejectRequest('${d.id}','${h.uid}',${h.coins||0})" style="flex:1;margin:0;font-size:12px;padding:8px;">❌ 却下（返還）</button>
+        </div>`:''}
+      </div>`;
+    });
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>';
+  }
+}
+
+// ── 承認（管理） ───────────────────────────────────
+window.approveRequest = async function(requestId){
+  await updateDoc(doc(db,'seminar_requests',requestId),{status:'approved',approvedAt:serverTimestamp()});
+  showToast('✅ 承認しました');
+  await loadAdminData();
+};
+
+// ── 却下・コイン返還（管理） ──────────────────────
+window.rejectRequest = async function(requestId, uid, coins){
+  await updateDoc(doc(db,'seminar_requests',requestId),{status:'rejected',rejectedAt:serverTimestamp()});
+  await updateDoc(doc(db,'seminar_users',uid),{coins:increment(coins)});
+  await addDoc(collection(db,'seminar_coin_history'),{
+    type:'individual', uid, amount:coins, grantedAt:serverTimestamp(),
+    name:'申請却下によるコイン返還'
+  });
+  showToast('❌ 却下しました（コインを返還しました）');
+  await loadAdminData();
+};
+
 // ── ユーザーコイン履歴 ───────────────────────────
-async function loadUserCoinHistory(uid){
+async function loadUserCoinHistory(uid, joinedAt){
   const histEl = document.getElementById('user-coin-history');
   if(!histEl) return;
   try{
@@ -683,11 +850,17 @@ async function loadUserCoinHistory(uid){
       getDocs(query(collection(db,'seminar_coin_history'), where('type','==','all'), limit(50))),
       getDocs(query(collection(db,'seminar_coin_history'), where('uids','array-contains',uid), limit(50)))
     ]);
+    // joinedAt以降のデータのみ（古いUID再利用や退会前のデータを除外）
+    const joinedSec = joinedAt ? joinedAt.seconds : 0;
     // 重複除去しながらマージ
     const seen = new Set();
     const all  = [];
     [...q1snap.docs, ...q2snap.docs, ...q3snap.docs].forEach(d=>{
-      if(!seen.has(d.id)){ seen.add(d.id); all.push(d); }
+      if(!seen.has(d.id)){
+        seen.add(d.id);
+        const grantedSec = d.data().grantedAt?.seconds || 0;
+        if(grantedSec >= joinedSec) all.push(d);
+      }
     });
     // 日付降順でソート
     all.sort((a,b)=>(b.data().grantedAt?.seconds||0)-(a.data().grantedAt?.seconds||0));
@@ -704,6 +877,7 @@ async function loadUserCoinHistory(uid){
       if(h.type==='join_bonus'){ icon='🎉'; label='新規参加ボーナス'; }
       else if(h.type==='all')  { icon='🎁'; label='全員配布'; }
       else if(h.type==='checked'){ icon='🎁'; label='管理者から配布'; }
+      else if(h.type==='exchange'){ icon='🎫'; label='入会費用に充てた'; }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
