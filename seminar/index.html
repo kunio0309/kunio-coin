@@ -418,7 +418,7 @@ import { getAuth, signOut, onAuthStateChanged,
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
          deleteDoc, collection, query, where, orderBy, limit,
-         serverTimestamp, increment, Timestamp }
+         serverTimestamp, increment, Timestamp, writeBatch }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -811,16 +811,31 @@ window.confirmExchange = async function(){
   const userSnap=await getDoc(userRef);
   if(!userSnap.exists()) return;
   const ud=userSnap.data();
-  await addDoc(collection(db,'seminar_requests'),{
-    uid:currentUser.uid, name:ud.bandName,
-    email:ud.email||currentUser.email,
-    coins:coins, status:'pending', requestedAt:serverTimestamp()
-  });
-  await updateDoc(userRef,{coins:0});
-  await addDoc(collection(db,'seminar_coin_history'),{
-    type:'exchange', uid:currentUser.uid, name:ud.bandName,
-    amount:-coins, grantedAt:serverTimestamp()
-  });
+
+  // ── バッチ書き込み（全部成功 or 全部失敗で枚数が消えない） ──
+  try{
+    const batch = writeBatch(db);
+    // 申請レコード作成
+    const reqRef = doc(collection(db,'seminar_requests'));
+    batch.set(reqRef,{
+      uid:currentUser.uid, name:ud.bandName,
+      email:ud.email||currentUser.email,
+      coins:coins, status:'pending', requestedAt:serverTimestamp()
+    });
+    // コインを0に更新
+    batch.update(userRef,{coins:0});
+    // 履歴記録
+    const histRef = doc(collection(db,'seminar_coin_history'));
+    batch.set(histRef,{
+      type:'exchange', uid:currentUser.uid, name:ud.bandName,
+      amount:-coins, grantedAt:serverTimestamp()
+    });
+    await batch.commit(); // ← 3つ全部成功するか、全部失敗（コイン消滅なし）
+  }catch(e){
+    showToast('エラーが発生しました。もう一度お試しください');
+    return;
+  }
+
   playCoinSound();
   document.getElementById('coin-balance').textContent='0';
   document.getElementById('exchange-coin-display').innerHTML='0<span style="font-size:14px;margin-left:4px;">枚</span>';
