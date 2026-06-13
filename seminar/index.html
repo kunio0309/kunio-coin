@@ -86,6 +86,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   margin-bottom:12px;outline:none;}
 .form-input:focus{border-color:rgba(105,240,174,.4);}
 .name-hint{font-size:12px;color:var(--dim);margin-bottom:20px;line-height:1.7;}
+.name-warning{background:rgba(255,213,79,.12);border:1px solid rgba(255,213,79,.5);
+  border-radius:12px;padding:14px 16px;margin-bottom:16px;line-height:1.8;}
+.name-warning-title{font-size:14px;font-weight:900;color:var(--gold);display:block;margin-bottom:4px;}
+.name-warning-body{font-size:12px;color:rgba(255,213,79,.85);display:block;}
 
 /* 期限切れ・締め出し */
 #screen-expired,#screen-banned{flex-direction:column;
@@ -175,10 +179,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="app-title">KUNIO-COIN</div>
   <div class="app-subtitle">名前を登録</div>
   <div style="width:100%;max-width:320px;">
-    <p class="name-hint">
-      BANDと同じ名前でお願いします。<br>
-      KUNIOがBANDを確認しながらコインを配布します。
-    </p>
+    <div class="name-warning">
+      <span class="name-warning-title">⚠️ 必ずBANDと同じお名前で登録してください</span>
+      <span class="name-warning-body">名前が一致しないとコインが配布されない場合があります。<br>後から変更することも可能です。</span>
+    </div>
     <input class="form-input" type="text" id="band-name-input" placeholder="例：田中マン" maxlength="20">
     <button class="btn-primary" onclick="submitName()">登録して始める</button>
   </div>
@@ -215,6 +219,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
     </div>
     <div class="card" id="name-edit" style="display:none;">
+      <div class="name-warning" style="margin-bottom:12px;">
+        <span class="name-warning-title">⚠️ 必ずBANDと同じお名前で登録してください</span>
+        <span class="name-warning-body">名前が一致しないとコインが配布されない場合があります。</span>
+      </div>
       <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">BAND名を変更</div>
       <input class="form-input" type="text" id="band-name-edit" placeholder="例：田中マン" maxlength="20">
       <div style="display:flex;gap:8px;">
@@ -669,11 +677,11 @@ async function loadUserCoinHistory(uid){
   const histEl = document.getElementById('user-coin-history');
   if(!histEl) return;
   try{
-    // 3種類のクエリを並行取得
+    // 3種類のクエリを並行取得（orderByなしでインデックス不要に）
     const [q1snap, q2snap, q3snap] = await Promise.all([
-      getDocs(query(collection(db,'seminar_coin_history'), where('uid','==',uid), orderBy('grantedAt','desc'), limit(30))),
-      getDocs(query(collection(db,'seminar_coin_history'), where('type','==','all'), orderBy('grantedAt','desc'), limit(30))),
-      getDocs(query(collection(db,'seminar_coin_history'), where('uids','array-contains',uid), orderBy('grantedAt','desc'), limit(30)))
+      getDocs(query(collection(db,'seminar_coin_history'), where('uid','==',uid), limit(50))),
+      getDocs(query(collection(db,'seminar_coin_history'), where('type','==','all'), limit(50))),
+      getDocs(query(collection(db,'seminar_coin_history'), where('uids','array-contains',uid), limit(50)))
     ]);
     // 重複除去しながらマージ
     const seen = new Set();
