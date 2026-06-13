@@ -275,7 +275,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="section-title">● 新規参加ボーナス</div>
       <div style="font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.6;">登録時に自動配布するコイン枚数<br><span style="font-size:11px;">（0枚にするとボーナスなし）</span></div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
-        <input type="number" id="join-bonus-amount" class="grant-input" style="width:90px;" value="1000" min="0">
+        <input type="number" id="join-bonus-amount" class="grant-input" style="width:90px;" value="3000" min="0">
         <span style="font-size:13px;color:var(--dim);">枚を参加時に自動配布</span>
       </div>
       <button class="btn-primary" onclick="saveJoinBonus()">💾 設定を保存する</button>
@@ -522,7 +522,7 @@ window.submitName = async function(){
     // 新規登録：参加ボーナスを設定から取得（未設定なら1000枚）
     const cfgSnap   = await getDoc(doc(db,'seminar_config','main'));
     const joinBonus = (cfgSnap.exists() && cfgSnap.data().joinBonus !== undefined)
-                      ? Number(cfgSnap.data().joinBonus) : 1000;
+                      ? Number(cfgSnap.data().joinBonus) : 3000;
     await setDoc(userRef,{
       uid:currentUser.uid, email:currentUser.email,
       bandName: name, coins: joinBonus, joinedAt:serverTimestamp()
@@ -575,7 +575,7 @@ async function loadAdminData(){
   const bonusEl = document.getElementById('join-bonus-amount');
   if(bonusEl){
     const currentBonus = (cfgSnap.exists() && cfgSnap.data().joinBonus !== undefined)
-                         ? cfgSnap.data().joinBonus : 1000;
+                         ? cfgSnap.data().joinBonus : 3000;
     bonusEl.value = currentBonus;
   }
 
