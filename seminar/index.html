@@ -1087,10 +1087,14 @@ async function loadHistory(){
     else if(h.type==='checked') who=`<span style="color:var(--text);font-weight:700;">${escHtml((h.names||[]).slice(0,3).join('、'))}${(h.names||[]).length>3?` 他${h.names.length-3}人`:''}</span>（${h.count}人）`;
     else if(h.type==='all') who=`<span style="color:var(--text);font-weight:700;">全員（${h.count}人）</span>`;
     else if(h.type==='join_bonus') who=`<span style="color:var(--gold);font-weight:700;">🎉 新規参加：${escHtml(h.name)}</span>`;
-    html+=`<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;">
-      <span style="color:var(--dim);flex-shrink:0;">${dt}</span>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${who}</span>
-      <span style="color:var(--gb);font-weight:700;flex-shrink:0;">+${(h.amount||0).toLocaleString()}枚</span>
+    const comment = h.comment ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;padding-left:4px;">💬 ${escHtml(h.comment)}</div>` : '';
+    html+=`<div style="padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--dim);flex-shrink:0;">${dt}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${who}</span>
+        <span style="color:${(h.amount||0)>=0?'var(--gb)':'var(--red)'};font-weight:700;flex-shrink:0;">${(h.amount||0)>=0?'+':''}${(h.amount||0).toLocaleString()}枚</span>
+      </div>
+      ${comment}
     </div>`;
   });
   histEl.innerHTML=html;
