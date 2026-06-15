@@ -753,10 +753,11 @@ async function loadAdminData(){
           </div>
           <span class="user-coins-badge">${(u.coins||0).toLocaleString()}枚</span>
         </div>
+        <input type="text" class="grant-comment" placeholder="📝 理由・コメント（例：自己紹介ありがとう！）" style="width:100%;box-sizing:border-box;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12px;margin-top:8px;display:block;">
         <div class="user-row-actions">
           <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
-          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.parentElement,1)">＋配布</button>
-          <button class="btn-reduce" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.parentElement,-1)">ー減算</button>
+          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),1)">＋配布</button>
+          <button class="btn-reduce" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),-1)">ー減算</button>
           <button class="btn-ban" onclick="toggleBan('${d.id}',${u.banned?'true':'false'})">${u.banned?'退出解除':'退出させる'}</button>
           <button class="btn-ban" style="background:rgba(180,0,0,.12);border-color:rgba(180,0,0,.3);" onclick="deleteUser('${d.id}','${escHtml(u.bandName||u.email||'名前なし')}')">🗑️ 削除</button>
         </div>
@@ -971,11 +972,15 @@ async function loadUserCoinHistory(uid, joinedAt){
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
       const sign   = amt>=0 ? '+' : '';
-      html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
-        <span style="font-size:18px;flex-shrink:0;">${icon}</span>
-        <span style="flex:1;font-weight:700;">${label}</span>
-        <span style="color:var(--dim);font-size:11px;flex-shrink:0;">${dt}</span>
-        <span style="color:${color};font-weight:900;font-size:15px;flex-shrink:0;">${sign}${amt.toLocaleString()}枚</span>
+      const comment = h.comment ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${h.comment}</div>` : '';
+      html+=`<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;flex-shrink:0;">${icon}</span>
+          <span style="flex:1;font-weight:700;">${label}</span>
+          <span style="color:var(--dim);font-size:11px;flex-shrink:0;">${dt}</span>
+          <span style="color:${color};font-weight:900;font-size:15px;flex-shrink:0;">${sign}${amt.toLocaleString()}枚</span>
+        </div>
+        ${comment}
       </div>`;
     });
     histEl.innerHTML=html;
@@ -1030,16 +1035,19 @@ window.grantAllCoins = async function(){
 
 // ── 個別コイン配布・減算 ─────────────────────────
 window.grantCoin = async function(uid, container, sign){
-  const input  = container.querySelector('input.grant-input');
-  const amount = parseInt(input.value);
-  const name   = container.querySelector('[data-name]').dataset.name || uid;
+  const input   = container.querySelector('input.grant-input');
+  const comment = container.querySelector('input.grant-comment')?.value.trim() || '';
+  const amount  = parseInt(input.value);
+  const name    = container.querySelector('[data-name]').dataset.name || uid;
   if(!amount || amount <= 0 || isNaN(amount)){ showToast('枚数を入力してください'); return; }
   const realAmount = amount * sign;
   const label = sign > 0 ? `${amount.toLocaleString()}枚を配布` : `${amount.toLocaleString()}枚を減算`;
   if(!confirm(`「${name}」に ${label} しますか？`)) return;
   await updateDoc(doc(db,'seminar_users',uid),{ coins:increment(realAmount) });
   await addDoc(collection(db,'seminar_coin_history'),{
-    type:'individual', uid, name, amount:realAmount, grantedAt:serverTimestamp()
+    type:'individual', uid, name, amount:realAmount,
+    comment: comment || null,
+    grantedAt:serverTimestamp()
   });
   showToast(`✅ ${name} の ${label}が完了しました`);
   await loadAdminData();
@@ -1090,9 +1098,20 @@ async function loadHistory(){
 
 // ── ユーザー削除 ─────────────────────────────────
 window.deleteUser = async function(uid, name){
-  if(!confirm(`「${name}」を完全に削除しますか？\nこの操作は元に戻せません。`)) return;
+  if(!confirm(`「${name}」を完全に削除しますか？\nコイン履歴・申請履歴も全て削除されます。\nこの操作は元に戻せません。`)) return;
+  // ユーザードキュメント削除
   await deleteDoc(doc(db,'seminar_users',uid));
-  showToast(`🗑️ ${name} を削除しました`);
+  // コイン履歴を全削除
+  const histSnap = await getDocs(query(
+    collection(db,'seminar_coin_history'), where('uid','==',uid), limit(200)
+  ));
+  await Promise.all(histSnap.docs.map(d=>deleteDoc(d.ref)));
+  // 申請履歴を全削除
+  const reqSnap = await getDocs(query(
+    collection(db,'seminar_requests'), where('uid','==',uid), limit(50)
+  ));
+  await Promise.all(reqSnap.docs.map(d=>deleteDoc(d.ref)));
+  showToast(`🗑️ ${name} のデータを全て削除しました`);
   await loadAdminData();
 };
 
