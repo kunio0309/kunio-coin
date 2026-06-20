@@ -353,15 +353,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-primary" onclick="grantAllCoins()">全員に配布する</button>
     </div>
 
-    <!-- ランキング -->
+    <!-- ランキング＋全機能 -->
     <div class="card">
       <div class="section-title">● コインランキング</div>
-      <div id="admin-ranking"><div class="loading">読み込み中...</div></div>
-    </div>
-
-    <!-- 参加者一覧（チェック配布） -->
-    <div class="card">
-      <div class="section-title">● 参加者一覧</div>
 
       <!-- チェック配布バー -->
       <div class="check-bar">
@@ -374,7 +368,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <button class="btn-grant" onclick="grantChecked()">選択した人に配布</button>
       </div>
 
-      <div id="admin-user-list"><div class="loading">読み込み中...</div></div>
+      <div id="admin-ranking"><div class="loading">読み込み中...</div></div>
     </div>
 
     <!-- 配布履歴 -->
@@ -709,13 +703,11 @@ async function loadAdminData(){
     bonusEl.value = currentBonus;
   }
 
-  // 参加者一覧
-  const listEl = document.getElementById('admin-user-list');
-  const snap   = await getDocs(collection(db,'seminar_users'));
+  const snap = await getDocs(collection(db,'seminar_users'));
   document.getElementById('check-all').checked = false;
   updateCheckCount();
 
-  // ランキング表示
+  // ランキング＋全機能
   const rankEl = document.getElementById('admin-ranking');
   if(snap.empty){
     rankEl.innerHTML='<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">参加者はまだいません</div>';
@@ -725,46 +717,21 @@ async function loadAdminData(){
     let rhtml='';
     sorted.forEach((d,i)=>{
       const u=d.data();
+      const bb=u.banned?'<span class="badge-banned">退出済み</span>':'';
       const rank=i<3?`<span style="font-size:20px;">${medals[i]}</span>`
         :`<span style="font-size:13px;font-weight:700;color:var(--dim);min-width:24px;text-align:center;">${i+1}</span>`;
       rhtml+=`<div class="user-row" style="padding:10px 0;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" class="user-check uid-check" data-uid="${d.id}" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onchange="updateCheckCount()">
           ${rank}
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||u.email||'名前なし')}</div>
+            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||u.email||'名前なし')}${bb}</div>
             <div style="font-size:11px;color:var(--dim);">${escHtml(u.email||'')}</div>
           </div>
           <span style="color:var(--gb);font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:20px;flex-shrink:0;">${(u.coins||0).toLocaleString()}<span style="font-size:11px;color:var(--dim);margin-left:2px;">枚</span></span>
         </div>
         <input type="text" class="grant-comment" placeholder="📝 コメント（例：自己紹介ありがとう！）" style="width:100%;box-sizing:border-box;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;margin-top:8px;display:block;">
         <div class="user-row-actions" style="margin-top:6px;">
-          <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
-          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),1)">＋配布</button>
-          <button class="btn-reduce" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),-1)">ー減算</button>
-        </div>
-      </div>`;
-    });
-    rankEl.innerHTML=rhtml;
-  }
-
-  if(snap.empty){
-    listEl.innerHTML='<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">参加者はまだいません</div>';
-  } else {
-    let html='';
-    snap.forEach(d=>{
-      const u=d.data();
-      const bb=u.banned?'<span class="badge-banned">退出済み</span>':'';
-      html+=`<div class="user-row">
-        <div class="user-row-top">
-          <input type="checkbox" class="user-check uid-check" data-uid="${d.id}" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onchange="updateCheckCount()">
-          <div class="user-info">
-            <div class="user-info-name">${escHtml(u.bandName||u.email||'名前なし')}${bb}</div>
-            <div class="user-info-email">${escHtml(u.email||'')}</div>
-          </div>
-          <span class="user-coins-badge">${(u.coins||0).toLocaleString()}枚</span>
-        </div>
-        <input type="text" class="grant-comment" placeholder="📝 理由・コメント（例：自己紹介ありがとう！）" style="width:100%;box-sizing:border-box;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12px;margin-top:8px;display:block;">
-        <div class="user-row-actions">
           <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
           <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),1)">＋配布</button>
           <button class="btn-reduce" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),-1)">ー減算</button>
@@ -775,7 +742,7 @@ async function loadAdminData(){
         <div id="user-hist-${d.id}" style="display:none;margin-top:6px;background:var(--d3);border-radius:8px;padding:8px;"></div>
       </div>`;
     });
-    listEl.innerHTML=html;
+    rankEl.innerHTML=rhtml;
   }
 
   // 申請一覧
