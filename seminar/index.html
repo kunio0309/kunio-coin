@@ -353,6 +353,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-primary" onclick="grantAllCoins()">全員に配布する</button>
     </div>
 
+    <!-- ランキング -->
+    <div class="card">
+      <div class="section-title">● コインランキング</div>
+      <div id="admin-ranking"><div class="loading">読み込み中...</div></div>
+    </div>
+
     <!-- 参加者一覧（チェック配布） -->
     <div class="card">
       <div class="section-title">● 参加者一覧</div>
@@ -369,12 +375,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
 
       <div id="admin-user-list"><div class="loading">読み込み中...</div></div>
-    </div>
-
-    <!-- ランキング -->
-    <div class="card">
-      <div class="section-title">● コインランキング</div>
-      <div id="admin-ranking"><div class="loading">読み込み中...</div></div>
     </div>
 
     <!-- 配布履歴 -->
@@ -771,6 +771,8 @@ async function loadAdminData(){
           <button class="btn-ban" onclick="toggleBan('${d.id}',${u.banned?'true':'false'})">${u.banned?'退出解除':'退出させる'}</button>
           <button class="btn-ban" style="background:rgba(180,0,0,.12);border-color:rgba(180,0,0,.3);" onclick="deleteUser('${d.id}','${escHtml(u.bandName||u.email||'名前なし')}')">🗑️ 削除</button>
         </div>
+        <button onclick="toggleUserHistory('${d.id}',this)" style="margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--dim);font-size:11px;cursor:pointer;width:100%;">📋 この人の配布履歴を見る</button>
+        <div id="user-hist-${d.id}" style="display:none;margin-top:6px;background:var(--d3);border-radius:8px;padding:8px;"></div>
       </div>`;
     });
     listEl.innerHTML=html;
@@ -1085,6 +1087,51 @@ window.grantCoin = async function(uid, container, sign){
   }
   showToast(`✅ ${name} の ${label}が完了しました`);
   await loadAdminData();
+};
+
+// ── 個人配布履歴（管理者用） ────────────────────────
+window.toggleUserHistory = async function(uid, btn){
+  const el = document.getElementById('user-hist-'+uid);
+  if(el.style.display !== 'none'){
+    el.style.display = 'none';
+    btn.textContent = '📋 この人の配布履歴を見る';
+    return;
+  }
+  el.style.display = 'block';
+  btn.textContent = '📋 閉じる';
+  el.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:6px;">読み込み中...</div>';
+  try{
+    const [q1,q2,q3] = await Promise.all([
+      getDocs(query(collection(db,'seminar_coin_history'), where('uid','==',uid), limit(20))),
+      getDocs(query(collection(db,'seminar_coin_history'), where('type','==','all'), limit(10))),
+      getDocs(query(collection(db,'seminar_coin_history'), where('uids','array-contains',uid), limit(10)))
+    ]);
+    const seen=new Set(); const all=[];
+    [...q1.docs,...q2.docs,...q3.docs].forEach(d=>{ if(!seen.has(d.id)){ seen.add(d.id); all.push(d); } });
+    all.sort((a,b)=>(b.data().grantedAt?.seconds||0)-(a.data().grantedAt?.seconds||0));
+    if(all.length===0){ el.innerHTML='<div style="font-size:12px;color:var(--dim);text-align:center;padding:6px;">履歴なし</div>'; return; }
+    let html='';
+    all.slice(0,15).forEach(d=>{
+      const h=d.data(); const amt=h.amount||0;
+      const dt=h.grantedAt?h.grantedAt.toDate().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+      let label='';
+      if(h.type==='join_bonus') label='参加ボーナス';
+      else if(h.type==='all') label='全員配布';
+      else if(h.type==='checked') label='チェック配布';
+      else if(h.type==='exchange') label='値引き申請';
+      else if(amt>=0) label='個別配布';
+      else label='コイン調整';
+      const comment = h.comment ? `<span style="color:var(--dim);"> 💬${escHtml(h.comment)}</span>` : '';
+      html+=`<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <span style="color:var(--dim);flex-shrink:0;">${dt}</span>
+        <span style="flex:1;">${label}${comment}</span>
+        <span style="color:${amt>=0?'var(--gb)':'var(--red)'};font-weight:700;flex-shrink:0;">${amt>=0?'+':''}${amt.toLocaleString()}枚</span>
+      </div>`;
+    });
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div style="font-size:12px;color:var(--dim);text-align:center;padding:6px;">読み込みエラー</div>';
+  }
 };
 
 // ── 参加ボーナス設定保存 ──────────────────────────
