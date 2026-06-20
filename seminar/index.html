@@ -960,10 +960,12 @@ async function loadUserCoinHistory(uid, joinedAt){
       return;
     }
     let html='';
-    // join_bonus は最新の1件だけ表示（複数押しによる重複を除去）
+    // マイナス（減算）はユーザーには表示しない・join_bonus重複除去
     let joinBonusShown = false;
     const deduped = all.filter(d=>{
-      if(d.data().type==='join_bonus'){
+      const h = d.data();
+      if(h.type==='individual' && (h.amount||0) < 0) return false;
+      if(h.type==='join_bonus'){
         if(joinBonusShown) return false;
         joinBonusShown = true;
       }
@@ -1018,12 +1020,18 @@ window.grantChecked = async function(){
   if(!confirm(`${checked.length}人に ${amount.toLocaleString()}枚 を配布しますか？`)) return;
   const names = checked.map(c=>c.dataset.name||c.dataset.uid);
   const uids  = checked.map(c=>c.dataset.uid);
-  await Promise.all(checked.map(c=>
-    updateDoc(doc(db,'seminar_users',c.dataset.uid),{ coins:increment(amount) })
-  ));
-  await addDoc(collection(db,'seminar_coin_history'),{
-    type:'checked', names, uids, count:checked.length, amount, grantedAt:serverTimestamp()
-  });
+  try{
+    const batch = writeBatch(db);
+    checked.forEach(c=>{
+      batch.update(doc(db,'seminar_users',c.dataset.uid),{ coins:increment(amount) });
+    });
+    const histRef = doc(collection(db,'seminar_coin_history'));
+    batch.set(histRef,{ type:'checked', names, uids, count:checked.length, amount, grantedAt:serverTimestamp() });
+    await batch.commit();
+  }catch(e){
+    showToast('❌ エラーが発生しました。コインは変更されていません');
+    return;
+  }
   showToast(`✅ ${checked.length}人に ${amount.toLocaleString()}枚 を配布しました`);
   await loadAdminData();
 };
@@ -1035,10 +1043,18 @@ window.grantAllCoins = async function(){
   if(!confirm(`全参加者に ${amount.toLocaleString()}枚 を配布しますか？`)) return;
   const snap = await getDocs(collection(db,'seminar_users'));
   if(snap.empty){ showToast('参加者がいません'); return; }
-  await Promise.all(snap.docs.map(d=>updateDoc(doc(db,'seminar_users',d.id),{ coins:increment(amount) })));
-  await addDoc(collection(db,'seminar_coin_history'),{
-    type:'all', count:snap.size, amount, grantedAt:serverTimestamp()
-  });
+  try{
+    const batch = writeBatch(db);
+    snap.docs.forEach(d=>{
+      batch.update(doc(db,'seminar_users',d.id),{ coins:increment(amount) });
+    });
+    const histRef = doc(collection(db,'seminar_coin_history'));
+    batch.set(histRef,{ type:'all', count:snap.size, amount, grantedAt:serverTimestamp() });
+    await batch.commit();
+  }catch(e){
+    showToast('❌ エラーが発生しました。コインは変更されていません');
+    return;
+  }
   showToast(`✅ ${snap.size}人に ${amount.toLocaleString()}枚 を配布しました`);
   await loadAdminData();
 };
