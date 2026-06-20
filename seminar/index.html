@@ -353,21 +353,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-primary" onclick="grantAllCoins()">全員に配布する</button>
     </div>
 
-    <!-- ランキング＋全機能 -->
+    <!-- まとめて配布 -->
+    <div class="card">
+      <div class="section-title">● まとめて配布</div>
+      <input type="text" id="bulk-comment" placeholder="📝 理由（例：自己紹介ありがとう！）" style="width:100%;box-sizing:border-box;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:10px;display:block;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+        <input type="number" id="bulk-amount" class="grant-input" value="100" min="1" style="width:90px;">
+        <span style="font-size:13px;color:var(--dim);">枚</span>
+        <button class="btn-primary" onclick="grantBulk()" style="flex:1;min-width:120px;">✅ 選択した人に配布</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="sort-btn" onclick="toggleSort()" style="flex:1;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:12px;cursor:pointer;">🔀 名前順に切替</button>
+        <button onclick="toggleAllBulkCheck()" style="flex:1;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:12px;cursor:pointer;">☑️ 全員選択／解除</button>
+      </div>
+      <div id="bulk-checklist" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
+    </div>
+
+    <!-- ランキング＋個別管理 -->
     <div class="card">
       <div class="section-title">● コインランキング</div>
-
-      <!-- チェック配布バー -->
-      <div class="check-bar">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="check-all" class="user-check" onchange="toggleAllCheck(this)">
-          <span style="font-size:12px;color:var(--dim);">全員選択</span>
-        </label>
-        <span class="check-bar-label" id="check-count-label">0人選択中</span>
-        <input type="number" id="grant-amount-checked" class="grant-input" value="100" min="1" style="width:80px;">
-        <button class="btn-grant" onclick="grantChecked()">選択した人に配布</button>
-      </div>
-
       <div id="admin-ranking"><div class="loading">読み込み中...</div></div>
     </div>
 
@@ -704,8 +708,11 @@ async function loadAdminData(){
   }
 
   const snap = await getDocs(collection(db,'seminar_users'));
-  document.getElementById('check-all').checked = false;
-  updateCheckCount();
+  // まとめて配布リスト更新
+  _allUsers = [];
+  snap.forEach(d=>{ const u=d.data(); if(!u.banned) _allUsers.push({uid:d.id,name:u.bandName||u.email||'名前なし',coins:u.coins||0}); });
+  _allUsers.sort((a,b)=>b.coins-a.coins);
+  renderBulkChecklist();
 
   // ランキング＋全機能
   const rankEl = document.getElementById('admin-ranking');
@@ -722,7 +729,6 @@ async function loadAdminData(){
         :`<span style="font-size:13px;font-weight:700;color:var(--dim);min-width:24px;text-align:center;">${i+1}</span>`;
       rhtml+=`<div class="user-row" style="padding:10px 0;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:10px;">
-          <input type="checkbox" class="user-check uid-check" data-uid="${d.id}" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onchange="updateCheckCount()">
           ${rank}
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||u.email||'名前なし')}${bb}</div>
@@ -969,6 +975,65 @@ async function loadUserCoinHistory(uid, joinedAt){
     histEl.innerHTML='<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>';
   }
 }
+
+// ── まとめて配布 ──────────────────────────────────
+let _allUsers = [];
+let _bulkSortOrder = 'rank';
+
+function renderBulkChecklist(){
+  const el = document.getElementById('bulk-checklist');
+  if(!el) return;
+  const sorted = [..._allUsers];
+  if(_bulkSortOrder === 'name') sorted.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  let html='';
+  sorted.forEach(u=>{
+    html+=`<label style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--d3);border-radius:8px;cursor:pointer;font-size:12px;min-width:0;">
+      <input type="checkbox" class="bulk-check" data-uid="${u.uid}" data-name="${escHtml(u.name)}" style="flex-shrink:0;">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.name)}</span>
+    </label>`;
+  });
+  el.innerHTML = html || '<div style="font-size:13px;color:var(--dim);text-align:center;padding:12px;">参加者がいません</div>';
+}
+
+window.toggleSort = function(){
+  _bulkSortOrder = _bulkSortOrder==='rank' ? 'name' : 'rank';
+  const btn = document.getElementById('sort-btn');
+  if(btn) btn.textContent = _bulkSortOrder==='rank' ? '🔀 名前順に切替' : '🔀 ランキング順に切替';
+  renderBulkChecklist();
+};
+
+window.toggleAllBulkCheck = function(){
+  const all = [...document.querySelectorAll('.bulk-check')];
+  const anyUnchecked = all.some(c=>!c.checked);
+  all.forEach(c=>c.checked=anyUnchecked);
+};
+
+window.grantBulk = async function(){
+  const amount  = parseInt(document.getElementById('bulk-amount').value);
+  const comment = document.getElementById('bulk-comment').value.trim();
+  const checked = [...document.querySelectorAll('.bulk-check:checked')];
+  if(!amount||amount<=0){ showToast('枚数を入力してください'); return; }
+  if(checked.length===0){ showToast('参加者を選択してください'); return; }
+  const label = comment ? `「${comment}」で ` : '';
+  if(!confirm(`${checked.length}人に ${label}${amount.toLocaleString()}枚 を配布しますか？`)) return;
+  const names = checked.map(c=>c.dataset.name||c.dataset.uid);
+  const uids  = checked.map(c=>c.dataset.uid);
+  try{
+    const batch = writeBatch(db);
+    checked.forEach(c=>{ batch.update(doc(db,'seminar_users',c.dataset.uid),{coins:increment(amount)}); });
+    const histRef = doc(collection(db,'seminar_coin_history'));
+    batch.set(histRef,{ type:'checked', names, uids, count:checked.length, amount, comment:comment||null, grantedAt:serverTimestamp() });
+    await batch.commit();
+  }catch(e){
+    showToast('❌ エラーが発生しました。コインは変更されていません');
+    return;
+  }
+  playCoinSound();
+  showToast(`✅ ${checked.length}人に ${amount.toLocaleString()}枚 を配布しました`);
+  document.getElementById('bulk-comment').value='';
+  document.querySelectorAll('.bulk-check').forEach(c=>c.checked=false);
+  await loadAdminData();
+};
 
 // ── チェック数更新 ───────────────────────────────
 window.updateCheckCount = function(){
