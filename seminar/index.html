@@ -727,11 +727,21 @@ async function loadAdminData(){
       const u=d.data();
       const rank=i<3?`<span style="font-size:20px;">${medals[i]}</span>`
         :`<span style="font-size:13px;font-weight:700;color:var(--dim);min-width:24px;text-align:center;">${i+1}</span>`;
-      rhtml+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
-        ${rank}
-        <span style="flex:1;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||u.email||'名前なし')}</span>
-        <span style="color:var(--gb);font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:20px;">${(u.coins||0).toLocaleString()}</span>
-        <span style="font-size:11px;color:var(--dim);">枚</span>
+      rhtml+=`<div class="user-row" style="padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${rank}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||u.email||'名前なし')}</div>
+            <div style="font-size:11px;color:var(--dim);">${escHtml(u.email||'')}</div>
+          </div>
+          <span style="color:var(--gb);font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:20px;flex-shrink:0;">${(u.coins||0).toLocaleString()}<span style="font-size:11px;color:var(--dim);margin-left:2px;">枚</span></span>
+        </div>
+        <input type="text" class="grant-comment" placeholder="📝 コメント（例：自己紹介ありがとう！）" style="width:100%;box-sizing:border-box;background:var(--d3);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;margin-top:8px;display:block;">
+        <div class="user-row-actions" style="margin-top:6px;">
+          <input type="number" class="grant-input" value="100" min="1" data-uid="${d.id}">
+          <button class="btn-grant" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),1)">＋配布</button>
+          <button class="btn-reduce" data-name="${escHtml(u.bandName||u.email||'名前なし')}" onclick="grantCoin('${d.id}',this.closest('.user-row'),-1)">ー減算</button>
+        </div>
       </div>`;
     });
     rankEl.innerHTML=rhtml;
