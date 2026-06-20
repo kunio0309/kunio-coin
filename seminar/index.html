@@ -1043,12 +1043,20 @@ window.grantCoin = async function(uid, container, sign){
   const realAmount = amount * sign;
   const label = sign > 0 ? `${amount.toLocaleString()}枚を配布` : `${amount.toLocaleString()}枚を減算`;
   if(!confirm(`「${name}」に ${label} しますか？`)) return;
-  await updateDoc(doc(db,'seminar_users',uid),{ coins:increment(realAmount) });
-  await addDoc(collection(db,'seminar_coin_history'),{
-    type:'individual', uid, name, amount:realAmount,
-    comment: comment || null,
-    grantedAt:serverTimestamp()
-  });
+  try{
+    const batch = writeBatch(db);
+    batch.update(doc(db,'seminar_users',uid),{ coins:increment(realAmount) });
+    const histRef = doc(collection(db,'seminar_coin_history'));
+    batch.set(histRef,{
+      type:'individual', uid, name, amount:realAmount,
+      comment: comment || null,
+      grantedAt:serverTimestamp()
+    });
+    await batch.commit();
+  }catch(e){
+    showToast('❌ エラーが発生しました。コインは変更されていません');
+    return;
+  }
   showToast(`✅ ${name} の ${label}が完了しました`);
   await loadAdminData();
 };
