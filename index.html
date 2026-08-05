@@ -281,6 +281,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="balance-num" id="balance-num">—<span>枚</span></div>
       <div class="balance-sub" id="balance-sub">読み込み中...</div>
       <div id="expiry-notice" style="display:none;font-size:10px;color:var(--gold);margin-top:6px;line-height:1.6;">コインの増減が最後にあってから<br>180日経つと枚数が０になります</div>
+      <div id="expiry-warning" style="display:none;font-size:12px;font-weight:700;color:var(--red);margin-top:8px;padding:8px;border-radius:8px;background:rgba(239,83,80,.12);"></div>
     </div>
     <div class="quick-actions">
       <div class="qa-btn" onclick="showScreen('buy')"><div class="qa-icon">💳</div><div class="qa-label">コイン購入</div><div class="qa-sub">1,000〜10,000枚</div></div>
@@ -722,7 +723,7 @@ async function loadUser(uid) {
 
 
     // UI更新
-    const isRecyclers = d.memberType === 'recyclers';
+    const isRecyclers = (d.rank || 'gold') === 'bronze';
     const pts = (d.points || 0).toLocaleString();
     document.getElementById('balance-num').innerHTML = pts + '<span>枚</span>';
     if (isRecyclers) {
@@ -733,6 +734,23 @@ async function loadUser(uid) {
       document.getElementById('balance-sub').textContent = '失効なし';
       const noticeEl2 = document.getElementById('expiry-notice');
       if (noticeEl2) noticeEl2.style.display = 'none';
+    }
+    // 卒業生の失効チェック（警告 or 実際に失効）
+    const warnEl = document.getElementById('expiry-warning');
+    if (isRecyclers) {
+      const expiryResult = await checkExpiry(uid, d.name, 'bronze', d.points, d.rankChangedAt);
+      if (expiryResult.expired) {
+        if (warnEl) warnEl.style.display = 'none';
+        showToast('⏰ 180日操作がなかったため、コインが失効しました');
+        document.getElementById('balance-num').innerHTML = '0<span>枚</span>';
+      } else if (expiryResult.warning && warnEl) {
+        warnEl.style.display = 'block';
+        warnEl.textContent = '⚠️ あと' + expiryResult.daysLeft + '日操作がないとコインが失効します！';
+      } else if (warnEl) {
+        warnEl.style.display = 'none';
+      }
+    } else if (warnEl) {
+      warnEl.style.display = 'none';
     }
     const type = d.memberType === 'zero-cost' ? 'ゼロコスト' : 'リサイクラーズ';
     const shortName = (d.name || '—').length > 8 ? (d.name || '—').substring(0,8) + '…' : (d.name || '—');
@@ -749,8 +767,8 @@ async function loadUser(uid) {
     renderUseMenu();
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
-    if (buyTypeEl) buyTypeEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ会員' : 'ゼロコストリサイクラーズ会員';
-    if (buyDescEl) buyDescEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ価格でご購入いただけます' : 'ゼロコストリサイクラーズ価格でご購入いただけます';
+    if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
+    if (buyDescEl) buyDescEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格でご購入いただけます' : 'ゼロコストリサイクラーズ価格でご購入いただけます';
     document.getElementById('stat-pts').textContent = (d.points || 0).toLocaleString();
     const expiryEl = document.getElementById('stat-expiry');
     if (expiryEl) expiryEl.textContent = isRecyclers ? '180日失効' : '失効なし';
@@ -954,8 +972,20 @@ async function loadAdminMembers() {
     const el = document.getElementById('admin-members');
     el.innerHTML = '';
     const docs = snap.docs.slice().filter(d => !d.data().isAdmin).sort((a,b) => (b.data().points||0) - (a.data().points||0));
-    docs.forEach(d => {
-      const u = d.data();
+    // 卒業生の失効を一括チェック（管理画面を開くたびにスイープ）、確定データを配列に積む
+    const members = [];
+    for (const d of docs) {
+      const u0 = d.data();
+      const rk = RANK_INFO[u0.rank] ? u0.rank : 'gold';
+      if (rk === 'bronze' && u0.points > 0) {
+        const result = await checkExpiry(d.id, u0.name, 'bronze', u0.points, u0.rankChangedAt);
+        if (result.expired) u0.points = 0;
+      }
+      members.push({ id: d.id, u: u0 });
+    }
+    members.forEach(m => {
+      const d = { id: m.id };
+      const u = m.u;
       const rankKey = RANK_INFO[u.rank] ? u.rank : 'gold';
       const safeName = (u.name||'—').replace(/'/g,"\\'");
       const rankBtns = Object.keys(RANK_INFO).map(function(k) {
@@ -977,7 +1007,7 @@ async function loadAdminMembers() {
 window.setMemberRank = async function(uid, rankKey, name) {
   if (!confirm((name||'このメンバー') + 'のランクを「' + RANK_INFO[rankKey].label + '」に変更しますか？')) return;
   try {
-    await updateDoc(doc(db,'users',uid), { rank: rankKey });
+    await updateDoc(doc(db,'users',uid), { rank: rankKey, rankChangedAt: serverTimestamp() });
     showToast('✅ ランクを' + RANK_INFO[rankKey].label + 'に変更しました');
     loadAdminMembers();
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
@@ -1140,8 +1170,8 @@ function buildCompareRow(item, rankKey) {
       if (item.rankOnly && item.rankOnly !== k) return '';
       const info = RANK_INFO[k];
       const isMe = k === rankKey;
-      return '<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;background:' + info.bg + ';color:' + info.color +
-        ';' + (isMe ? 'outline:2px solid #fff;' : 'opacity:.5;') + '">' + info.badge + ' ' + ptsForRank(item.basePts, k).toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
+      return '<span style="font-size:11px;padding:3px 9px;border-radius:10px;font-weight:700;background:' + info.bg + ';color:' + info.color +
+        ';' + (isMe ? 'box-shadow:0 0 0 2px #fff;' : '') + '">' + info.badge + ' ' + ptsForRank(item.basePts, k).toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
     }).join('') + '</div>';
 }
 
@@ -1193,6 +1223,48 @@ window.selectUseItem = function(idx) {
   const sel = document.getElementById('use-select-' + idx);
   if (sel) sel.style.borderColor = 'var(--gb)';
 };
+
+// 卒業生（bronze）の180日失効チェック。失効時は本人のコインを0にしてKUNIOへ回収する。
+// 戻り値: { expired:true, amount } / { warning:true, daysLeft } / {}
+async function checkExpiry(uid, userName, rank, points, rankChangedAt) {
+  if (rank !== 'bronze' || !points || points <= 0) return {};
+  try {
+    const txSnap = await getDocs(
+      query(collection(db,'transactions'), where('userId','==',uid), orderBy('createdAt','desc'), limit(1))
+    );
+    const lastTxDate = (!txSnap.empty && txSnap.docs[0].data().createdAt && txSnap.docs[0].data().createdAt.toDate)
+      ? txSnap.docs[0].data().createdAt.toDate() : null;
+    const rankDate = (rankChangedAt && rankChangedAt.toDate) ? rankChangedAt.toDate() : null;
+    // 取引日とランク変更日、より新しい方を基準にする（卒業生になった日からもカウントできるように）
+    let lastDate = lastTxDate;
+    if (rankDate && (!lastDate || rankDate > lastDate)) lastDate = rankDate;
+    if (!lastDate) return {};
+    const diffDays = Math.floor((new Date() - lastDate) / (1000*60*60*24));
+    if (diffDays >= 180) {
+      const amount = points;
+      await updateDoc(doc(db,'users',uid), { points: 0 });
+      await addDoc(collection(db,'transactions'), {
+        userId: uid, points: -amount, description: '⏰ コイン期限切れ（180日経過）',
+        icon: '⏰', createdAt: serverTimestamp(), type: 'expire'
+      });
+      const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
+      if (!adminSnap.empty) {
+        const adminUid = adminSnap.docs[0].id;
+        if (adminUid !== uid) {
+          await updateDoc(doc(db,'users',adminUid), { points: increment(amount) });
+          await addDoc(collection(db,'transactions'), {
+            userId: adminUid, points: amount, description: (userName||'メンバー') + 'の失効コインを回収',
+            icon: '⏰', createdAt: serverTimestamp(), type: 'expire-income'
+          });
+        }
+      }
+      return { expired: true, amount };
+    } else if (diffDays >= 150) {
+      return { warning: true, daysLeft: 180 - diffDays };
+    }
+    return {};
+  } catch(e) { console.error('期限チェックエラー:', e); return {}; }
+}
 
 // コイン消費の共通処理（本人から減算し、KUNIOの残高に反映）
 async function spendCoins(pts, desc) {
@@ -1842,7 +1914,7 @@ window.loadHomeJobs = loadHomeJobs;
 window.loadTransferRequests = loadTransferRequests;
 
 function renderBuyPlans() {
-  const isRecyclers = window._userData && window._userData.memberType === 'recyclers';
+  const isRecyclers = window._userData && window._userData.rank === 'bronze';
   const zeroCostPlans = [
     {pts:1000, price:1000, saving:''},
     {pts:5000, price:4800, saving:'200円お得'},
