@@ -581,10 +581,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-nijikai')">✕</button>
     <div class="modal-title">🍻 二次会費用を精算</div>
-    <div class="form-group"><label class="form-label">実際にかかった金額（円）</label>
+    <div class="form-group"><label class="form-label">二次会の費用を円で入力してください</label>
       <input class="form-input" id="nijikai-yen" type="number" placeholder="例：4000" oninput="calcNijikaiPts()"/></div>
-    <div id="nijikai-pts-preview" style="font-size:13px;color:var(--gb);margin-bottom:12px;"></div>
-    <button class="btn-primary" onclick="doSettleNijikai()">申請する</button>
+    <div id="nijikai-pts-preview" style="margin-bottom:12px;"></div>
+    <button class="btn-primary" onclick="doSettleNijikai()">KUNIOに送金する</button>
     <button class="btn-secondary" onclick="closeModal('modal-nijikai')">キャンセル</button>
   </div>
 </div>
@@ -594,10 +594,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-kondan')">✕</button>
     <div class="modal-title">🥂 懇親会追加参加費用を精算</div>
-    <div class="form-group"><label class="form-label">実際にかかった金額（円）</label>
+    <div class="form-group"><label class="form-label">懇親会追加参加の費用を円で入力してください</label>
       <input class="form-input" id="kondan-yen" type="number" placeholder="例：4000" oninput="calcKondanPts()"/></div>
-    <div id="kondan-pts-preview" style="font-size:13px;color:var(--gb);margin-bottom:12px;"></div>
-    <button class="btn-primary" onclick="doSettleKondan()">申請する</button>
+    <div id="kondan-pts-preview" style="margin-bottom:12px;"></div>
+    <button class="btn-primary" onclick="doSettleKondan()">KUNIOに送金する</button>
     <button class="btn-secondary" onclick="closeModal('modal-kondan')">キャンセル</button>
   </div>
 </div>
@@ -1266,7 +1266,7 @@ function renderUseMenu() {
       'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;">' +
       '<div><div style="font-size:13px;font-weight:700;">🍻 二次会費用を精算</div>' +
-      '<div style="font-size:11px;color:var(--dim);">金額を入力して申請（日によって変動）</div></div>' +
+      '<div style="font-size:11px;color:var(--dim);">実際にかかった金額を入力して申請</div></div>' +
       '<span style="color:var(--dim);">›</span></div></div>';
     if (rankKey === 'gold') {
       list.innerHTML += '<div class="use-select-item" onclick="closeModal(\'modal-use\');openModal(\'modal-kondan\')" ' +
@@ -1396,25 +1396,44 @@ window.doUse = async function() {
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
+// 円→枚 変換（100枚単位で切り上げ）
+function yenToPts(yen, rankKey) {
+  const raw = yen / RANK_INFO[rankKey].rate;
+  return Math.ceil(raw / 100) * 100;
+}
+// ランク比較行（選べないが金額は見える）
+function buildYenCompareRow(yen) {
+  const myRank = getMyRank();
+  return '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
+    Object.keys(RANK_INFO).map(function(k) {
+      const info = RANK_INFO[k];
+      const isMe = k === myRank;
+      return '<span style="font-size:11px;padding:3px 9px;border-radius:10px;font-weight:700;background:' + info.bg + ';color:' + info.color +
+        ';' + (isMe ? 'box-shadow:0 0 0 2px #fff;' : '') + '">' + info.badge + ' ' + yenToPts(yen, k).toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
+    }).join('') + '</div>';
+}
+
 // 二次会費用の精算（金額は都度変動するため別枠）
 window.calcNijikaiPts = function() {
   const yen = parseInt(document.getElementById('nijikai-yen').value) || 0;
   const rankKey = getMyRank();
-  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
-  document.getElementById('nijikai-pts-preview').textContent = yen > 0 ? pts.toLocaleString() + ' 枚 が引かれます' : '';
+  const preview = document.getElementById('nijikai-pts-preview');
+  if (yen <= 0) { preview.innerHTML = ''; return; }
+  const pts = yenToPts(yen, rankKey);
+  preview.innerHTML = '<div style="font-size:13px;color:var(--gb);">あなたのランクは' + pts.toLocaleString() + '枚です。</div>' + buildYenCompareRow(yen);
 };
 window.doSettleNijikai = async function() {
   const yen = parseInt(document.getElementById('nijikai-yen').value) || 0;
   if (yen <= 0) { showToast('⚠️ 金額を入力してください'); return; }
   const rankKey = getMyRank();
-  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
+  const pts = yenToPts(yen, rankKey);
   try {
     const ok = await spendCoins(pts, '🍻 二次会（' + yen.toLocaleString() + '円精算）');
     if (!ok) return;
     closeModal('modal-nijikai');
     document.getElementById('nijikai-yen').value = '';
-    document.getElementById('nijikai-pts-preview').textContent = '';
-    showToast('✅ 申請を送りました！');
+    document.getElementById('nijikai-pts-preview').innerHTML = '';
+    showToast('✅ 送金しました！');
     if (window._loadUser) await window._loadUser(window._uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
@@ -1423,22 +1442,24 @@ window.doSettleNijikai = async function() {
 window.calcKondanPts = function() {
   const yen = parseInt(document.getElementById('kondan-yen').value) || 0;
   const rankKey = getMyRank();
-  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
-  document.getElementById('kondan-pts-preview').textContent = yen > 0 ? pts.toLocaleString() + ' 枚 が引かれます' : '';
+  const preview = document.getElementById('kondan-pts-preview');
+  if (yen <= 0) { preview.innerHTML = ''; return; }
+  const pts = yenToPts(yen, rankKey);
+  preview.innerHTML = '<div style="font-size:13px;color:var(--gb);">あなたのランクは' + pts.toLocaleString() + '枚です。</div>' + buildYenCompareRow(yen);
 };
 window.doSettleKondan = async function() {
   if (getMyRank() !== 'gold') { showToast('⚠️ ゼロコストリサイクラーズ限定です'); return; }
   const yen = parseInt(document.getElementById('kondan-yen').value) || 0;
   if (yen <= 0) { showToast('⚠️ 金額を入力してください'); return; }
   const rankKey = getMyRank();
-  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
+  const pts = yenToPts(yen, rankKey);
   try {
     const ok = await spendCoins(pts, '🥂 懇親会追加参加（' + yen.toLocaleString() + '円精算）');
     if (!ok) return;
     closeModal('modal-kondan');
     document.getElementById('kondan-yen').value = '';
-    document.getElementById('kondan-pts-preview').textContent = '';
-    showToast('✅ 申請を送りました！');
+    document.getElementById('kondan-pts-preview').innerHTML = '';
+    showToast('✅ 送金しました！');
     if (window._loadUser) await window._loadUser(window._uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
