@@ -530,10 +530,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="stat-box"><div class="stat-val" id="stat-pts">—</div><div class="stat-label">現在の残高（pt）</div></div>
       <div class="stat-box" id="expiry-stat-box"><div class="stat-val" id="stat-expiry">—</div><div class="stat-label">コイン期限</div></div>
     </div>
-    <div class="section-title">● コインを使う</div>
-    <div class="use-item" onclick="openModal('modal-nijikai')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会費用を精算</div><div style="font-size:11px;color:var(--dim);">金額を入力して申請（日によって変動）</div></div><div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" id="kondan-card" style="display:none;" onclick="openModal('modal-kondan')"><div><div style="font-size:13px;font-weight:700;">🥂 懇親会追加参加費用を精算</div><div style="font-size:11px;color:var(--dim);">金額を入力して申請（ゼロコストリサイクラーズのみ）</div></div><div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--dim);">›</span></div></div>
-    <div id="use-menu-container"></div>
+    <div class="section-title">● プロフィール</div>
+    <div class="form-group">
+      <label class="form-label">表示名</label>
+      <input class="form-input" id="edit-name-input" type="text" placeholder="表示名"/>
+    </div>
+    <button class="btn-secondary" onclick="saveProfileName()">表示名を更新する</button>
+
+    <div class="section-title" style="margin-top:20px;">● アカウント</div>
+    <button class="btn-secondary" onclick="requestOwnPasswordReset()">パスワードを変更する</button>
+
+    <div class="section-title" style="margin-top:20px;">● 履歴</div>
+    <button class="btn-secondary" onclick="loadMemberHistory(window._uid, window._userData ? window._userData.name : '—')">すべての履歴を見る</button>
+
     <div class="section-title" style="margin-top:20px;">● 参加予定の作業会</div>
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
@@ -787,6 +796,8 @@ async function loadUser(uid) {
     const shortType = d.memberType === 'recyclers' ? 'リサイクラーズ' : 'ゼロコスト';
     document.getElementById('user-badge').innerHTML = shortName + ' / <span>' + shortType + '</span>';
     document.getElementById('profile-name').textContent = d.name || '—';
+    const editNameEl = document.getElementById('edit-name-input');
+    if (editNameEl) editNameEl.value = d.name || '';
     if (!RANK_INFO[window._userData.rank]) window._userData.rank = 'gold';
     const myRankInfo = RANK_INFO[window._userData.rank];
     const profileTypeEl = document.getElementById('profile-type');
@@ -1074,6 +1085,28 @@ window.doPasswordReset = async function() {
   }
 };
 
+// マイページ：表示名の変更
+window.saveProfileName = async function() {
+  const newName = document.getElementById('edit-name-input').value.trim();
+  if (!newName) { showToast('⚠️ 表示名を入力してください'); return; }
+  try {
+    await updateDoc(doc(db,'users',window._uid), { name: newName });
+    showToast('✅ 表示名を更新しました');
+    if (window._loadUser) await window._loadUser(window._uid);
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+};
+
+// マイページ：ログイン中の自分宛にパスワード再設定メールを送る
+window.requestOwnPasswordReset = async function() {
+  const email = auth.currentUser ? auth.currentUser.email : null;
+  if (!email) { showToast('⚠️ メールアドレスが確認できませんでした'); return; }
+  if (!confirm(email + ' 宛にパスワード再設定メールを送りますか？')) return;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showToast('✅ ' + email + ' 宛にパスワード再設定メールを送りました');
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+};
+
 // ログアウト
 window.doLogout = async function() {
   await signOut(auth);
@@ -1175,14 +1208,14 @@ function ptsForRank(basePts, rankKey) {
 
 // コインを使う：メニュー項目（基準額はゼロコストリサイクラーズ＝1円1枚）
 const USE_ITEMS = [
-  { icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', prices:{gold:10000, silver:20000, bronze:30000} },
+  { icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', prices:{gold:10000, silver:15000, bronze:20000} },
   { icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', prices:{gold:28000, silver:35000, bronze:50000} },
-  { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2〜4万円相当コース料理', prices:{gold:30000, silver:45000, bronze:60000} },
+  { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2万〜4万の高級料理を無料でKUNIOと食べに行きます。時間はKUNIOと相談。', prices:{gold:30000, silver:45000, bronze:60000} },
   { icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', prices:{gold:20000, silver:30000, bronze:50000} },
   { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
   { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
   { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
-  { icon:'▶️', name:'YouTube宣伝依頼', sub:'一般の方への告知をKUNIOに依頼（詳細はメモ欄へ）', prices:{gold:10000, silver:10000, bronze:20000} }
+  { icon:'▶️', name:'YouTube宣伝依頼', sub:'一般の方への告知をKUNIOに依頼（詳細はメモ欄へ）※作業員がこなかった場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} }
 ];
 
 function buildCompareRow(item, rankKey) {
@@ -1228,6 +1261,21 @@ function renderUseMenu() {
   }
   if (list) {
     list.innerHTML = '';
+    // 二次会・懇親会は金額変動のため専用モーダルへ誘導（一覧の先頭に固定表示）
+    list.innerHTML += '<div class="use-select-item" onclick="closeModal(\'modal-use\');openModal(\'modal-nijikai\')" ' +
+      'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+      '<div><div style="font-size:13px;font-weight:700;">🍻 二次会費用を精算</div>' +
+      '<div style="font-size:11px;color:var(--dim);">金額を入力して申請（日によって変動）</div></div>' +
+      '<span style="color:var(--dim);">›</span></div></div>';
+    if (rankKey === 'gold') {
+      list.innerHTML += '<div class="use-select-item" onclick="closeModal(\'modal-use\');openModal(\'modal-kondan\')" ' +
+        'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-size:13px;font-weight:700;">🥂 懇親会追加参加費用を精算</div>' +
+        '<div style="font-size:11px;color:var(--dim);">金額を入力して申請（ゼロコストリサイクラーズのみ）</div></div>' +
+        '<span style="color:var(--dim);">›</span></div></div>';
+    }
     let firstIdx = -1;
     sortedItems.forEach((item) => {
       const idx = USE_ITEMS.indexOf(item);
