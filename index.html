@@ -607,6 +607,22 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 </div>
 
+<!-- モーダル: 開催者が参加者にコインを配布 -->
+<div class="modal-overlay" id="modal-distribute" onclick="closeModal('modal-distribute',event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-distribute')">✕</button>
+    <div class="modal-title">🎁 参加者にコインを配布</div>
+    <div id="distribute-job-title" style="font-size:13px;color:var(--dim);margin-bottom:12px;"></div>
+    <div id="distribute-participant-list" style="max-height:300px;overflow-y:auto;margin-bottom:14px;"></div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:12px;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;line-height:1.8;">
+      ✅ チェックした人だけに配布されます<br>
+      🏠 配布と同時に、開催者(あなた)に1,000枚のボーナスが付与されます
+    </div>
+    <button class="btn-primary" onclick="confirmDistribute()">配布する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-distribute')">キャンセル</button>
+  </div>
+</div>
+
 <!-- モーダル: 送る -->
 <div class="modal-overlay" id="modal-send" onclick="closeModal('modal-send',event)">
   <div class="modal">
@@ -894,18 +910,10 @@ async function loadPendingJobs() {
 }
 
 async function approveJobPost(jobId, posterUid) {
-  if (!confirm('この作業会を承認しますか？\n開催者に1,000枚のコインが付与されます。')) return;
+  if (!confirm('この作業会を承認しますか？')) return;
   try {
     await window._updateDoc(window._doc(window._db, 'jobs', jobId), { status: 'active' });
-    if (posterUid) {
-      await window._updateDoc(window._doc(window._db, 'users', posterUid), { points: window._inc(1000) });
-      await window._addDoc(window._collection(window._db, 'transactions'), {
-        userId: posterUid, points: 1000,
-        description: '🏠 作業会開催ボーナス',
-        icon: '🏠', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
-      });
-    }
-    showToast('✅ 承認しました！開催者に1,000枚コイン付与しました', 1000);
+    showToast('✅ 承認しました！参加者にコインを配布した時点で、開催者に1,000枚のボーナスが付きます');
     loadPendingJobs();
     loadAdminYT();
     loadHomeJobs();
@@ -1160,7 +1168,8 @@ const USE_ITEMS = [
   { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
   { icon:'🥂', name:'懇親会追加参加', sub:'コース使い切り後・ゼロコストリサイクラーズのみ', prices:{gold:25000}, rankOnly:'gold' },
   { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
-  { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null }
+  { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
+  { icon:'▶️', name:'YouTube宣伝依頼', sub:'一般の方への告知をKUNIOに依頼（詳細はメモ欄へ）', prices:{gold:10000, silver:10000, bronze:20000} }
 ];
 
 function buildCompareRow(item, rankKey) {
@@ -1182,13 +1191,6 @@ function renderUseMenu() {
   const list = document.getElementById('use-type-list');
   if (container) {
     container.innerHTML = '';
-    // YouTube宣伝（募集投稿とセットの機能なので、募集画面へ案内する）
-    if (window.YT_COST) {
-      const ytItem = { name:'YouTube宣伝依頼', sub:'作業会募集の投稿時にKUNIOが宣伝（募集0人なら全額返還）', prices: window.YT_COST };
-      const ytPts = window.YT_COST[rankKey];
-      container.innerHTML += '<div class="use-item" onclick="showScreen(\'post-job\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">▶️ YouTube宣伝依頼</div><div style="font-size:11px;color:var(--dim);">作業会募集の投稿時にKUNIOが宣伝（募集0人なら全額返還）</div>' +
-        buildCompareRow(ytItem, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">' + ytPts.toLocaleString() + ' 枚</div><span style="color:var(--dim);">›</span></div></div>';
-    }
     USE_ITEMS.forEach(item => {
       if (item.rankOnly && item.rankOnly !== rankKey) return;
       const myPts = item.prices ? item.prices[rankKey] : undefined;
@@ -1858,6 +1860,10 @@ async function loadJobs() {
       const deleteBtn = canDelete
         ? '<button onclick="event.stopPropagation();deleteJob(\'' + job.id + '\')" style="margin-top:10px;width:100%;padding:7px;background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.2);border-radius:8px;color:#ef5350;font-size:12px;cursor:pointer;">🗑 この募集を削除する</button>'
         : '';
+      const safeTitle = (job.title||'').replace(/'/g,"\\'");
+      const distributeBtn = (isMyJob && job.status === 'active' && !job.rewardDistributed)
+        ? '<button onclick="event.stopPropagation();openDistributeModal(\'' + job.id + '\',\'' + safeTitle + '\',' + (job.reward||0) + ')" style="margin-top:10px;width:100%;padding:7px;background:rgba(255,213,79,.1);border:1px solid rgba(255,213,79,.3);border-radius:8px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;">🎁 参加者にコインを配布する</button>'
+        : (isMyJob && job.rewardDistributed ? '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--dim);">✅ 配布済み（開催者ボーナス付与済み）</div>' : '');
       const recruitCount = job.recruitCount || 0;
       const appCount = job._appCount || 0;
       const isFull = recruitCount > 0 && appCount >= recruitCount;
@@ -1879,7 +1885,7 @@ async function loadJobs() {
           (job.station ? '&nbsp;&nbsp;🚉 ' + job.station : '') +
         '</div>' +
         '<div class="job-tags" style="margin-top:8px;">' + ytBadge + '</div>' +
-        deleteBtn;
+        distributeBtn + deleteBtn;
       container.appendChild(div);
     });
   } catch(e) {
@@ -2021,6 +2027,81 @@ async function deleteJob(jobId) {
     showToast('⚠️ エラー: ' + e.message);
   }
 }
+
+// 開催者が参加者にコインを配布する（配布と同時に開催者に1,000枚ボーナス）
+let currentDistributeJob = null;
+async function openDistributeModal(jobId, title, reward) {
+  currentDistributeJob = { id: jobId, title: title, reward: reward };
+  document.getElementById('distribute-job-title').textContent = title + '（1人あたり ' + reward.toLocaleString() + '枚）';
+  const list = document.getElementById('distribute-participant-list');
+  list.innerHTML = '読み込み中...';
+  openModal('modal-distribute');
+  try {
+    const snap = await window._getDocs(
+      window._query(window._collection(window._db, 'applications'), window._where('jobId', '==', jobId))
+    );
+    if (snap.empty) {
+      list.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:13px;padding:20px;">参加申込みがありません</div>';
+      return;
+    }
+    list.innerHTML = '';
+    snap.forEach(function(d) {
+      const a = d.data();
+      list.innerHTML += '<label style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer;">' +
+        '<input type="checkbox" class="distribute-check" data-uid="' + a.userId + '" checked style="width:18px;height:18px;flex-shrink:0;">' +
+        '<span style="flex:1;font-size:13px;">' + (a.userName||'—') + '</span></label>';
+    });
+  } catch(e) {
+    list.innerHTML = '<div style="text-align:center;color:var(--red);font-size:13px;padding:20px;">エラー：' + e.message + '</div>';
+  }
+}
+window.openDistributeModal = openDistributeModal;
+
+async function confirmDistribute() {
+  if (!currentDistributeJob) return;
+  const checked = document.querySelectorAll('.distribute-check:checked');
+  if (checked.length === 0) { showToast('⚠️ 配布する参加者を選んでください'); return; }
+  if (!confirm(checked.length + '名に ' + currentDistributeJob.reward.toLocaleString() + '枚ずつ配布し、開催者(あなた)に1,000枚ボーナスを付与します。よろしいですか？')) return;
+  try {
+    for (let i = 0; i < checked.length; i++) {
+      const uid = checked[i].dataset.uid;
+      await window._updateDoc(window._doc(window._db, 'users', uid), { points: window._inc(currentDistributeJob.reward) });
+      await window._addDoc(window._collection(window._db, 'transactions'), {
+        userId: uid, points: currentDistributeJob.reward,
+        description: '🚛 作業会報酬（' + currentDistributeJob.title + '）',
+        icon: '🚛', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
+      });
+    }
+    if (window._uid) {
+      const adminSnap = await window._getDocs(
+        window._query(window._collection(window._db, 'users'), window._where('isAdmin', '==', true), window._limit(1))
+      );
+      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : null;
+      if (adminUid && adminUid !== window._uid) {
+        // KUNIOの残高から-1,000して、開催者に+1,000（実際の送金として双方の履歴に残す）
+        await window._updateDoc(window._doc(window._db, 'users', adminUid), { points: window._inc(-1000) });
+        await window._addDoc(window._collection(window._db, 'transactions'), {
+          userId: adminUid, points: -1000,
+          description: (window._userData ? (window._userData.name || 'メンバー') : 'メンバー') + 'へ作業会開催ボーナス（' + currentDistributeJob.title + '）',
+          icon: '🏠', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
+        });
+      }
+      await window._updateDoc(window._doc(window._db, 'users', window._uid), { points: window._inc(1000) });
+      await window._addDoc(window._collection(window._db, 'transactions'), {
+        userId: window._uid, points: 1000,
+        description: '🏠 作業会開催ボーナス（' + currentDistributeJob.title + '）',
+        icon: '🏠', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
+      });
+    }
+    await window._updateDoc(window._doc(window._db, 'jobs', currentDistributeJob.id), { rewardDistributed: true });
+    closeModal('modal-distribute');
+    showToast('✅ 配布しました！開催者ボーナス+1,000枚も付与されました', 1000);
+    if (window._loadUser) await window._loadUser(window._uid);
+    loadJobs();
+    if (window.loadHomeJobs) window.loadHomeJobs();
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+}
+window.confirmDistribute = confirmDistribute;
 
 async function loadMemberHistory(uid, name) {
   document.getElementById('history-modal-title').textContent = name + ' の履歴';
