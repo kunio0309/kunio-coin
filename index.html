@@ -523,22 +523,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="stat-box" id="expiry-stat-box"><div class="stat-val" id="stat-expiry">—</div><div class="stat-label">コイン期限</div></div>
     </div>
     <div class="section-title">● コインを使う</div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会</div><div style="font-size:11px;color:var(--dim);">懇親会後の二次会</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">5,000 枚</div><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🤝 個別面談（30分）</div><div style="font-size:11px;color:var(--dim);">KUNIOと1対1</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">15,000 枚</div><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🤝 個別面談＋一緒に作業（1時間）</div><div style="font-size:11px;color:var(--dim);">面談後に実作業もサポート</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">28,000 枚</div><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🍽️ KUNIOと高級ディナー</div><div style="font-size:11px;color:var(--dim);">1人2〜4万円相当コース料理</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">35,000 枚</div><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🎨 漫画作成（10ページ程度）</div><div style="font-size:11px;color:var(--dim);">オリジナル漫画を制作</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">20,000 枚</div><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">👑 KUNIO一日レンタル</div><div style="font-size:11px;color:var(--dim);">内容・地域により要相談</div></div><div style="display:flex;align-items:center;gap:8px;"><div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div><span style="color:var(--dim);">›</span></div></div>
-    <div class="use-item" onclick="openModal('modal-use')"><div><div style="font-size:13px;font-weight:700;">🥂 懇親会追加参加</div><div style="font-size:11px;color:var(--dim);">コース使い切り後・ゼロコストのみ</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">25,000 枚</div><span style="color:var(--dim);">›</span></div></div>
-    <div style="margin:16px 0 8px;font-size:11px;letter-spacing:3px;color:var(--dim);font-family:'Bebas Neue',sans-serif;">● KUNIO召喚</div>
-    <div style="background:linear-gradient(135deg,rgba(26,42,26,.9),rgba(10,30,10,.95));border:1px solid rgba(105,240,174,.2);border-radius:14px;padding:14px;margin-bottom:8px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">👑</span><div><div style="font-size:13px;font-weight:700;color:var(--gb);">KUNIOを召喚（通常作業）</div><div style="font-size:11px;color:var(--dim);">KUNIOが直接手伝いに来る（6時間程度）</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gb);">30,000 枚</div></div>
-      <button onclick="openModal('modal-use')" style="width:100%;padding:8px;background:rgba(105,240,174,.1);border:1px solid rgba(105,240,174,.3);border-radius:8px;color:var(--gb);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">申請する</button>
-    </div>
-    <div style="background:linear-gradient(135deg,rgba(42,26,10,.9),rgba(30,16,5,.95));border:1px solid rgba(255,213,79,.25);border-radius:14px;padding:14px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">🚛</span><div><div style="font-size:13px;font-weight:700;color:var(--gold);">KUNIOを召喚（トラック）</div><div style="font-size:11px;color:var(--dim);">KUNIOがトラックで来る（6時間程度）</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);">60,000 枚</div></div>
-      <button onclick="openModal('modal-use')" style="width:100%;padding:8px;background:rgba(255,213,79,.1);border:1px solid rgba(255,213,79,.3);border-radius:8px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">申請する</button>
-    </div>
+    <div class="use-item" onclick="openModal('modal-nijikai')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会費用を精算</div><div style="font-size:11px;color:var(--dim);">金額を入力して申請（日によって変動）</div></div><div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--dim);">›</span></div></div>
+    <div id="use-menu-container"></div>
     <div class="section-title" style="margin-top:20px;">● 参加予定の作業会</div>
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
@@ -562,21 +548,24 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="modal-close" onclick="closeModal('modal-use')">✕</button>
     <div class="modal-title">🎯 コインを使う</div>
     <div class="form-group"><label class="form-label">使い道</label>
-      <select class="form-select" id="use-type">
-        <option value="5000">🍻 二次会 — 5,000pt</option>
-        <option value="15000">🤝 個別面談（30分） — 15,000pt</option>
-        <option value="28000">🤝 個別面談＋一緒に作業（1時間） — 28,000pt</option>
-        <option value="35000">🍽️ KUNIOと高級ディナー — 35,000pt</option>
-        <option value="20000">🎨 漫画作成（10ページ程度） — 20,000pt</option>
-        <option value="0">👑 KUNIO一日レンタル — 要相談</option>
-        <option value="25000">🥂 懇親会追加参加（ゼロコストのみ） — 25,000pt</option>
-        <option value="30000">👑 KUNIO召喚 通常（6時間） — 30,000pt</option>
-        <option value="60000">🚛 KUNIO召喚 トラック（6時間） — 60,000pt</option>
-      </select></div>
+      <select class="form-select" id="use-type"></select></div>
     <div class="form-group"><label class="form-label">希望日時</label><input class="form-input" type="date"/></div>
     <div class="form-group"><label class="form-label">メモ（任意）</label><input class="form-input" type="text" placeholder="相談内容など"/></div>
     <button class="btn-primary" onclick="doUse()">申請する</button>
     <button class="btn-secondary" onclick="closeModal('modal-use')">キャンセル</button>
+  </div>
+</div>
+
+<!-- モーダル: 二次会費用精算 -->
+<div class="modal-overlay" id="modal-nijikai" onclick="closeModal('modal-nijikai',event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-nijikai')">✕</button>
+    <div class="modal-title">🍻 二次会費用を精算</div>
+    <div class="form-group"><label class="form-label">実際にかかった金額（円）</label>
+      <input class="form-input" id="nijikai-yen" type="number" placeholder="例：4000" oninput="calcNijikaiPts()"/></div>
+    <div id="nijikai-pts-preview" style="font-size:13px;color:var(--gb);margin-bottom:12px;"></div>
+    <button class="btn-primary" onclick="doSettleNijikai()">申請する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-nijikai')">キャンセル</button>
   </div>
 </div>
 
@@ -719,6 +708,7 @@ async function loadUser(uid) {
     if (!snap.exists()) { showToast('⚠️ ユーザーデータが見つかりません'); return; }
     const d = snap.data();
     window._userData = d;
+    window._userData.rank = d.rank || 'gold';
 
 
 
@@ -740,7 +730,10 @@ async function loadUser(uid) {
     const shortType = d.memberType === 'recyclers' ? 'リサイクラーズ' : 'ゼロコスト';
     document.getElementById('user-badge').innerHTML = shortName + ' / <span>' + shortType + '</span>';
     document.getElementById('profile-name').textContent = d.name || '—';
-    document.getElementById('profile-type').textContent = d.memberType === 'zero-cost' ? 'ゼロコストリサイクラーズ' : 'リサイクラーズ';
+    if (!RANK_INFO[window._userData.rank]) window._userData.rank = 'gold';
+    const myRankInfo = RANK_INFO[window._userData.rank];
+    document.getElementById('profile-type').textContent = myRankInfo.badge + ' ' + myRankInfo.label;
+    renderUseMenu();
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = d.memberType === 'recyclers' ? 'リサイクラーズ会員' : 'ゼロコストリサイクラーズ会員';
@@ -947,19 +940,34 @@ async function loadAdminMembers() {
     const snap = await getDocs(collection(db,'users'));
     const el = document.getElementById('admin-members');
     el.innerHTML = '';
-    snap.forEach(d => {
+    const docs = snap.docs.slice().sort((a,b) => (b.data().points||0) - (a.data().points||0));
+    docs.forEach(d => {
       const u = d.data();
-      const type = u.memberType === 'zero-cost' ? 'ゼロコスト' : 'リサイクラーズ';
+      const rankKey = RANK_INFO[u.rank] ? u.rank : 'gold';
       const safeName = (u.name||'—').replace(/'/g,"\\'");
-      el.innerHTML += `<div class="member-row" style="cursor:pointer;" onclick="loadMemberHistory('${d.id}','${safeName}')">
+      const rankBtns = Object.keys(RANK_INFO).map(function(k) {
+        const active = k === rankKey;
+        return '<button onclick="event.stopPropagation();setMemberRank(\'' + d.id + '\',\'' + k + '\')" style="flex:1;padding:4px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid ' +
+          (active ? 'rgba(105,240,174,.5)' : 'var(--border)') + ';background:' + (active ? 'rgba(105,240,174,.15)' : 'var(--d3)') +
+          ';color:' + (active ? 'var(--gb)' : 'var(--dim)') + ';">' + RANK_INFO[k].badge + '</button>';
+      }).join('');
+      el.innerHTML += `<div class="member-row" style="cursor:pointer;flex-wrap:wrap;" onclick="loadMemberHistory('${d.id}','${safeName}')">
         <div class="member-avatar">👤</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">${u.name||'—'}</div>
-          <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(105,240,174,.1);color:var(--gb);">${type}</span></div>
+          <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(105,240,174,.1);color:var(--gb);">${RANK_INFO[rankKey].label}</span></div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gb);">${(u.points||0).toLocaleString()} 枚</div>
+        <div style="display:flex;gap:4px;width:100%;margin-top:6px;" onclick="event.stopPropagation()">${rankBtns}</div>
       </div>`;
     });
   } catch(e) { console.error(e); }
 }
+window.setMemberRank = async function(uid, rankKey) {
+  try {
+    await updateDoc(doc(db,'users',uid), { rank: rankKey });
+    showToast('✅ ランクを' + RANK_INFO[rankKey].label + 'に変更しました');
+    loadAdminMembers();
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+};
 
 // ログイン
 window.doLogin = async function() {
@@ -1063,27 +1071,125 @@ window.doGrant = async function() {
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
+// ランク設定（コインの価値レート）
+const RANK_INFO = {
+  gold:   { label: 'ゼロコストリサイクラーズ', rate: 1.0, badge: '🥇' },
+  silver: { label: 'オンラインメンバー',       rate: 0.8, badge: '🥈' },
+  bronze: { label: '卒業生',                   rate: 0.5, badge: '🥉' }
+};
+function getMyRank() {
+  const r = window._userData && window._userData.rank;
+  return RANK_INFO[r] ? r : 'gold';
+}
+function ptsForRank(basePts, rankKey) {
+  return Math.round(basePts / RANK_INFO[rankKey].rate);
+}
+
+// コインを使う：メニュー項目（基準額はゼロコストリサイクラーズ＝1円1枚）
+const USE_ITEMS = [
+  { icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', basePts:15000 },
+  { icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', basePts:28000 },
+  { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2〜4万円相当コース料理', basePts:35000 },
+  { icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', basePts:20000 },
+  { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', basePts:0 },
+  { icon:'🥂', name:'懇親会追加参加', sub:'コース使い切り後・ゼロコストリサイクラーズのみ', basePts:25000, rankOnly:'gold' },
+  { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', basePts:30000 },
+  { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'KUNIOがトラックで来る', basePts:60000 }
+];
+
+function renderUseMenu() {
+  const rankKey = getMyRank();
+  const container = document.getElementById('use-menu-container');
+  const select = document.getElementById('use-type');
+  if (container) {
+    container.innerHTML = '';
+    USE_ITEMS.forEach(item => {
+      if (item.rankOnly && item.rankOnly !== rankKey) return;
+      const costHtml = item.basePts === 0
+        ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
+        : '<div class="use-cost">' + ptsForRank(item.basePts, rankKey).toLocaleString() + ' 枚</div>';
+      container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')"><div><div style="font-size:13px;font-weight:700;">' +
+        item.icon + ' ' + item.name + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
+        '</div></div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
+    });
+  }
+  if (select) {
+    select.innerHTML = '';
+    USE_ITEMS.forEach(item => {
+      if (item.rankOnly && item.rankOnly !== rankKey) return;
+      const pts = item.basePts === 0 ? 0 : ptsForRank(item.basePts, rankKey);
+      const label = item.basePts === 0 ? (item.name + ' — 要相談') : (item.name + ' — ' + pts.toLocaleString() + 'pt');
+      select.innerHTML += '<option value="' + pts + '">' + label + '</option>';
+    });
+  }
+}
+window.renderUseMenu = renderUseMenu;
+
+// コイン消費の共通処理（本人から減算し、KUNIOの残高に反映）
+async function spendCoins(pts, desc) {
+  if (!window._uid) return false;
+  const snap = await getDoc(doc(db,'users',window._uid));
+  const current = snap.data().points || 0;
+  if (current < pts) { showToast('⚠️ コインが不足しています'); return false; }
+  await updateDoc(doc(db,'users',window._uid), { points: increment(-pts) });
+  await addDoc(collection(db,'transactions'), {
+    userId: window._uid, points: -pts, description: desc,
+    icon: '💸', createdAt: serverTimestamp(), type: 'spend'
+  });
+  // 使用分をKUNIO（管理者）の残高に反映
+  const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
+  if (!adminSnap.empty) {
+    const adminUid = adminSnap.docs[0].id;
+    if (adminUid !== window._uid) {
+      const spenderName = window._userData ? (window._userData.name || 'メンバー') : 'メンバー';
+      await updateDoc(doc(db,'users',adminUid), { points: increment(pts) });
+      await addDoc(collection(db,'transactions'), {
+        userId: adminUid, points: pts, description: spenderName + 'が利用（' + desc + '）',
+        icon: '💰', createdAt: serverTimestamp(), type: 'redeem-income'
+      });
+    }
+  }
+  return true;
+}
+
 // ポイント使用
 window.doUse = async function() {
-  const ptsRaw = document.getElementById('use-type').value;
-  const desc = document.getElementById('use-type').options[document.getElementById('use-type').selectedIndex].text.split(' — ')[0];
+  const sel = document.getElementById('use-type');
+  const ptsRaw = sel.value;
+  const desc = sel.options[sel.selectedIndex].text.split(' — ')[0];
   if (ptsRaw === '0') {
     closeModal('modal-use');
     showToast('📩 KUNIOに相談リクエストを送りました！');
     return;
   }
   const pts = parseInt(ptsRaw);
-  if (!window._uid) return;
   try {
-    const snap = await getDoc(doc(db,'users',window._uid));
-    const current = snap.data().points || 0;
-    if (current < pts) { showToast('⚠️ コインが不足しています'); return; }
-    await updateDoc(doc(db,'users',window._uid), { points: increment(-pts) });
-    await addDoc(collection(db,'transactions'), {
-      userId: window._uid, points: -pts, description: desc,
-      icon: '💸', createdAt: serverTimestamp(), type: 'spend'
-    });
+    const ok = await spendCoins(pts, desc);
+    if (!ok) return;
     closeModal('modal-use');
+    showToast('✅ 申請を送りました！');
+    if (window._loadUser) await window._loadUser(window._uid);
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+};
+
+// 二次会費用の精算（金額は都度変動するため別枠）
+window.calcNijikaiPts = function() {
+  const yen = parseInt(document.getElementById('nijikai-yen').value) || 0;
+  const rankKey = getMyRank();
+  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
+  document.getElementById('nijikai-pts-preview').textContent = yen > 0 ? pts.toLocaleString() + ' 枚 が引かれます' : '';
+};
+window.doSettleNijikai = async function() {
+  const yen = parseInt(document.getElementById('nijikai-yen').value) || 0;
+  if (yen <= 0) { showToast('⚠️ 金額を入力してください'); return; }
+  const rankKey = getMyRank();
+  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
+  try {
+    const ok = await spendCoins(pts, '🍻 二次会（' + yen.toLocaleString() + '円精算）');
+    if (!ok) return;
+    closeModal('modal-nijikai');
+    document.getElementById('nijikai-yen').value = '';
+    document.getElementById('nijikai-pts-preview').textContent = '';
     showToast('✅ 申請を送りました！');
     if (window._loadUser) await window._loadUser(window._uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
