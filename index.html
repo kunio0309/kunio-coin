@@ -950,7 +950,8 @@ async function loadAdminMembers() {
     snap.forEach(d => {
       const u = d.data();
       const type = u.memberType === 'zero-cost' ? 'ゼロコスト' : 'リサイクラーズ';
-      el.innerHTML += `<div class="member-row">
+      const safeName = (u.name||'—').replace(/'/g,"\\'");
+      el.innerHTML += `<div class="member-row" style="cursor:pointer;" onclick="loadMemberHistory('${d.id}','${safeName}')">
         <div class="member-avatar">👤</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">${u.name||'—'}</div>
           <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(105,240,174,.1);color:var(--gb);">${type}</span></div>
@@ -1792,6 +1793,7 @@ async function loadMemberHistory(uid, name) {
     document.getElementById('member-history-list').innerHTML = '<div style="text-align:center;color:var(--dim);font-size:13px;padding:20px;">エラー: ' + e.message + '</div>';
   }
 }
+window.loadMemberHistory = loadMemberHistory;
 
 function setGrantMemo(text) {
   document.getElementById('grant-memo').value = text;
