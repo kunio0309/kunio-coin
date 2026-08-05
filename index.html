@@ -532,6 +532,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="section-title">● コインを使う</div>
     <div class="use-item" onclick="openModal('modal-nijikai')"><div><div style="font-size:13px;font-weight:700;">🍻 二次会費用を精算</div><div style="font-size:11px;color:var(--dim);">金額を入力して申請（日によって変動）</div></div><div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--dim);">›</span></div></div>
+    <div class="use-item" id="kondan-card" style="display:none;" onclick="openModal('modal-kondan')"><div><div style="font-size:13px;font-weight:700;">🥂 懇親会追加参加費用を精算</div><div style="font-size:11px;color:var(--dim);">金額を入力して申請（ゼロコストリサイクラーズのみ）</div></div><div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--dim);">›</span></div></div>
     <div id="use-menu-container"></div>
     <div class="section-title" style="margin-top:20px;">● 参加予定の作業会</div>
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
@@ -576,6 +577,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="nijikai-pts-preview" style="font-size:13px;color:var(--gb);margin-bottom:12px;"></div>
     <button class="btn-primary" onclick="doSettleNijikai()">申請する</button>
     <button class="btn-secondary" onclick="closeModal('modal-nijikai')">キャンセル</button>
+  </div>
+</div>
+
+<!-- モーダル: 懇親会追加参加費用精算 -->
+<div class="modal-overlay" id="modal-kondan" onclick="closeModal('modal-kondan',event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-kondan')">✕</button>
+    <div class="modal-title">🥂 懇親会追加参加費用を精算</div>
+    <div class="form-group"><label class="form-label">実際にかかった金額（円）</label>
+      <input class="form-input" id="kondan-yen" type="number" placeholder="例：4000" oninput="calcKondanPts()"/></div>
+    <div id="kondan-pts-preview" style="font-size:13px;color:var(--gb);margin-bottom:12px;"></div>
+    <button class="btn-primary" onclick="doSettleKondan()">申請する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-kondan')">キャンセル</button>
   </div>
 </div>
 
@@ -776,7 +790,7 @@ async function loadUser(uid) {
     if (!RANK_INFO[window._userData.rank]) window._userData.rank = 'gold';
     const myRankInfo = RANK_INFO[window._userData.rank];
     const profileTypeEl = document.getElementById('profile-type');
-    profileTypeEl.textContent = myRankInfo.badge + ' ' + myRankInfo.label;
+    profileTypeEl.textContent = myRankInfo.label;
     profileTypeEl.style.background = myRankInfo.bg;
     profileTypeEl.style.color = myRankInfo.color;
     profileTypeEl.style.fontWeight = '700';
@@ -1166,7 +1180,6 @@ const USE_ITEMS = [
   { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2〜4万円相当コース料理', prices:{gold:30000, silver:45000, bronze:60000} },
   { icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', prices:{gold:20000, silver:30000, bronze:50000} },
   { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
-  { icon:'🥂', name:'懇親会追加参加', sub:'コース使い切り後・ゼロコストリサイクラーズのみ', prices:{gold:25000}, rankOnly:'gold' },
   { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
   { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
   { icon:'▶️', name:'YouTube宣伝依頼', sub:'一般の方への告知をKUNIOに依頼（詳細はメモ欄へ）', prices:{gold:10000, silver:10000, bronze:20000} }
@@ -1189,9 +1202,20 @@ function renderUseMenu() {
   const rankKey = getMyRank();
   const container = document.getElementById('use-menu-container');
   const list = document.getElementById('use-type-list');
+  const kondanCard = document.getElementById('kondan-card');
+  if (kondanCard) kondanCard.style.display = (rankKey === 'gold') ? 'flex' : 'none';
+  // 安い順に並べる（要相談＝価格なしは一番下）
+  const sortedItems = USE_ITEMS.filter(item => !item.rankOnly || item.rankOnly === rankKey).slice().sort(function(a, b) {
+    const pa = a.prices ? a.prices[rankKey] : undefined;
+    const pb = b.prices ? b.prices[rankKey] : undefined;
+    if (pa === undefined && pb === undefined) return 0;
+    if (pa === undefined) return 1;
+    if (pb === undefined) return -1;
+    return pa - pb;
+  });
   if (container) {
     container.innerHTML = '';
-    USE_ITEMS.forEach(item => {
+    sortedItems.forEach(item => {
       if (item.rankOnly && item.rankOnly !== rankKey) return;
       const myPts = item.prices ? item.prices[rankKey] : undefined;
       const costHtml = (myPts === undefined)
@@ -1205,8 +1229,8 @@ function renderUseMenu() {
   if (list) {
     list.innerHTML = '';
     let firstIdx = -1;
-    USE_ITEMS.forEach((item, idx) => {
-      if (item.rankOnly && item.rankOnly !== rankKey) return;
+    sortedItems.forEach((item) => {
+      const idx = USE_ITEMS.indexOf(item);
       if (firstIdx === -1) firstIdx = idx;
       const myPts = item.prices ? item.prices[rankKey] : undefined;
       const myCostHtml = (myPts === undefined)
@@ -1342,6 +1366,30 @@ window.doSettleNijikai = async function() {
     closeModal('modal-nijikai');
     document.getElementById('nijikai-yen').value = '';
     document.getElementById('nijikai-pts-preview').textContent = '';
+    showToast('✅ 申請を送りました！');
+    if (window._loadUser) await window._loadUser(window._uid);
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+};
+
+// 懇親会追加参加費用の精算（ゼロコストリサイクラーズのみ・金額は都度変動）
+window.calcKondanPts = function() {
+  const yen = parseInt(document.getElementById('kondan-yen').value) || 0;
+  const rankKey = getMyRank();
+  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
+  document.getElementById('kondan-pts-preview').textContent = yen > 0 ? pts.toLocaleString() + ' 枚 が引かれます' : '';
+};
+window.doSettleKondan = async function() {
+  if (getMyRank() !== 'gold') { showToast('⚠️ ゼロコストリサイクラーズ限定です'); return; }
+  const yen = parseInt(document.getElementById('kondan-yen').value) || 0;
+  if (yen <= 0) { showToast('⚠️ 金額を入力してください'); return; }
+  const rankKey = getMyRank();
+  const pts = Math.round(yen / RANK_INFO[rankKey].rate);
+  try {
+    const ok = await spendCoins(pts, '🥂 懇親会追加参加（' + yen.toLocaleString() + '円精算）');
+    if (!ok) return;
+    closeModal('modal-kondan');
+    document.getElementById('kondan-yen').value = '';
+    document.getElementById('kondan-pts-preview').textContent = '';
     showToast('✅ 申請を送りました！');
     if (window._loadUser) await window._loadUser(window._uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
