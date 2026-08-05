@@ -372,7 +372,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <span style="font-size:22px;">▶️</span>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;color:var(--gb);">KUNIOにYouTubeで宣伝してもらう</div>
-          <div style="font-size:11px;color:var(--dim);margin-top:2px;">一般の方が作業に来てくれる可能性あり（5,000枚・募集0人の場合は全額返還）</div>
+          <div style="font-size:11px;color:var(--dim);margin-top:2px;" id="yt-cost-text">一般の方が作業に来てくれる可能性あり（募集0人の場合は全額返還）</div>
         </div>
         <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
           <input type="checkbox" id="yt-toggle" style="opacity:0;width:0;height:0;" onchange="toggleYT(this)">
@@ -1182,6 +1182,13 @@ function renderUseMenu() {
   const list = document.getElementById('use-type-list');
   if (container) {
     container.innerHTML = '';
+    // YouTube宣伝（募集投稿とセットの機能なので、募集画面へ案内する）
+    if (window.YT_COST) {
+      const ytItem = { name:'YouTube宣伝依頼', sub:'作業会募集の投稿時にKUNIOが宣伝（募集0人なら全額返還）', prices: window.YT_COST };
+      const ytPts = window.YT_COST[rankKey];
+      container.innerHTML += '<div class="use-item" onclick="showScreen(\'post-job\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">▶️ YouTube宣伝依頼</div><div style="font-size:11px;color:var(--dim);">作業会募集の投稿時にKUNIOが宣伝（募集0人なら全額返還）</div>' +
+        buildCompareRow(ytItem, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;"><div class="use-cost">' + ytPts.toLocaleString() + ' 枚</div><span style="color:var(--dim);">›</span></div></div>';
+    }
     USE_ITEMS.forEach(item => {
       if (item.rankOnly && item.rankOnly !== rankKey) return;
       const myPts = item.prices ? item.prices[rankKey] : undefined;
@@ -1410,6 +1417,10 @@ function showScreen(name, btn) {
   if (name === 'jobs') loadJobs();
   if (name === 'buy' || name === 'transfer') renderBuyPlans();
   if (name === 'profile') loadMyParticipations();
+  if (name === 'post-job') {
+    const ytText = document.getElementById('yt-cost-text');
+    if (ytText) ytText.textContent = '一般の方が作業に来てくれる可能性あり（' + getYTCost().toLocaleString() + '枚・募集0人の場合は全額返還）';
+  }
 
   if (name === 'ranking') loadRanking();
   if (name === 'admin') { if(window.loadAdminMembers)window.loadAdminMembers(); if(window.loadAdminYT)window.loadAdminYT(); if(window.loadPendingJobs)window.loadPendingJobs(); if(window.loadApplications)window.loadApplications(); if(window.loadGrantMembers)window.loadGrantMembers(); if(window.loadTransferRequests)window.loadTransferRequests(); }
@@ -1509,6 +1520,12 @@ function updateReward(v) {
   if(!v||v<5000){el.textContent=v&&v<5000?'⚠️ 下限は5,000ptです':'';el.style.color='var(--red)';return;}
   el.textContent=parseInt(v).toLocaleString()+'枚 を付与';el.style.color='var(--gb)';
 }
+const YT_COST = { gold: 10000, silver: 10000, bronze: 20000 };
+window.YT_COST = YT_COST;
+function getYTCost() {
+  const r = window._userData && window._userData.rank;
+  return YT_COST[r] !== undefined ? YT_COST[r] : YT_COST.gold;
+}
 function toggleYT(cb) {
   const tr=document.getElementById('yt-track'),dt=document.getElementById('yt-dot');
   if(cb.checked){tr.style.background='var(--green)';dt.style.background='var(--gb)';dt.style.transform='translateX(20px)';}
@@ -1551,13 +1568,14 @@ async function postJob() {
       createdAt: window._ts ? window._ts() : new Date()
     });
 
-    // YT募集の場合5000pt消費
+    // YT募集の場合ランクに応じたpt消費
     if (yt && window._uid) {
+      const ytCost = getYTCost();
       await window._updateDoc(window._doc(window._db, 'users', window._uid), {
-        points: window._inc(-5000)
+        points: window._inc(-ytCost)
       });
       await window._addDoc(window._collection(window._db, 'transactions'), {
-        userId: window._uid, points: -5000,
+        userId: window._uid, points: -ytCost,
         description: '▶️ YouTube募集依頼（' + title + '）',
         icon: '▶️', createdAt: window._ts ? window._ts() : new Date(), type: 'spend'
       });
