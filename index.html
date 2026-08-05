@@ -34,7 +34,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* ログイン */
 #login-screen{position:fixed;inset:0;z-index:1000;background:var(--dark);
   display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;}
-.coin-logo{width:100px;height:100px;min-width:100px;min-height:100px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;margin-bottom:20px;flex-shrink:0;-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;
+.coin-logo{width:100px;height:100px;min-width:100px;min-height:100px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;margin-bottom:20px;flex-shrink:0;
   box-shadow:0 0 40px rgba(105,240,174,.4);flex-shrink:0;}
 .coin-logo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 
@@ -44,7 +44,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;}
 .header-logo{display:flex;align-items:center;gap:10px;font-family:'Bebas Neue',sans-serif;
   font-size:20px;letter-spacing:3px;color:var(--gb);}
-.header-logo .coin-mini{width:32px;height:32px;min-width:32px;min-height:32px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;
+.header-logo .coin-mini{width:32px;height:32px;min-width:32px;min-height:32px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;
   box-shadow:0 0 12px rgba(105,240,174,.4);}
 .header-logo .coin-mini img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .user-badge{background:var(--d3);border:1px solid var(--border);border-radius:20px;
@@ -73,7 +73,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ホーム */
 .coin-hero{text-align:center;padding:20px 0 16px;}
-.coin-hero-img{width:120px;height:120px;min-width:120px;min-height:120px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;margin:0 auto 16px;flex-shrink:0;-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;
+.coin-hero-img{width:120px;height:120px;min-width:120px;min-height:120px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;margin:0 auto 16px;flex-shrink:0;
   box-shadow:0 0 50px rgba(105,240,174,.35),0 8px 30px rgba(0,0,0,.7);
   animation:coinFloat 4s ease-in-out infinite;}
 .coin-hero-img img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
@@ -209,7 +209,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(105,240,174,.4);}50%{opacity:.7;box-shadow:0 0 0 6px rgba(105,240,174,0);}}
 .home-job-card{background:var(--card);border:2px solid rgba(105,240,174,.6) !important;border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;box-shadow:0 0 16px rgba(105,240,174,.3);animation:borderPulse 2s ease-in-out infinite;}
 @keyframes borderPulse{0%,100%{box-shadow:0 0 8px rgba(105,240,174,.15);}50%{box-shadow:0 0 18px rgba(105,240,174,.35);}}
-.loading-coin{width:80px;height:80px;min-width:80px;min-height:80px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;animation:coinFloat 1.5s ease-in-out infinite;flex-shrink:0;-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;}
+.loading-coin{width:80px;height:80px;min-width:80px;min-height:80px;aspect-ratio:1/1;border-radius:50%;overflow:hidden;animation:coinFloat 1.5s ease-in-out infinite;flex-shrink:0;}
 .loading-coin img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
 #login-screen.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
