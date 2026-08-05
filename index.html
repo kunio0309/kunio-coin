@@ -240,6 +240,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <button id="login-btn" class="btn-primary" onclick="doLogin()">ログイン</button>
     <div id="login-error" style="text-align:center;margin-top:10px;font-size:12px;color:var(--red);display:none;"></div>
+    <div style="text-align:center;margin-top:14px;">
+      <a href="javascript:void(0)" id="forgot-pw-link" onclick="togglePasswordReset()" style="font-size:12px;color:var(--dim);text-decoration:underline;">パスワードを忘れた方はこちら</a>
+    </div>
+    <div id="password-reset-box" style="display:none;margin-top:12px;">
+      <input class="form-input" type="email" id="reset-email" placeholder="登録したメールアドレス"/>
+      <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
+    </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
   </div>
 </div>
@@ -654,7 +661,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getFirestore, doc, getDoc, updateDoc, addDoc, collection,
          query, where, orderBy, limit, getDocs, serverTimestamp, increment, deleteDoc
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence, sendPasswordResetEmail
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -990,6 +997,28 @@ window.doLogin = async function() {
     btn.textContent = 'ログイン'; btn.disabled = false;
     err.textContent = 'メールアドレスまたはパスワードが違います';
     err.style.display = 'block';
+    // ログイン失敗時はパスワード再設定を目立たせる
+    const link = document.getElementById('forgot-pw-link');
+    link.style.color = 'var(--gb)';
+    link.style.fontWeight = '700';
+    document.getElementById('password-reset-box').style.display = 'block';
+    if (email) document.getElementById('reset-email').value = email;
+  }
+};
+
+window.togglePasswordReset = function() {
+  const box = document.getElementById('password-reset-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+};
+window.doPasswordReset = async function() {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) { showToast('⚠️ メールアドレスを入力してください'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showToast('✅ リセット用のメールを送りました。届いたメールから新しいパスワードを設定してください');
+    document.getElementById('password-reset-box').style.display = 'none';
+  } catch(e) {
+    showToast('⚠️ エラー: ' + e.message);
   }
 };
 
