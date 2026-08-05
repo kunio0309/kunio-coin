@@ -40,7 +40,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ヘッダー */
 .header{position:sticky;top:0;z-index:100;background:rgba(10,15,10,.92);padding-top:env(safe-area-inset-top);
-  backdrop-filter:blur(20px);border-bottom:1px solid var(--border);
+  border-bottom:1px solid var(--border);
   padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;}
 .header-logo{display:flex;align-items:center;gap:10px;font-family:'Bebas Neue',sans-serif;
   font-size:20px;letter-spacing:3px;color:var(--gb);}
@@ -53,7 +53,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ナビ */
 .nav{position:fixed;bottom:0;left:0;right:0;z-index:100;
-  background:rgba(10,15,10,.95);backdrop-filter:blur(20px);
+  background:rgba(10,15,10,.95);
   border-top:1px solid var(--border);display:flex;
   padding-bottom:env(safe-area-inset-bottom);}
 .nav-item{flex:1;padding:10px 4px;display:flex;flex-direction:column;align-items:center;
@@ -163,7 +163,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .btn-approve.no{background:var(--d4);color:var(--dim);border:1px solid var(--border);}
 
 /* モーダル */
-.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);
   display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
 .modal{background:var(--d2);border:1px solid var(--border);border-radius:24px 24px 0 0;
