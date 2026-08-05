@@ -548,7 +548,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="modal-close" onclick="closeModal('modal-use')">✕</button>
     <div class="modal-title">🎯 コインを使う</div>
     <div class="form-group"><label class="form-label">使い道</label>
-      <select class="form-select" id="use-type"></select></div>
+      <div id="use-type-list" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;"></div>
+      <input type="hidden" id="use-type-value">
+      <input type="hidden" id="use-type-desc"></div>
     <div class="form-group"><label class="form-label">希望日時</label><input class="form-input" type="date"/></div>
     <div class="form-group"><label class="form-label">メモ（任意）</label><input class="form-input" type="text" placeholder="相談内容など"/></div>
     <button class="btn-primary" onclick="doUse()">申請する</button>
@@ -732,7 +734,11 @@ async function loadUser(uid) {
     document.getElementById('profile-name').textContent = d.name || '—';
     if (!RANK_INFO[window._userData.rank]) window._userData.rank = 'gold';
     const myRankInfo = RANK_INFO[window._userData.rank];
-    document.getElementById('profile-type').textContent = myRankInfo.badge + ' ' + myRankInfo.label;
+    const profileTypeEl = document.getElementById('profile-type');
+    profileTypeEl.textContent = myRankInfo.badge + ' ' + myRankInfo.label;
+    profileTypeEl.style.background = myRankInfo.bg;
+    profileTypeEl.style.color = myRankInfo.color;
+    profileTypeEl.style.fontWeight = '700';
     renderUseMenu();
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
@@ -940,28 +946,29 @@ async function loadAdminMembers() {
     const snap = await getDocs(collection(db,'users'));
     const el = document.getElementById('admin-members');
     el.innerHTML = '';
-    const docs = snap.docs.slice().sort((a,b) => (b.data().points||0) - (a.data().points||0));
+    const docs = snap.docs.slice().filter(d => !d.data().isAdmin).sort((a,b) => (b.data().points||0) - (a.data().points||0));
     docs.forEach(d => {
       const u = d.data();
       const rankKey = RANK_INFO[u.rank] ? u.rank : 'gold';
       const safeName = (u.name||'—').replace(/'/g,"\\'");
       const rankBtns = Object.keys(RANK_INFO).map(function(k) {
         const active = k === rankKey;
-        return '<button onclick="event.stopPropagation();setMemberRank(\'' + d.id + '\',\'' + k + '\')" style="flex:1;padding:4px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid ' +
-          (active ? 'rgba(105,240,174,.5)' : 'var(--border)') + ';background:' + (active ? 'rgba(105,240,174,.15)' : 'var(--d3)') +
-          ';color:' + (active ? 'var(--gb)' : 'var(--dim)') + ';">' + RANK_INFO[k].badge + '</button>';
+        const info = RANK_INFO[k];
+        return '<button onclick="event.stopPropagation();setMemberRank(\'' + d.id + '\',\'' + k + '\',\'' + safeName + '\')" style="flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:' + info.bg +
+          ';color:' + info.color + ';border:2px solid ' + (active ? '#fff' : 'transparent') + ';opacity:' + (active ? '1' : '.55') + ';">' + info.badge + '</button>';
       }).join('');
       el.innerHTML += `<div class="member-row" style="cursor:pointer;flex-wrap:wrap;" onclick="loadMemberHistory('${d.id}','${safeName}')">
         <div class="member-avatar">👤</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">${u.name||'—'}</div>
-          <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(105,240,174,.1);color:var(--gb);">${RANK_INFO[rankKey].label}</span></div>
+          <span style="font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;background:${RANK_INFO[rankKey].bg};color:${RANK_INFO[rankKey].color};">${RANK_INFO[rankKey].label}</span></div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gb);">${(u.points||0).toLocaleString()} 枚</div>
         <div style="display:flex;gap:4px;width:100%;margin-top:6px;" onclick="event.stopPropagation()">${rankBtns}</div>
       </div>`;
     });
   } catch(e) { console.error(e); }
 }
-window.setMemberRank = async function(uid, rankKey) {
+window.setMemberRank = async function(uid, rankKey, name) {
+  if (!confirm((name||'このメンバー') + 'のランクを「' + RANK_INFO[rankKey].label + '」に変更しますか？')) return;
   try {
     await updateDoc(doc(db,'users',uid), { rank: rankKey });
     showToast('✅ ランクを' + RANK_INFO[rankKey].label + 'に変更しました');
@@ -1073,9 +1080,9 @@ window.doGrant = async function() {
 
 // ランク設定（コインの価値レート）
 const RANK_INFO = {
-  gold:   { label: 'ゼロコストリサイクラーズ', rate: 1.0, badge: '🥇' },
-  silver: { label: 'オンラインメンバー',       rate: 0.8, badge: '🥈' },
-  bronze: { label: '卒業生',                   rate: 0.5, badge: '🥉' }
+  gold:   { label: 'ゼロコストリサイクラーズ', rate: 1.0, badge: '✨🥇', bg: 'linear-gradient(135deg,#fff59d,#ffd54f,#fff9c4)', color: '#3a2e00' },
+  silver: { label: 'リサイクラーズ',           rate: 0.8, badge: '🥈',   bg: 'linear-gradient(135deg,#e8e8e8,#b0b0b0)',           color: '#2a2a2a' },
+  bronze: { label: '卒業生',                   rate: 0.5, badge: '🥉',   bg: 'linear-gradient(135deg,#e0a868,#a5672f)',           color: '#2a1200' }
 };
 function getMyRank() {
   const r = window._userData && window._userData.rank;
@@ -1097,10 +1104,22 @@ const USE_ITEMS = [
   { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'KUNIOがトラックで来る', basePts:60000 }
 ];
 
+function buildCompareRow(item, rankKey) {
+  if (item.basePts === 0) return '';
+  return '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">' +
+    Object.keys(RANK_INFO).map(function(k) {
+      if (item.rankOnly && item.rankOnly !== k) return '';
+      const info = RANK_INFO[k];
+      const isMe = k === rankKey;
+      return '<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;background:' + info.bg + ';color:' + info.color +
+        ';' + (isMe ? 'outline:2px solid #fff;' : 'opacity:.5;') + '">' + info.badge + ' ' + ptsForRank(item.basePts, k).toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
+    }).join('') + '</div>';
+}
+
 function renderUseMenu() {
   const rankKey = getMyRank();
   const container = document.getElementById('use-menu-container');
-  const select = document.getElementById('use-type');
+  const list = document.getElementById('use-type-list');
   if (container) {
     container.innerHTML = '';
     USE_ITEMS.forEach(item => {
@@ -1108,22 +1127,43 @@ function renderUseMenu() {
       const costHtml = item.basePts === 0
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
         : '<div class="use-cost">' + ptsForRank(item.basePts, rankKey).toLocaleString() + ' 枚</div>';
-      container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')"><div><div style="font-size:13px;font-weight:700;">' +
+      container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' +
         item.icon + ' ' + item.name + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
-        '</div></div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
+        '</div>' + buildCompareRow(item, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
     });
   }
-  if (select) {
-    select.innerHTML = '';
-    USE_ITEMS.forEach(item => {
+  if (list) {
+    list.innerHTML = '';
+    let firstIdx = -1;
+    USE_ITEMS.forEach((item, idx) => {
       if (item.rankOnly && item.rankOnly !== rankKey) return;
+      if (firstIdx === -1) firstIdx = idx;
       const pts = item.basePts === 0 ? 0 : ptsForRank(item.basePts, rankKey);
-      const label = item.basePts === 0 ? (item.name + ' — 要相談') : (item.name + ' — ' + pts.toLocaleString() + 'pt');
-      select.innerHTML += '<option value="' + pts + '">' + label + '</option>';
+      const myCostHtml = item.basePts === 0
+        ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
+        : '<div style="font-size:16px;font-weight:700;color:var(--gb);">' + pts.toLocaleString() + ' 枚</div>';
+      list.innerHTML += '<div class="use-select-item" id="use-select-' + idx + '" onclick="selectUseItem(' + idx + ')" ' +
+        'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-size:13px;font-weight:700;">' + item.icon + ' ' + item.name + '</div>' +
+        '<div style="font-size:11px;color:var(--dim);">' + item.sub + '</div></div>' + myCostHtml + '</div>' +
+        buildCompareRow(item, rankKey) + '</div>';
     });
+    if (firstIdx !== -1) selectUseItem(firstIdx);
   }
 }
 window.renderUseMenu = renderUseMenu;
+
+window.selectUseItem = function(idx) {
+  const item = USE_ITEMS[idx];
+  const rankKey = getMyRank();
+  const pts = item.basePts === 0 ? 0 : ptsForRank(item.basePts, rankKey);
+  document.getElementById('use-type-value').value = pts;
+  document.getElementById('use-type-desc').value = item.name;
+  document.querySelectorAll('.use-select-item').forEach(function(el) { el.style.borderColor = 'var(--border)'; });
+  const sel = document.getElementById('use-select-' + idx);
+  if (sel) sel.style.borderColor = 'var(--gb)';
+};
 
 // コイン消費の共通処理（本人から減算し、KUNIOの残高に反映）
 async function spendCoins(pts, desc) {
@@ -1154,9 +1194,8 @@ async function spendCoins(pts, desc) {
 
 // ポイント使用
 window.doUse = async function() {
-  const sel = document.getElementById('use-type');
-  const ptsRaw = sel.value;
-  const desc = sel.options[sel.selectedIndex].text.split(' — ')[0];
+  const ptsRaw = document.getElementById('use-type-value').value;
+  const desc = document.getElementById('use-type-desc').value;
   if (ptsRaw === '0') {
     closeModal('modal-use');
     showToast('📩 KUNIOに相談リクエストを送りました！');
