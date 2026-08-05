@@ -1153,25 +1153,26 @@ function ptsForRank(basePts, rankKey) {
 
 // コインを使う：メニュー項目（基準額はゼロコストリサイクラーズ＝1円1枚）
 const USE_ITEMS = [
-  { icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', basePts:15000 },
-  { icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', basePts:28000 },
-  { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2〜4万円相当コース料理', basePts:35000 },
-  { icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', basePts:20000 },
-  { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', basePts:0 },
-  { icon:'🥂', name:'懇親会追加参加', sub:'コース使い切り後・ゼロコストリサイクラーズのみ', basePts:25000, rankOnly:'gold' },
-  { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', basePts:30000 },
-  { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'KUNIOがトラックで来る', basePts:60000 }
+  { icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', prices:{gold:10000, silver:20000, bronze:30000} },
+  { icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', prices:{gold:28000, silver:35000, bronze:50000} },
+  { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2〜4万円相当コース料理', prices:{gold:30000, silver:45000, bronze:60000} },
+  { icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', prices:{gold:20000, silver:30000, bronze:50000} },
+  { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
+  { icon:'🥂', name:'懇親会追加参加', sub:'コース使い切り後・ゼロコストリサイクラーズのみ', prices:{gold:25000}, rankOnly:'gold' },
+  { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
+  { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null }
 ];
 
 function buildCompareRow(item, rankKey) {
-  if (item.basePts === 0) return '';
+  if (!item.prices) return '';
   return '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">' +
     Object.keys(RANK_INFO).map(function(k) {
       if (item.rankOnly && item.rankOnly !== k) return '';
+      if (item.prices[k] === undefined) return '';
       const info = RANK_INFO[k];
       const isMe = k === rankKey;
       return '<span style="font-size:11px;padding:3px 9px;border-radius:10px;font-weight:700;background:' + info.bg + ';color:' + info.color +
-        ';' + (isMe ? 'box-shadow:0 0 0 2px #fff;' : '') + '">' + info.badge + ' ' + ptsForRank(item.basePts, k).toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
+        ';' + (isMe ? 'box-shadow:0 0 0 2px #fff;' : '') + '">' + info.badge + ' ' + item.prices[k].toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
     }).join('') + '</div>';
 }
 
@@ -1183,9 +1184,10 @@ function renderUseMenu() {
     container.innerHTML = '';
     USE_ITEMS.forEach(item => {
       if (item.rankOnly && item.rankOnly !== rankKey) return;
-      const costHtml = item.basePts === 0
+      const myPts = item.prices ? item.prices[rankKey] : undefined;
+      const costHtml = (myPts === undefined)
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
-        : '<div class="use-cost">' + ptsForRank(item.basePts, rankKey).toLocaleString() + ' 枚</div>';
+        : '<div class="use-cost">' + myPts.toLocaleString() + ' 枚</div>';
       container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' +
         item.icon + ' ' + item.name + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
         '</div>' + buildCompareRow(item, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
@@ -1197,10 +1199,10 @@ function renderUseMenu() {
     USE_ITEMS.forEach((item, idx) => {
       if (item.rankOnly && item.rankOnly !== rankKey) return;
       if (firstIdx === -1) firstIdx = idx;
-      const pts = item.basePts === 0 ? 0 : ptsForRank(item.basePts, rankKey);
-      const myCostHtml = item.basePts === 0
+      const myPts = item.prices ? item.prices[rankKey] : undefined;
+      const myCostHtml = (myPts === undefined)
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
-        : '<div style="font-size:16px;font-weight:700;color:var(--gb);">' + pts.toLocaleString() + ' 枚</div>';
+        : '<div style="font-size:16px;font-weight:700;color:var(--gb);">' + myPts.toLocaleString() + ' 枚</div>';
       list.innerHTML += '<div class="use-select-item" id="use-select-' + idx + '" onclick="selectUseItem(' + idx + ')" ' +
         'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -1216,7 +1218,8 @@ window.renderUseMenu = renderUseMenu;
 window.selectUseItem = function(idx) {
   const item = USE_ITEMS[idx];
   const rankKey = getMyRank();
-  const pts = item.basePts === 0 ? 0 : ptsForRank(item.basePts, rankKey);
+  const myPts = item.prices ? item.prices[rankKey] : undefined;
+  const pts = myPts === undefined ? 0 : myPts;
   document.getElementById('use-type-value').value = pts;
   document.getElementById('use-type-desc').value = item.name;
   document.querySelectorAll('.use-select-item').forEach(function(el) { el.style.borderColor = 'var(--border)'; });
