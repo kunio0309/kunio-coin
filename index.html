@@ -1698,6 +1698,21 @@ async function postJob() {
         description: '▶️ YouTube募集依頼（' + title + '）',
         icon: '▶️', createdAt: window._ts ? window._ts() : new Date(), type: 'spend'
       });
+      // 使用分をKUNIO（管理者）の残高に反映
+      const adminSnap = await window._getDocs(
+        window._query(window._collection(window._db, 'users'), window._where('isAdmin', '==', true), window._limit(1))
+      );
+      if (!adminSnap.empty) {
+        const adminUid = adminSnap.docs[0].id;
+        if (adminUid !== window._uid) {
+          await window._updateDoc(window._doc(window._db, 'users', adminUid), { points: window._inc(ytCost) });
+          await window._addDoc(window._collection(window._db, 'transactions'), {
+            userId: adminUid, points: ytCost,
+            description: name + 'が利用（▶️ YouTube募集依頼（' + title + '））',
+            icon: '💰', createdAt: window._ts ? window._ts() : new Date(), type: 'redeem-income'
+          });
+        }
+      }
     }
 
     showToast(yt ? '✅ 投稿＆YouTube募集依頼しました！' : '✅ 投稿しました！KUNIOの承認をお待ちください');
