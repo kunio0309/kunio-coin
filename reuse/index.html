@@ -224,6 +224,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .intro-chip{font-size:12px;font-weight:700;color:var(--gb);background:rgba(105,240,174,.1);
   border:1px solid rgba(105,240,174,.3);border-radius:10px;padding:3px 10px;}
 .intro-q{font-size:11px;color:var(--gold);font-weight:700;margin:10px 0 2px;}
+.like-btn.on{color:var(--gold)!important;font-weight:800;}
+.kunio-reply{background:rgba(255,213,79,.08);border-left:3px solid var(--gold);border-radius:8px;padding:9px 12px;margin-top:10px;font-size:13px;line-height:1.7;word-break:break-word;}
+.kunio-reply .tag{display:block;font-size:11px;font-weight:800;color:var(--gold);margin-bottom:2px;}
+.kunio-reply .when{font-size:10px;color:var(--dim);margin-left:6px;font-weight:400;}
 .reaction-badge{display:inline-block;font-size:13px;font-weight:800;color:var(--gold);background:rgba(255,213,79,.12);
   border:1px solid rgba(255,213,79,.45);border-radius:10px;padding:3px 12px;margin-top:8px;margin-right:6px;}
 .reaction-badge.super{color:#ff8a65;background:rgba(255,138,101,.14);border-color:rgba(255,138,101,.55);}
@@ -1754,6 +1758,21 @@ window.deleteAssignment = async function(btn){
 };
 
 // ── 課題ボード（共通の描画） ─────────────────────────
+function kunioReplyHtml(r){
+  if(!r || !r.text) return '';
+  const t = String(r.text); const short = t.length>160 ? t.slice(0,160)+'…' : t;
+  return `<div class="kunio-reply"><span class="tag">💬 KUNIOから返信<span class="when">${r.at?fmtDT(r.at):''}</span></span>${escHtml(short)}</div>`;
+}
+// 管理者の最新の返信を、投稿に写しておく（みんなの画面に自動で出すため）
+async function syncKunioReply(postId){
+  try{
+    const snap = await getDocs(query(collection(db,'seminar_posts',postId,'comments'), limit(200)));
+    const mine = snap.docs.map(d=>d.data()).filter(c=>c.uid===(currentUser&&currentUser.uid))
+      .sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+    const last = mine[mine.length-1];
+    await updateDoc(doc(db,'seminar_posts',postId),{ kunioReply: last ? { text:last.text, at:last.createdAt||Timestamp.now() } : null });
+  }catch(e){}
+}
 function reactionBadge(r){
   return r==='super' ? '<span class="reaction-badge super">🔥 超いいね！</span>'
        : r==='like'  ? '<span class="reaction-badge">👍 いいね！</span>' : '';
@@ -1779,6 +1798,11 @@ function renderPost(p, forAdmin, extraHtml){
   const isIntro = (p.type==='intro' && p.intro && typeof p.intro==='object');
   const bodyHtml = isIntro ? renderIntroBody(p.intro) : `<div class="post-text">${escHtml(p.text||'')}</div>`;
   const tagHtml = isIntro ? '<div class="post-tag">👋 自己紹介</div>' : tag;
+  const nLike = p.likeCount||0;
+  const liked = _myLikes.has(p.id);
+  const likeHtml = (!forAdmin && _me && !mine)
+    ? `<button class="btn-text like-btn${liked?' on':''}" data-n="${nLike}" onclick="toggleLike(this)">👍 いいね${nLike>0?' '+nLike:''}</button>`
+    : (nLike>0 ? `<span class="btn-text" style="cursor:default;">👍 ${nLike}</span>` : '');
   const editHtml = (mine && !forAdmin && !isIntro)
     ? `<div class="post-edit" style="display:none;margin-top:8px;">
         <textarea class="form-textarea pe-text" maxlength="3000">${escHtml(p.text||'')}</textarea>
@@ -1792,9 +1816,11 @@ function renderPost(p, forAdmin, extraHtml){
     ${linkHtml}
     ${editHtml}
     <div class="reaction-line">${reactionBadge(p.reaction)}</div>
+    ${kunioReplyHtml(p.kunioReply)}
     ${badge}
     <div class="post-actions">
       <button class="btn-text" onclick="toggleComments(this,${forAdmin?'true':'false'})">${(mine||forAdmin)?'💬 やりとりを見る・返信する':'💬 やりとりを見る'}</button>
+      ${likeHtml}
       ${(mine&&!forAdmin&&isIntro)?`<button class="btn-text" onclick="editIntro()">✏️ 編集する</button>`:''}
       ${(mine&&!forAdmin&&!isIntro)?`<button class="btn-text" onclick="editPost(this)">✏️ 編集する</button>`:''}
       ${(mine&&!forAdmin)?`<button class="btn-text" style="color:var(--red);" onclick="deleteMyPost(this)">🗑 削除</button>`:''}
@@ -1842,6 +1868,7 @@ window.saveCommentEdit = async function(btn){
   if(!text){ showToast('コメントを入力してください'); return; }
   try{
     await updateDoc(doc(db,'seminar_posts',post.dataset.id,'comments',row.dataset.cid),{ text, editedAt:serverTimestamp() });
+    if(!_me) await syncKunioReply(post.dataset.id);
     await renderComments(box, post.dataset.id, !_me);
   }catch(e){ showToast('❌ 変更できませんでした'); }
 };
@@ -1887,6 +1914,7 @@ window.submitComment = async function(el){
   try{
     await addDoc(collection(db,'seminar_posts',post.dataset.id,'comments'),
       { uid:who.uid, name:who.name, text, createdAt:serverTimestamp() });
+    if(!_me) await syncKunioReply(post.dataset.id);
     await renderComments(box, post.dataset.id, !_me);
   }catch(e){ showToast('コメントできませんでした：'+(e.code||e.message)); }
 };
@@ -1897,11 +1925,13 @@ window.deleteComment = async function(btn){
   if(!confirm('このコメントを削除しますか？')) return;
   try{
     await deleteDoc(doc(db,'seminar_posts',post.dataset.id,'comments',row.dataset.cid));
+    if(!_me) await syncKunioReply(post.dataset.id);
     await renderComments(box, post.dataset.id, !_me);
   }catch(e){ showToast('❌ 削除できませんでした'); }
 };
 
 // ── 課題ボード（参加者） ─────────────────────────────
+let _myLikes = new Set();
 let _boardFilter = null;
 let _boardPosts = [];
 window.setBoardFilter = function(k){ _boardFilter = k; renderBoard(); };
@@ -1934,6 +1964,10 @@ async function loadBoard(){
     const snap = await getDocs(query(collection(db,'seminar_posts'), where('hidden','==',false), limit(300)));
     const posts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
     _boardPosts = posts;
+    try{
+      const ls = await getDocs(query(collection(db,'seminar_likes'), where('uid','==',currentUser.uid)));
+      _myLikes = new Set(ls.docs.map(d=>d.data().postId));
+    }catch(e){ _myLikes = new Set(); }
     // 自分の自己紹介（非表示にされていても自分には読めるよう、無ければ直接取得も試す）
     _myIntro = posts.find(p=>_me && p.id===('intro_'+_me.uid)) || null;
     if(!_myIntro && _me){
@@ -2224,6 +2258,27 @@ async function loadAdminPosts(){
     el.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>';
   }
 }
+
+window.toggleLike = async function(btn){
+  if(!currentUser || !_me) return;
+  const post = btn.closest('.post'); const id = post.dataset.id;
+  const liked = _myLikes.has(id);
+  const likeRef = doc(db,'seminar_likes', id+'_'+currentUser.uid);
+  const postRef = doc(db,'seminar_posts', id);
+  btn.disabled = true;
+  try{
+    const batch = writeBatch(db);
+    if(liked){ batch.delete(likeRef); batch.update(postRef,{ likeCount:increment(-1) }); }
+    else { batch.set(likeRef,{ postId:id, uid:currentUser.uid, createdAt:serverTimestamp() }); batch.update(postRef,{ likeCount:increment(1) }); }
+    await batch.commit();
+    const n = Math.max(0, (parseInt(btn.dataset.n)||0) + (liked?-1:1));
+    if(liked) _myLikes.delete(id); else _myLikes.add(id);
+    btn.dataset.n = n; btn.classList.toggle('on', !liked);
+    btn.textContent = '👍 いいね' + (n>0 ? ' '+n : '');
+    const cached = _boardPosts.find(x=>x.id===id); if(cached) cached.likeCount = n;
+  }catch(e){ showToast('いいねできませんでした'); }
+  finally{ btn.disabled = false; }
+};
 
 window.setReaction = async function(btn, r){
   const post = btn.closest('.post'); const row = post.querySelector('.react-row');
