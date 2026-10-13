@@ -418,7 +418,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="admin-tabbtn-coin" class="tab-btn active" onclick="switchTab('admin','coin')">💰 コイン</button>
       <button id="admin-tabbtn-codes" class="tab-btn" onclick="switchTab('admin','codes')">🔑 合言葉</button>
       <button id="admin-tabbtn-posts" class="tab-btn" onclick="switchTab('admin','posts')">📝 課題</button>
-      <button id="admin-tabbtn-offer" class="tab-btn" onclick="switchTab('admin','offer')">🎓 教材</button>
+      <button id="admin-tabbtn-offer" class="tab-btn" onclick="switchTab('admin','offer')">🎁 特典</button>
     </div>
     <div id="admin-tab-coin">
 
@@ -552,12 +552,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <div id="admin-tab-offer" style="display:none;">
       <div class="card">
-        <div class="section-title">● 教材オファーの設定</div>
-        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">コインを1枚＝1円の値引きにして、残りを銀行振込してもらいます。ONにすると、参加者のコイン画面にオファーが出ます。</div>
+        <div class="section-title">● 参加者限定の特典の設定</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">コインを1枚＝1円の値引きにして、残りを銀行振込してもらいます。ONにすると、参加者のコイン画面に「参加者限定の特典」が出ます。</div>
         <label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:14px;font-weight:700;">
           <input type="checkbox" id="offer-enabled-toggle" onchange="saveOfferEnabled()" style="width:20px;height:20px;accent-color:var(--gb);">
           <span id="offer-enabled-label" style="color:var(--dim);">OFF（非公開）</span></label>
-        <input class="form-input" type="text" id="offer-name" placeholder="教材の名前" maxlength="60">
+        <input class="form-input" type="text" id="offer-name" placeholder="商品の名前（例：ゴミをお金に換える錬金術）" maxlength="60">
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
           <span style="font-size:12px;color:var(--dim);width:90px;">通常価格(円)</span>
           <input type="number" id="offer-price" class="grant-input" style="width:120px;" value="29800" min="1"></div>
@@ -572,7 +572,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <div class="card">
         <div class="section-title">● お申し込み一覧</div>
-        <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">振込名義とお振込み金額を、銀行の入金と照らし合わせて「入金確認」を押し、教材を送ったら「送付済み」を押します。</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">振込名義とお振込み金額を、銀行の入金と照らし合わせて「入金確認」を押し、商品を送ったら「送付済み」を押します。</div>
         <button class="btn-secondary" onclick="loadOrders()" style="font-size:12px;padding:10px;">🔄 最新に更新</button>
         <div id="admin-orders"><div class="loading">読み込み中...</div></div>
       </div>
@@ -1163,7 +1163,7 @@ async function loadUserCoinHistory(uid, joinedAt){
       else if(h.type==='code'){ icon='🔑'; label='合言葉：'+escHtml(h.comment||''); }
       else if(h.type==='post'){ icon='📝'; label='課題の評価：'+escHtml(h.comment||''); }
       else if(h.type==='intro_bonus'){ icon='👋'; label='自己紹介ボーナス'; }
-      else if(h.type==='offer'){ icon='🎓'; label='教材オファーで使用'; }
+      else if(h.type==='offer'){ icon='🎁'; label='特典で使用'; }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
@@ -1411,7 +1411,7 @@ async function loadHistory(){
     else if(h.type==='join_bonus') who=`<span style="color:var(--gold);font-weight:700;">🎉 新規参加：${escHtml(h.name)}</span>`;
     else if(h.type==='code') who=`<span style="color:var(--gb);font-weight:700;">🔑 ${escHtml(h.name||'')}</span>（合言葉：${escHtml(h.comment||'')}）`;
     else if(h.type==='post') who=`<span style="color:var(--gb);font-weight:700;">📝 ${escHtml(h.name||'')}</span>（課題：${escHtml(h.comment||'')}）`;
-    else if(h.type==='offer') who=`<span style="color:var(--gb);font-weight:700;">🎓 ${escHtml(h.name||'')}</span>（教材オファー：${escHtml(h.comment||'')}）`;
+    else if(h.type==='offer') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（特典：${escHtml(h.comment||'')}）`;
     else if(h.type==='intro_bonus') who=`<span style="color:var(--gb);font-weight:700;">👋 ${escHtml(h.name||'')}</span>（自己紹介ボーナス）`;
     const comment = h.comment ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;padding-left:4px;">💬 ${escHtml(h.comment)}</div>` : '';
     html+=`<div style="padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;">
@@ -2253,11 +2253,11 @@ window.togglePostHidden = async function(btn, hide){
 
 
 // ═══════════════════════════════════════════════
-//  教材オファー：コインを値引きに使って、残りを銀行振込
+//  参加者限定の特典：コインを値引きに使って、残りを銀行振込
 // ═══════════════════════════════════════════════
 const DEFAULT_BANK_TEXT = 'PayPay銀行（金融機関コード 0033）\nビジネス営業部（005）\n普通預金　7101397\nユ）ナルトウシューパーツリサイクルショップケイケイネット';
 const DEFAULT_OFFER_NAME = 'ゴミをお金に換える錬金術';
-const ORDER_STATUS = { pending:'⏳ 入金待ち', paid:'💰 入金確認済み', sent:'📧 教材を送付済み' };
+const ORDER_STATUS = { pending:'⏳ 入金待ち', paid:'💰 入金確認済み', sent:'📧 送付済み' };
 const yen = n => '¥' + Number(n||0).toLocaleString();
 
 function remainingText(ts){
@@ -2272,17 +2272,18 @@ function renderOrderCard(o, off){
   const bank = (off && off.bankText) ? off.bankText : DEFAULT_BANK_TEXT;
   const paid = o.status==='paid' || o.status==='sent';
   return `<div class="offer-card">
-    <div class="offer-title">🎓 ${escHtml(o.offerName||'教材')} お申し込み済み</div>
+    <div class="offer-title">🎁 参加者限定の特典　お申し込み済み</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escHtml(o.offerName||'')}</div>
     <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:6px;">${ORDER_STATUS[o.status]||''}</div>
     <div class="offer-calc">
       <div class="row"><span>通常価格</span><span>${yen(o.price)}</span></div>
       <div class="row"><span>コイン値引き（${(o.coinsUsed||0).toLocaleString()}枚）</span><span>−${yen(o.discountYen)}</span></div>
       <div class="row total"><span>お振込み金額</span><span>${yen(o.payYen)}</span></div>
     </div>
-    ${paid ? '' : `<div style="font-size:12px;color:var(--dim);margin:8px 0 6px;">下記の口座へお振込みください。入金を確認できましたら、教材をメールでお送りします。</div>
+    ${paid ? '' : `<div style="font-size:12px;color:var(--dim);margin:8px 0 6px;">下記の口座へお振込みください。入金を確認できましたら、メールでお送りします。</div>
     <div class="bank-box">${escHtml(bank)}</div>
     <div class="warn-box" style="margin-top:10px;">⚠️ 注意！ 振込名義は <strong>${escHtml(o.payerName||'')}</strong> のまま振り込んでください。違う名義だと入金を確認できません。</div>
-    <div style="font-size:11px;color:var(--dim);margin-top:8px;">教材の送付先：${escHtml(o.sendEmail||'')}</div>`}
+    <div style="font-size:11px;color:var(--dim);margin-top:8px;">お届け先メール：${escHtml(o.sendEmail||'')}</div>`}
   </div>`;
 }
 
@@ -2301,7 +2302,7 @@ async function loadOfferCard(){
     if(!off || off.enabled!==true || !off.name || !off.price){ el.innerHTML = ''; return; }
     const dl = (off.deadline && off.deadline.toDate) ? off.deadline.toDate() : null;
     if(dl && dl <= new Date()){
-      el.innerHTML = `<div class="offer-card"><div class="offer-title">🎓 ${escHtml(off.name)} 特別オファー</div><div style="font-size:13px;color:var(--dim);">受付は終了しました</div></div>`;
+      el.innerHTML = `<div class="offer-card"><div class="offer-title">🎁 参加者限定の特典</div><div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escHtml(off.name)}</div><div style="font-size:13px;color:var(--dim);">受付は終了しました</div></div>`;
       return;
     }
     const coins = uSnap.exists() ? (uSnap.data().coins||0) : 0;
@@ -2309,7 +2310,8 @@ async function loadOfferCard(){
     const used = Math.min(coins, max, price), pay = price-used;
     const bank = off.bankText || DEFAULT_BANK_TEXT;
     el.innerHTML = `<div class="offer-card">
-      <div class="offer-title">🎓 ${escHtml(off.name)} 特別オファー</div>
+      <div class="offer-title">🎁 参加者限定の特典</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escHtml(off.name)}</div>
       ${dl ? `<div class="offer-count">⏰ 締め切り ${fmtDT(off.deadline)}（${remainingText(off.deadline)}）</div>` : ''}
       <div style="font-size:13px;color:var(--dim);line-height:1.7;">お持ちのコインを、1枚＝1円として値引きに使えます（最大${yen(max)}まで）。</div>
       <div class="offer-calc">
@@ -2319,13 +2321,13 @@ async function loadOfferCard(){
       </div>
       <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">お振込み先</div>
       <div class="bank-box">${escHtml(bank)}</div>
-      <div class="intro-label">教材を送るメールアドレス<span class="req">必須</span></div>
+      <div class="intro-label">お届け先のメールアドレス<span class="req">必須</span></div>
       <input class="form-input" type="email" id="offer-email" value="${escHtml(currentUser.email||'')}" autocomplete="off" style="margin-bottom:8px;">
       <input class="form-input" type="email" id="offer-email2" placeholder="確認のため、もう一度入力" autocomplete="off" style="margin-bottom:0;">
       <div class="intro-label">振込名義（カタカナ）<span class="req">必須</span></div>
       <div class="warn-box">⚠️ 注意！ オープンチャットの名前と、銀行の振込名義が違うと、入金を確認できません。<br><strong>必ず、実際に振り込む口座の名義（カタカナ）を入力してください。</strong>振込のときも、ここに書いた名義のまま振り込んでください。</div>
       <input class="form-input" type="text" id="offer-payer" maxlength="50" placeholder="例：タナカ タロウ" autocomplete="off" style="margin-bottom:12px;">
-      <button class="btn-primary" id="offer-btn" onclick="submitOffer()" style="margin-bottom:0;">この内容で申し込む（${yen(pay)}を振込）</button>
+      <button class="btn-primary" id="offer-btn" onclick="submitOffer()" style="margin-bottom:0;">特典を受け取る（${yen(pay)}を振込）</button>
       <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">申し込むと、値引きに使った${used.toLocaleString()}枚のコインが引かれます。お振込みは申し込み後にお願いします。</div>
     </div>`;
   }catch(e){ el.innerHTML = ''; }
@@ -2353,7 +2355,7 @@ window.submitOffer = async function(){
     const coins = uSnap.data().coins||0;
     const price = Number(off.price)||0, max = Number(off.maxDiscount)||0;
     const used = Math.min(coins, max, price), pay = price-used;
-    if(!confirm(`${off.name}\n\n通常価格 ${yen(price)}\nコイン値引き −${yen(used)}（${used.toLocaleString()}枚）\nお振込み金額 ${yen(pay)}\n\nこの内容で申し込みますか？`)){ btn.disabled=false; return; }
+    if(!confirm(`${off.name}\n\n通常価格 ${yen(price)}\nコイン値引き −${yen(used)}（${used.toLocaleString()}枚）\nお振込み金額 ${yen(pay)}\n\nこの内容で受け取りますか？`)){ btn.disabled=false; return; }
     const batch = writeBatch(db);
     batch.set(orderRef,{
       uid:currentUser.uid, name:_me.bandName, loginEmail:currentUser.email||'', sendEmail:email, payerName:payer,
@@ -2407,7 +2409,7 @@ window.saveOffer = async function(){
   const maxDiscount = parseInt(document.getElementById('offer-max').value);
   const dlVal = document.getElementById('offer-deadline').value;
   const bankText = document.getElementById('offer-bank').value.trim();
-  if(!name){ showToast('教材の名前を入力してください'); return; }
+  if(!name){ showToast('特典の名前を入力してください'); return; }
   if(isNaN(price) || price<=0){ showToast('通常価格を入力してください'); return; }
   if(isNaN(maxDiscount) || maxDiscount<0){ showToast('値引きの上限を入力してください'); return; }
   if(!bankText){ showToast('お振込み先を入力してください'); return; }
@@ -2419,7 +2421,7 @@ window.saveOffer = async function(){
   }
   try{
     await setDoc(doc(db,'seminar_config','offer'),{ name, price, maxDiscount, deadline, bankText, updatedAt:serverTimestamp() },{ merge:true });
-    showToast('✅ オファーの設定を保存しました');
+    showToast('✅ 特典の設定を保存しました');
   }catch(e){ showToast('❌ 保存できませんでした'); }
 };
 
@@ -2429,7 +2431,7 @@ window.saveOfferEnabled = async function(){
     await setDoc(doc(db,'seminar_config','offer'),{ enabled: tg.checked },{ merge:true });
     const lb = document.getElementById('offer-enabled-label');
     lb.textContent = tg.checked ? 'ON（公開中）' : 'OFF（非公開）'; lb.style.color = tg.checked ? 'var(--gb)' : 'var(--dim)';
-    showToast(tg.checked ? '✅ オファーを公開しました' : 'オファーを非公開にしました');
+    showToast(tg.checked ? '✅ 特典を公開しました' : '特典を非公開にしました');
   }catch(e){ tg.checked = !tg.checked; showToast('❌ 変更できませんでした'); }
 };
 
@@ -2482,7 +2484,7 @@ window.cancelOrder = async function(btn){
     if((o.coinsUsed||0)>0 && uSnap.exists()){
       batch.update(userRef,{ coins:increment(o.coinsUsed) });
       batch.set(doc(collection(db,'seminar_coin_history')),
-        { type:'individual', uid, name:o.name||'', amount:o.coinsUsed, comment:'教材オファーの取消による返還', grantedAt:serverTimestamp() });
+        { type:'individual', uid, name:o.name||'', amount:o.coinsUsed, comment:'特典の取消による返還', grantedAt:serverTimestamp() });
     }
     batch.delete(orderRef);
     await batch.commit();
