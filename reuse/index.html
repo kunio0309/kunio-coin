@@ -698,7 +698,8 @@ window.doResetPassword = async function(){
 window.doSignOut = async function(){ await signOut(auth); showScreen('screen-login'); };
 
 onAuthStateChanged(auth, async(user)=>{
-  if(!user){ showScreen('screen-login'); return; }
+  try{ _me = null; _myIntro = null; _boardFilter = null; _adminFilter = null; }catch(e){}
+  if(!user){ currentUser = null; showScreen('screen-login'); return; }
   currentUser = user;
 
   // ログイン成功 → 絶対にログイン画面に戻さない
