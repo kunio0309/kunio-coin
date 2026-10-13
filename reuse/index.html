@@ -373,7 +373,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="intro-card"></div>
       <div id="board-chips" class="board-chips"></div>
       <div id="board-notice"></div>
-      <div class="card">
+      <div class="card" id="post-card" style="display:none;">
         <div class="section-title">✍️ 課題を提出する</div>
         <div id="post-assign-wrap" style="display:none;margin-bottom:10px;">
           <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">どの課題への提出ですか？</div>
@@ -533,13 +533,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <div id="admin-tab-posts" style="display:none;">
       <div class="card">
-        <div class="section-title">● 課題の出題（DAY1課題・DAY2課題…と分けて登録）</div>
-        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">登録した課題は、参加者の課題ボードに「DAY1課題」などの切り替えボタンとして並びます。課題名は後から変更できません（変更したいときは削除して作り直してください）。</div>
+        <div class="section-title">● 課題の出題（DAY1課題・DAY2課題…）</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">課題を追加しただけでは、参加者には<strong>見えません</strong>。「公開する」をONにした課題だけが、参加者の課題ボードに並び、書き込めます。OFFに戻すと、また見えなくなります。課題名は後から変更できません（変更したいときは削除して作り直してください）。</div>
         <div id="admin-assign-list"></div>
         <div style="font-size:13px;font-weight:700;margin:12px 0 8px;">＋ 新しい課題を追加</div>
         <input class="form-input" type="text" id="assign-title" placeholder="課題名（例：DAY1課題）" maxlength="40">
         <textarea id="assign-body" class="form-textarea" placeholder="課題の内容・提出のしかたなど" maxlength="1500"></textarea>
-        <button class="btn-primary" onclick="addAssignment()" style="margin-bottom:0;">＋ この課題を追加する</button>
+        <button class="btn-primary" onclick="addAssignment()" style="margin-bottom:0;">＋ この課題を追加する（まだ非公開）</button>
       </div>
       <div class="card">
         <div class="section-title">● 提出された課題</div>
@@ -1663,55 +1663,82 @@ window.deleteCode = async function(btn){
   }catch(e){ showToast('❌ 削除できませんでした'); }
 };
 
-// ── 課題の出題（管理者）：DAY1課題・DAY2課題…を複数登録 ──────
+// ── 課題の出題：DAY1課題・DAY2課題…（ONにした課題だけ参加者に見える） ──────
 let _assignments = [];
-async function fetchAssignments(){
-  const s = await getDoc(doc(db,'seminar_config','main'));
-  const c = s.exists() ? s.data() : {};
-  _assignments = Array.isArray(c.assignments) ? c.assignments : [];
-  return c;
+async function fetchAssignments(forAdmin){
+  const col = collection(db,'seminar_assignments');
+  const snap = forAdmin ? await getDocs(col) : await getDocs(query(col, where('active','==',true)));
+  if(forAdmin && snap.empty){
+    // 以前の保存形式（設定の中の配列）が残っていれば、非公開のまま引っ越す
+    try{
+      const old = await getDoc(doc(db,'seminar_config','main'));
+      const arr = old.exists() && Array.isArray(old.data().assignments) ? old.data().assignments : [];
+      if(arr.length){
+        const batch = writeBatch(db);
+        arr.forEach((x,i)=> batch.set(doc(collection(db,'seminar_assignments')),
+          { title:x.title, body:x.body||'', active:false, createdAt:Timestamp.fromMillis(Date.now()+i) }));
+        batch.set(doc(db,'seminar_config','main'),{ assignments:[] },{ merge:true });
+        await batch.commit();
+        return fetchAssignments(true);
+      }
+    }catch(e){}
+  }
+  _assignments = snap.docs.map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.seconds||0)-(y.createdAt?.seconds||0));
 }
-function chipsHtml(sel, fnName){
-  const items = [['all','全部'],['intro','👋 自己紹介'], ..._assignments.map(a=>['t:'+a.title, a.title])];
+function chipsHtml(sel, fnName, withOff){
+  const items = [['intro','👋 自己紹介'], ..._assignments.map(a=>['a:'+a.id, a.title + ((withOff && !a.active) ? '（非公開）' : '')])];
   return items.map(([k,l])=>`<button class="chip${sel===k?' on':''}" data-k="${escHtml(k)}" onclick="${fnName}(this.dataset.k)">${escHtml(l)}</button>`).join('');
 }
 function filterPosts(posts, sel){
   if(sel==='intro') return posts.filter(p=>p.type==='intro');
-  if(sel.startsWith('t:')){ const t = sel.slice(2); return posts.filter(p=>p.type!=='intro' && p.assignmentTitle===t); }
+  if(sel.startsWith('a:')){
+    const a = _assignments.find(x=>'a:'+x.id===sel);
+    return posts.filter(p=>p.type!=='intro' && (p.assignmentId ? ('a:'+p.assignmentId===sel) : (a && p.assignmentTitle===a.title)));
+  }
   return posts;
 }
 function renderAssignAdmin(){
   const el = document.getElementById('admin-assign-list'); if(!el) return;
   el.innerHTML = _assignments.length ? _assignments.map(a=>`<div class="code-card" data-id="${escHtml(a.id)}">
-    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">📌 ${escHtml(a.title)}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+      <span style="font-size:14px;font-weight:700;">📌 ${escHtml(a.title)}</span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:${a.active?'var(--gb)':'var(--dim)'};">
+        <input type="checkbox" ${a.active?'checked':''} onchange="toggleAssignment(this)" style="width:18px;height:18px;accent-color:var(--gb);">${a.active?'公開中':'非公開'}</label>
+    </div>
     <textarea class="form-textarea assign-edit-body" maxlength="1500" style="min-height:90px;">${escHtml(a.body||'')}</textarea>
     <div style="display:flex;gap:8px;"><button class="btn-grant" onclick="saveAssignBody(this)">内容を保存</button>
     <button class="btn-ban" onclick="deleteAssignment(this)" style="margin-left:auto;">削除</button></div></div>`).join('')
     : '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">まだ課題が登録されていません</div>';
+  const ch = document.getElementById('admin-post-chips');
+  if(ch && typeof _adminFilter!=='undefined' && _adminFilter!==null) ch.innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
 }
 window.addAssignment = async function(){
   const title = document.getElementById('assign-title').value.trim();
   const body  = document.getElementById('assign-body').value.trim();
   if(!title){ showToast('課題名を入力してください'); return; }
   try{
-    await fetchAssignments();
+    await fetchAssignments(true);
     if(_assignments.some(a=>a.title===title)){ showToast('同じ課題名がすでにあります'); return; }
-    const next = [..._assignments, { id:'a'+Date.now().toString(36), title, body }];
-    await setDoc(doc(db,'seminar_config','main'),{ assignments:next },{ merge:true });
-    _assignments = next; renderAssignAdmin();
+    await addDoc(collection(db,'seminar_assignments'),{ title, body, active:false, createdAt:serverTimestamp() });
+    await fetchAssignments(true); renderAssignAdmin();
     document.getElementById('assign-title').value = '';
     document.getElementById('assign-body').value = '';
-    showToast('✅ 課題を追加しました');
+    showToast('✅ 追加しました（まだ非公開です。ONにすると参加者に見えます）');
   }catch(e){ showToast('❌ 保存できませんでした'); }
+};
+window.toggleAssignment = async function(el){
+  const id = el.closest('.code-card').dataset.id;
+  try{
+    await updateDoc(doc(db,'seminar_assignments',id),{ active: el.checked });
+    await fetchAssignments(true); renderAssignAdmin();
+    showToast(el.checked ? '✅ 公開しました（参加者に見えます）' : '非公開にしました');
+  }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
 };
 window.saveAssignBody = async function(btn){
   const card = btn.closest('.code-card'); const id = card.dataset.id;
   const body = card.querySelector('.assign-edit-body').value.trim();
   try{
-    await fetchAssignments();
-    const next = _assignments.map(a=> a.id===id ? { ...a, body } : a);
-    await setDoc(doc(db,'seminar_config','main'),{ assignments:next },{ merge:true });
-    _assignments = next;
+    await updateDoc(doc(db,'seminar_assignments',id),{ body });
     showToast('✅ 内容を保存しました');
   }catch(e){ showToast('❌ 保存できませんでした'); }
 };
@@ -1719,10 +1746,8 @@ window.deleteAssignment = async function(btn){
   const id = btn.closest('.code-card').dataset.id;
   if(!confirm('この課題を削除しますか？（提出された投稿は消えません）')) return;
   try{
-    await fetchAssignments();
-    const next = _assignments.filter(a=>a.id!==id);
-    await setDoc(doc(db,'seminar_config','main'),{ assignments:next },{ merge:true });
-    _assignments = next; renderAssignAdmin();
+    await deleteDoc(doc(db,'seminar_assignments',id));
+    await fetchAssignments(true); renderAssignAdmin();
     showToast('課題を削除しました');
   }catch(e){ showToast('❌ 削除できませんでした'); }
 };
@@ -1881,17 +1906,19 @@ let _boardPosts = [];
 window.setBoardFilter = function(k){ _boardFilter = k; renderBoard(); };
 function renderBoard(){
   const feed = document.getElementById('board-feed');
-  const cur = _assignments.find(a=>'t:'+a.title===_boardFilter);
-  document.getElementById('board-chips').innerHTML = chipsHtml(_boardFilter, 'setBoardFilter');
+  const cur = _assignments.find(a=>'a:'+a.id===_boardFilter);
+  document.getElementById('board-chips').innerHTML = chipsHtml(_boardFilter, 'setBoardFilter', false);
   document.getElementById('board-notice').innerHTML = cur
-    ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div></div>` : '';
-  const wrap = document.getElementById('post-assign-wrap'), sel = document.getElementById('post-assign');
+    ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div></div>`
+    : (_boardFilter==='intro' && !_assignments.length
+        ? '<div style="font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.7;">📌 課題は、KUNIOから案内があったら、ここに表示されます。</div>' : '');
+  const card = document.getElementById('post-card'), sel = document.getElementById('post-assign'), wrap = document.getElementById('post-assign-wrap');
   if(_assignments.length){
     const keep = sel.value;
-    sel.innerHTML = _assignments.map(a=>`<option value="${escHtml(a.title)}">${escHtml(a.title)}</option>`).join('');
-    sel.value = cur ? cur.title : (_assignments.some(a=>a.title===keep) ? keep : _assignments[_assignments.length-1].title);
-    wrap.style.display = '';
-  } else { wrap.style.display = 'none'; sel.innerHTML = ''; }
+    sel.innerHTML = _assignments.map(a=>`<option value="${escHtml(a.id)}">${escHtml(a.title)}</option>`).join('');
+    sel.value = cur ? cur.id : (_assignments.some(a=>a.id===keep) ? keep : _assignments[_assignments.length-1].id);
+    wrap.style.display = ''; card.style.display = '';
+  } else { wrap.style.display = 'none'; card.style.display = 'none'; sel.innerHTML = ''; }
   const posts = filterPosts(_boardPosts, _boardFilter);
   feed.innerHTML = posts.length
     ? posts.map(p=>renderPost(p,false)).join('')
@@ -1900,9 +1927,9 @@ function renderBoard(){
 async function loadBoard(){
   const feed = document.getElementById('board-feed');
   try{
-    await fetchAssignments();
-    if(_boardFilter===null) _boardFilter = _assignments.length ? 't:'+_assignments[_assignments.length-1].title : 'all';
-    if(_boardFilter.startsWith('t:') && !_assignments.some(a=>'t:'+a.title===_boardFilter)) _boardFilter = 'all';
+    await fetchAssignments(false);
+    if(_boardFilter===null || (_boardFilter.startsWith('a:') && !_assignments.some(a=>'a:'+a.id===_boardFilter)))
+      _boardFilter = _assignments.length ? 'a:'+_assignments[_assignments.length-1].id : 'intro';
     const snap = await getDocs(query(collection(db,'seminar_posts'), where('hidden','==',false), limit(300)));
     const posts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
     _boardPosts = posts;
@@ -2116,13 +2143,14 @@ window.submitPost = async function(){
   if(!text){ showToast('投稿の内容を入力してください'); return; }
   if(link && !safeUrl(link)){ showToast('リンクは https:// から始まる形で入力してください'); return; }
   const asel = document.getElementById('post-assign');
-  const assignTitle = (_assignments.length && asel) ? (asel.value||'') : '';
+  const chosen = _assignments.find(a=>a.id===(asel&&asel.value));
+  if(!chosen){ showToast('提出先の課題を選んでください'); return; }
   const btn = document.getElementById('post-btn');
   btn.disabled = true; btn.textContent = '投稿中...';
   try{
     await addDoc(collection(db,'seminar_posts'),{
       uid:currentUser.uid, name:_me.bandName, text, link,
-      assignmentTitle:assignTitle, createdAt:serverTimestamp(), hidden:false, rewardTotal:0
+      assignmentTitle:chosen.title, assignmentId:chosen.id, createdAt:serverTimestamp(), hidden:false, rewardTotal:0
     });
     document.getElementById('post-text').value = '';
     document.getElementById('post-link').value = '';
@@ -2168,12 +2196,12 @@ function renderAdminPost(p){
   return renderPost(p, true, panel);
 }
 
-let _adminFilter = 'all';
+let _adminFilter = null;
 let _adminPosts = [];
 window.setAdminFilter = function(k){ _adminFilter = k; renderAdminPosts(); };
 function renderAdminPosts(){
   const el = document.getElementById('admin-posts');
-  document.getElementById('admin-post-chips').innerHTML = chipsHtml(_adminFilter, 'setAdminFilter');
+  document.getElementById('admin-post-chips').innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
   const posts = filterPosts(_adminPosts, _adminFilter);
   el.innerHTML = posts.length
     ? posts.map(renderAdminPost).join('')
@@ -2181,14 +2209,15 @@ function renderAdminPosts(){
 }
 async function loadAdminPosts(){
   const el = document.getElementById('admin-posts');
-  try{ await fetchAssignments(); renderAssignAdmin(); }catch(e){}
+  try{ await fetchAssignments(true); renderAssignAdmin(); }catch(e){}
   el.innerHTML = '<div class="loading">読み込み中...</div>';
   try{
     _introFlags = {};
     try{ (await getDocs(collection(db,'seminar_users'))).forEach(d=>{ if(d.data().introBonusGiven) _introFlags[d.id]=true; }); }catch(e){}
     const snap = await getDocs(query(collection(db,'seminar_posts'), limit(300)));
     _adminPosts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-    if(_adminFilter.startsWith('t:') && !_assignments.some(a=>'t:'+a.title===_adminFilter)) _adminFilter = 'all';
+    if(_adminFilter===null || (_adminFilter.startsWith('a:') && !_assignments.some(a=>'a:'+a.id===_adminFilter)))
+      _adminFilter = _assignments.length ? 'a:'+_assignments[_assignments.length-1].id : 'intro';
     renderAdminPosts();
   }catch(e){
     el.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>';
