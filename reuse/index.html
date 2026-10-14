@@ -224,6 +224,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .intro-chip{font-size:12px;font-weight:700;color:var(--gb);background:rgba(105,240,174,.1);
   border:1px solid rgba(105,240,174,.3);border-radius:10px;padding:3px 10px;}
 .intro-q{font-size:11px;color:var(--gold);font-weight:700;margin:10px 0 2px;}
+/* 文字を全体に少し大きく（約12%） */
+.content{zoom:1.12;}
 .like-btn.on{color:var(--gold)!important;font-weight:800;}
 .kunio-reply{background:rgba(255,213,79,.08);border-left:3px solid var(--gold);border-radius:8px;padding:9px 12px;margin-top:10px;font-size:13px;line-height:1.7;word-break:break-word;}
 .kunio-reply .tag{display:block;font-size:11px;font-weight:800;color:var(--gold);margin-bottom:2px;}
@@ -245,6 +247,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .warn-box{background:rgba(239,83,80,.10);border:1px solid rgba(239,83,80,.5);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;margin-bottom:8px;color:var(--text);}
 .intro-nudge{background:rgba(105,240,174,.08);border:1px solid rgba(105,240,174,.35);border-radius:14px;
   padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+.intro-cta{background:linear-gradient(135deg,rgba(255,213,79,.16),rgba(105,240,174,.10));border:2px solid var(--gold);border-radius:16px;
+  padding:18px 16px;margin-bottom:16px;text-align:center;box-shadow:0 0 18px rgba(255,213,79,.18);}
+.intro-cta .big{font-size:18px;font-weight:900;color:var(--gold);line-height:1.5;margin-bottom:6px;}
+.intro-cta .sub{font-size:13px;color:var(--text);line-height:1.7;margin-bottom:12px;}
 </style>
 </head>
 <body>
@@ -262,6 +268,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <!-- オープンチャット名入力（初回 or 変更） -->
+<div id="screen-loading" class="screen">
+  <div class="logo-img"><div class="coin-face"></div></div>
+  <div class="app-title">REUSE COIN</div>
+  <div class="app-subtitle" id="loading-msg">読み込み中です…（初回は少し時間がかかることがあります）</div>
+</div>
+
 <div id="screen-name" class="screen">
   <div class="logo-img"><div class="coin-face"></div></div>
   <div class="app-title">REUSE COIN</div>
@@ -303,9 +315,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="expiry-value" id="expiry-display">未設定</div>
     </div>
 
-    <!-- 合言葉 -->
-    <div class="card">
+    <!-- 合言葉（KUNIOさんがONにしている間だけ表示） -->
+    <div class="card" id="redeem-card" style="display:none;">
       <div class="section-title">🔑 合言葉を入力してコインをもらう</div>
+      <div id="redeem-now" style="font-size:14px;font-weight:700;color:var(--gb);margin-bottom:8px;"></div>
       <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">セミナー・生放送の中でお伝えする合言葉を入力してください。（同じ合言葉は1人1回まで）</div>
       <input class="form-input" type="text" id="redeem-input" placeholder="合言葉" autocomplete="off" autocapitalize="off" onkeydown="if(event.key==='Enter')redeemCode()">
       <button class="btn-primary" id="redeem-btn" onclick="redeemCode()" style="margin-bottom:0;">受け取る</button>
@@ -609,7 +622,7 @@ import { getAuth, signOut, onAuthStateChanged,
          createUserWithEmailAndPassword, signInWithEmailAndPassword,
          sendPasswordResetEmail }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
+import { initializeFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
          deleteDoc, collection, query, where, orderBy, limit,
          serverTimestamp, increment, Timestamp, writeBatch, runTransaction, arrayUnion }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -626,7 +639,7 @@ const FIREBASE_READY = !String(firebaseConfig.apiKey).startsWith('__');
 const ADMIN_EMAIL = 'kknetrecycle@gmail.com';
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db   = getFirestore(app);
+const db   = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 let currentUser = null;
 let _me = null; // ログイン中の参加者 {uid, bandName, joinedAt}
 
@@ -713,15 +726,16 @@ onAuthStateChanged(auth, async(user)=>{
     return;
   }
 
-  // まず名前入力画面を表示（Firestoreが遅くても画面は変わる）
-  showScreen('screen-name');
+  // 読み込み中の画面を出す（名前の登録済みか確認できてから、次の画面に進む）
+  showScreen('screen-loading');
 
   try{
     const userRef  = doc(db,'seminar_users',user.uid);
     const userSnap = await getDoc(userRef);
 
     if(!userSnap.exists() || !userSnap.data().bandName){
-      // 初回 or 名前未設定 → 名前入力画面のまま
+      // 初回 or 名前未設定 → 名前入力画面
+      showScreen('screen-name');
       return;
     }
 
@@ -774,6 +788,8 @@ onAuthStateChanged(auth, async(user)=>{
 
   } catch(err){
     showToast('読み込みエラー: ' + (err.code||err.message));
+    const lm = document.getElementById('loading-msg');
+    if(lm) lm.textContent = '読み込めませんでした。ページを更新してください。';
   }
 });
 
@@ -1595,8 +1611,10 @@ async function loadCodes(){
     const snap = await getDocs(collection(db,'seminar_codes'));
     if(snap.empty){
       el.innerHTML = '<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ合言葉がありません</div>';
+      await syncCodeBox([]);
       return;
     }
+    await syncCodeBox(snap.docs);
     const docs = [...snap.docs].sort((a,b)=>(b.data().createdAt?.seconds||0)-(a.data().createdAt?.seconds||0));
     const counts = await Promise.all(docs.map(d=>
       getDocs(collection(db,'seminar_codes',d.id,'claims')).then(s=>s.size).catch(()=>0)));
@@ -2165,10 +2183,19 @@ async function refreshIntroNudge(){
     const s = await getDoc(doc(db,'seminar_posts','intro_'+currentUser.uid));
     if(s.exists()){ el.style.display='none'; el.innerHTML=''; return; }
   }catch(e){}
+  // 自己紹介でもらえるコイン（まだもらっていない人にだけ伝える）
+  let bonus = 0;
+  try{
+    const [cfg, me] = await Promise.all([ getDoc(doc(db,'seminar_config','main')), getDoc(doc(db,'seminar_users',currentUser.uid)) ]);
+    const given = me.exists() && me.data().introBonusGiven === true;
+    const amount = (cfg.exists() && typeof cfg.data().introBonus==='number') ? cfg.data().introBonus : 3000;
+    if(!given && amount>0) bonus = amount;
+  }catch(e){}
   el.style.display = 'block';
-  el.innerHTML = `<div class="intro-nudge"><span style="font-size:24px;">👋</span>
-    <div style="flex:1;font-size:13px;line-height:1.6;"><strong>まずは自己紹介をお願いします</strong><br><span style="color:var(--dim);font-size:11px;">課題ボードに書くと、みんなに読んでもらえます</span></div>
-    <button class="btn-grant" onclick="switchTab('user','board')">書く</button></div>`;
+  el.innerHTML = `<div class="intro-cta">
+    <div class="big">${bonus>0 ? `👋 自己紹介を書いてください！<br>コインが ${bonus.toLocaleString()}枚 もらえます` : '👋 まずは自己紹介を書いてください！'}</div>
+    <div class="sub">みんなに読んでもらえます。KUNIOから返信がもらえることもあります。<br>書き終わると、すぐにコインが入ります。</div>
+    <button class="btn-primary" onclick="switchTab('user','board')" style="margin-bottom:0;">自己紹介を書く</button></div>`;
 }
 
 window.submitPost = async function(){
@@ -2337,6 +2364,31 @@ window.togglePostHidden = async function(btn, hide){
 };
 
 
+// ── 合言葉の四角：KUNIOさんがONにした合言葉があるときだけ出す ──────
+async function loadCodeBox(){
+  const card = document.getElementById('redeem-card'); if(!card) return;
+  let show = false, names = [];
+  try{
+    const s = await getDoc(doc(db,'seminar_config','codes'));
+    const items = s.exists() && Array.isArray(s.data().items) ? s.data().items : [];
+    const live = items.filter(x=> !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()));
+    show = live.length>0;
+    names = live.map(x=>x.label).filter(Boolean);
+  }catch(e){}
+  card.style.display = show ? '' : 'none';
+  const now = document.getElementById('redeem-now');
+  if(now) now.textContent = names.length ? ('いま受付中：' + names.join('・')) : '';
+}
+// 管理者：ONの合言葉の名前だけを、参加者が読める場所に写す（合言葉そのものは写さない）
+async function syncCodeBox(docs){
+  try{
+    const items = docs.map(d=>d.data()).filter(c=>c.active===true)
+      .map(c=>({ label:(c.label||'合言葉'), expiresAt:c.expiresAt||null })).slice(0,5);
+    await setDoc(doc(db,'seminar_config','codes'),{ open:items.length>0, items, updatedAt:serverTimestamp() });
+  }catch(e){}
+}
+
+
 // ═══════════════════════════════════════════════
 //  参加者限定の特典：コインを値引きに使って、残りを銀行振込
 // ═══════════════════════════════════════════════
@@ -2374,6 +2426,7 @@ function renderOrderCard(o, off){
 
 // ── 参加者：オファーの表示と申込み ───────────────────
 async function loadOfferCard(){
+  loadCodeBox();
   const el = document.getElementById('offer-card');
   if(!el || !currentUser || !_me) return;
   try{
