@@ -2179,24 +2179,58 @@ window.saveIntroBonus = async function(){
 async function refreshIntroNudge(){
   const el = document.getElementById('intro-nudge');
   if(!el || !currentUser || !_me) return;
+  const uid = currentUser.uid;
+  const cards = [];
+  // ① 自己紹介（未投稿の人）
+  let hasIntro = false;
+  try{ hasIntro = (await getDoc(doc(db,'seminar_posts','intro_'+uid))).exists(); }catch(e){}
+  if(!hasIntro){
+    let bonus = 0;
+    try{
+      const [cfg, me] = await Promise.all([ getDoc(doc(db,'seminar_config','main')), getDoc(doc(db,'seminar_users',uid)) ]);
+      const given = me.exists() && me.data().introBonusGiven === true;
+      const amount = (cfg.exists() && typeof cfg.data().introBonus==='number') ? cfg.data().introBonus : 3000;
+      if(!given && amount>0) bonus = amount;
+    }catch(e){}
+    cards.push(`<div class="intro-cta">
+      <div class="big">${bonus>0 ? `👋 自己紹介を書いてください！<br>コインが ${bonus.toLocaleString()}枚 もらえます` : '👋 まずは自己紹介を書いてください！'}</div>
+      <div class="sub">みんなに読んでもらえます。KUNIOから返信がもらえることもあります。<br>書き終わると、すぐにコインが入ります。</div>
+      <button class="btn-primary" onclick="switchTab('user','board')" style="margin-bottom:0;">自己紹介を書く</button></div>`);
+  }
+  // ② 生放送の合言葉（KUNIOがONにしていて、まだ受け取っていない人）
   try{
-    const s = await getDoc(doc(db,'seminar_posts','intro_'+currentUser.uid));
-    if(s.exists()){ el.style.display='none'; el.innerHTML=''; return; }
+    const [cs, hs] = await Promise.all([
+      getDoc(doc(db,'seminar_config','codes')),
+      getDocs(query(collection(db,'seminar_coin_history'), where('uid','==',uid), limit(200)))
+    ]);
+    const items = cs.exists() && Array.isArray(cs.data().items) ? cs.data().items : [];
+    const got = new Set(hs.docs.map(d=>d.data()).filter(h=>h.type==='code').map(h=>h.comment));
+    items.filter(x=> x.label && !got.has(x.label) && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()))
+      .forEach(x=> cards.push(`<div class="intro-cta">
+        <div class="big">🔑 ${escHtml(x.label)}</div>
+        <div class="sub">生放送でお伝えした合言葉を入力して、コインをもらいましょう。</div>
+        <button class="btn-primary" onclick="goRedeem()" style="margin-bottom:0;">合言葉を入力する</button></div>`));
   }catch(e){}
-  // 自己紹介でもらえるコイン（まだもらっていない人にだけ伝える）
-  let bonus = 0;
+  // ③ 課題（KUNIOが公開していて、まだ提出していない人）
   try{
-    const [cfg, me] = await Promise.all([ getDoc(doc(db,'seminar_config','main')), getDoc(doc(db,'seminar_users',currentUser.uid)) ]);
-    const given = me.exists() && me.data().introBonusGiven === true;
-    const amount = (cfg.exists() && typeof cfg.data().introBonus==='number') ? cfg.data().introBonus : 3000;
-    if(!given && amount>0) bonus = amount;
+    await fetchAssignments(false);
+    if(_assignments.length){
+      const ps = await getDocs(query(collection(db,'seminar_posts'), where('uid','==',uid), limit(300)));
+      const done = new Set(ps.docs.map(d=>d.data()).filter(p=>p.type!=='intro').map(p=>p.assignmentId));
+      _assignments.filter(a=>!done.has(a.id)).forEach(a=> cards.push(`<div class="intro-cta">
+        <div class="big">📝 ${escHtml(a.title)}を提出してください</div>
+        <div class="sub">提出すると、KUNIOが確認します。内容によってコインがもらえます。</div>
+        <button class="btn-primary" data-k="${escHtml('a:'+a.id)}" onclick="goAssignment(this.dataset.k)" style="margin-bottom:0;">${escHtml(a.title)}を書く</button></div>`));
+    }
   }catch(e){}
-  el.style.display = 'block';
-  el.innerHTML = `<div class="intro-cta">
-    <div class="big">${bonus>0 ? `👋 自己紹介を書いてください！<br>コインが ${bonus.toLocaleString()}枚 もらえます` : '👋 まずは自己紹介を書いてください！'}</div>
-    <div class="sub">みんなに読んでもらえます。KUNIOから返信がもらえることもあります。<br>書き終わると、すぐにコインが入ります。</div>
-    <button class="btn-primary" onclick="switchTab('user','board')" style="margin-bottom:0;">自己紹介を書く</button></div>`;
+  el.style.display = cards.length ? 'block' : 'none';
+  el.innerHTML = cards.join('');
 }
+window.goRedeem = function(){
+  const c = document.getElementById('redeem-card');
+  if(c){ c.scrollIntoView({ behavior:'smooth', block:'center' }); const i = document.getElementById('redeem-input'); if(i) setTimeout(()=>i.focus(), 400); }
+};
+window.goAssignment = function(key){ _boardFilter = key; switchTab('user','board'); };
 
 window.submitPost = async function(){
   if(!currentUser || !_me){ showToast('名前を登録してください'); return; }
@@ -2218,6 +2252,7 @@ window.submitPost = async function(){
     document.getElementById('post-link').value = '';
     showToast('✅ 投稿しました');
     await loadBoard();
+    refreshIntroNudge();
   }catch(e){ showToast('投稿できませんでした：'+(e.code||e.message)); }
   finally{ btn.disabled = false; btn.textContent = '投稿する'; }
 };
@@ -2383,7 +2418,7 @@ async function loadCodeBox(){
 async function syncCodeBox(docs){
   try{
     const items = docs.map(d=>d.data()).filter(c=>c.active===true)
-      .map(c=>({ label:(c.label||'合言葉'), expiresAt:c.expiresAt||null })).slice(0,5);
+      .map(c=>({ label:(c.label||''), expiresAt:c.expiresAt||null })).slice(0,5);
     await setDoc(doc(db,'seminar_config','codes'),{ open:items.length>0, items, updatedAt:serverTimestamp() });
   }catch(e){}
 }
@@ -2427,6 +2462,7 @@ function renderOrderCard(o, off){
 // ── 参加者：オファーの表示と申込み ───────────────────
 async function loadOfferCard(){
   loadCodeBox();
+  refreshIntroNudge();
   const el = document.getElementById('offer-card');
   if(!el || !currentUser || !_me) return;
   try{
