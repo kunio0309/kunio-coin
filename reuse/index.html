@@ -621,7 +621,7 @@ import { getAuth, signOut, onAuthStateChanged,
          createUserWithEmailAndPassword, signInWithEmailAndPassword,
          sendPasswordResetEmail }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { initializeFirestore, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
+import { initializeFirestore, getCountFromServer, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
          deleteDoc, collection, query, where, orderBy, limit,
          serverTimestamp, increment, Timestamp, writeBatch, runTransaction, arrayUnion }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -794,15 +794,15 @@ onAuthStateChanged(auth, async(user)=>{
 
 // ── ランキング読み込み ───────────────────────────
 async function loadRanking(myUid){
-  const snap = await getDocs(collection(db,'seminar_users'));
+  const TOP = 20;
+  const col = collection(db,'seminar_users');
+  // 退出した人を除くため、少し多めに読む
+  const snap = await getDocs(query(col, orderBy('coins','desc'), limit(TOP+10)));
   const users = [];
   snap.forEach(d=>{ const u=d.data(); if(!u.banned) users.push({uid:d.id, name:u.bandName||'名前なし', coins:u.coins||0}); });
-  users.sort((a,b)=>b.coins-a.coins);
-
+  const top = users.slice(0,TOP);
   const crownColors=['#ffd54f','#cfd8dc','#bf9169'];
-  let html='';
-  users.forEach((u,i)=>{
-    const isMe = u.uid===myUid;
+  const rowHtml = (u, i, isMe)=>{
     let badge;
     if(i<3){
       badge=`<div style="display:flex;flex-direction:column;align-items:center;width:32px;flex-shrink:0;gap:1px;">
@@ -812,7 +812,7 @@ async function loadRanking(myUid){
     } else {
       badge=`<span class="rank-num">${i+1}</span>`;
     }
-    html+=`<div class="rank-row${isMe?' rank-me':''}">
+    return `<div class="rank-row${isMe?' rank-me':''}">
       ${badge}
       <div class="rank-name" style="${i<3?`color:${crownColors[i]};`:''}">
         ${escHtml(u.name)}${isMe?' <span style="font-size:10px;color:var(--gb);">← あなた</span>':''}
@@ -820,7 +820,20 @@ async function loadRanking(myUid){
       <span class="rank-coin" style="${i<3?`color:${crownColors[i]};`:''}">
         ${u.coins.toLocaleString()}</span><span class="rank-coin-unit">枚</span>
     </div>`;
-  });
+  };
+  let html = top.map((u,i)=>rowHtml(u,i,u.uid===myUid)).join('');
+  // 上位に入っていない人は、下に自分の順位を出す
+  if(myUid && !top.some(u=>u.uid===myUid)){
+    try{
+      const meSnap = await getDoc(doc(db,'seminar_users',myUid));
+      if(meSnap.exists() && !meSnap.data().banned){
+        const myCoins = meSnap.data().coins||0;
+        const cnt = (await getCountFromServer(query(col, where('coins','>',myCoins)))).data().count;
+        html += '<div style="text-align:center;color:var(--dim);font-size:14px;line-height:1;padding:4px 0;">⋮</div>'
+              + rowHtml({uid:myUid, name:meSnap.data().bandName||'名前なし', coins:myCoins}, cnt, true);
+      }
+    }catch(e){}
+  }
   document.getElementById('ranking-list').innerHTML = html||'<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ参加者がいません</div>';
 }
 
@@ -1951,7 +1964,20 @@ window.deleteComment = async function(btn){
 let _myLikes = new Set();
 let _boardFilter = null;
 let _boardPosts = [];
-window.setBoardFilter = function(k){ _boardFilter = k; renderBoard(); };
+// 選んでいるボタンの投稿だけを読む（人数が増えても、読む回数を抑える）
+async function loadBoardPosts(){
+  const col = collection(db,'seminar_posts');
+  const q = (_boardFilter==='intro')
+    ? query(col, where('hidden','==',false), where('type','==','intro'), limit(150))
+    : query(col, where('hidden','==',false), where('assignmentId','==',String(_boardFilter).slice(2)), limit(150));
+  const snap = await getDocs(q);
+  _boardPosts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+}
+window.setBoardFilter = async function(k){
+  _boardFilter = k;
+  try{ await loadBoardPosts(); }catch(e){}
+  renderBoard();
+};
 function renderBoard(){
   const feed = document.getElementById('board-feed');
   const cur = _assignments.find(a=>'a:'+a.id===_boardFilter);
@@ -1978,9 +2004,8 @@ async function loadBoard(){
     await fetchAssignments(false);
     if(_boardFilter===null || (_boardFilter.startsWith('a:') && !_assignments.some(a=>'a:'+a.id===_boardFilter)))
       _boardFilter = _assignments.length ? 'a:'+_assignments[_assignments.length-1].id : 'intro';
-    const snap = await getDocs(query(collection(db,'seminar_posts'), where('hidden','==',false), limit(300)));
-    const posts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-    _boardPosts = posts;
+    await loadBoardPosts();
+    const posts = _boardPosts;
     try{
       const ls = await getDocs(query(collection(db,'seminar_likes'), where('uid','==',currentUser.uid)));
       _myLikes = new Set(ls.docs.map(d=>d.data().postId));
@@ -2175,7 +2200,13 @@ window.saveIntroBonus = async function(){
 };
 
 // コインタブの先頭に「まず自己紹介を」の案内（自己紹介が済むと消える）
-async function refreshIntroNudge(){
+let _nudgeRunning = null;
+function refreshIntroNudge(){
+  if(_nudgeRunning) return _nudgeRunning;
+  _nudgeRunning = _refreshIntroNudge().finally(()=>{ _nudgeRunning = null; });
+  return _nudgeRunning;
+}
+async function _refreshIntroNudge(){
   const el = document.getElementById('intro-nudge');
   if(!el || !currentUser || !_me) return;
   const uid = currentUser.uid;
