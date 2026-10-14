@@ -259,8 +259,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div id="screen-login" class="screen active">
   <div class="logo-img"><div class="coin-face"></div></div>
   <div class="app-title">REUSE COIN</div>
-  <div class="app-subtitle">参加者専用コイン</div>
-  <div class="app-desc">「お金をもらって始める物販」<br>「一生なくならない仕事を覚えろ」<br>遺品整理・不用品回収×中古品物販セミナー<br>参加者だけの特別なコインです。<br><span style="color:var(--gb);">何に使えるかは最後のお楽しみ♩</span></div>
+  <div class="app-subtitle">セミナー参加者専用コイン</div>
   <input type="email" id="login-email" class="form-input" placeholder="メールアドレス" autocomplete="email" style="max-width:320px;">
   <input type="password" id="login-password" class="form-input" placeholder="パスワード（6文字以上）" autocomplete="current-password" style="max-width:320px;">
   <button class="btn-primary" onclick="doAuth()" style="max-width:320px;">参加する / ログイン</button>
@@ -306,7 +305,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="intro-nudge" style="display:none;"></div>
     <div id="offer-card"></div>
     <div class="card">
-      <div class="coin-label">● 参加者専用コイン</div>
+      <div class="coin-label">● セミナー参加者専用コイン</div>
       <div>
         <span class="coin-value" id="coin-balance">0</span>
         <span class="coin-unit">枚</span>
@@ -2205,11 +2204,13 @@ async function refreshIntroNudge(){
     ]);
     const items = cs.exists() && Array.isArray(cs.data().items) ? cs.data().items : [];
     const got = new Set(hs.docs.map(d=>d.data()).filter(h=>h.type==='code').map(h=>h.comment));
-    items.filter(x=> x.label && !got.has(x.label) && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()))
+    const hid = dismissedCards(uid);
+    items.filter(x=> x.label && !got.has(x.label) && !hid.has('code:'+x.label) && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()))
       .forEach(x=> cards.push(`<div class="intro-cta">
         <div class="big">🔑 ${escHtml(x.label)}</div>
         <div class="sub">生放送でお伝えした合言葉を入力して、コインをもらいましょう。</div>
-        <button class="btn-primary" onclick="goRedeem()" style="margin-bottom:0;">合言葉を入力する</button></div>`));
+        <button class="btn-primary" onclick="goRedeem()" style="margin-bottom:0;">合言葉を入力する</button>
+        <button class="btn-text" data-k="${escHtml('code:'+x.label)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`));
   }catch(e){}
   // ③ 課題（KUNIOが公開していて、まだ提出していない人）
   try{
@@ -2217,15 +2218,29 @@ async function refreshIntroNudge(){
     if(_assignments.length){
       const ps = await getDocs(query(collection(db,'seminar_posts'), where('uid','==',uid), limit(300)));
       const done = new Set(ps.docs.map(d=>d.data()).filter(p=>p.type!=='intro').map(p=>p.assignmentId));
-      _assignments.filter(a=>!done.has(a.id)).forEach(a=> cards.push(`<div class="intro-cta">
+      const hid2 = dismissedCards(uid);
+      _assignments.filter(a=>!done.has(a.id) && !hid2.has('assign:'+a.id)).forEach(a=> cards.push(`<div class="intro-cta">
         <div class="big">📝 ${escHtml(a.title)}を提出してください</div>
         <div class="sub">提出すると、KUNIOが確認します。内容によってコインがもらえます。</div>
-        <button class="btn-primary" data-k="${escHtml('a:'+a.id)}" onclick="goAssignment(this.dataset.k)" style="margin-bottom:0;">${escHtml(a.title)}を書く</button></div>`));
+        <button class="btn-primary" data-k="${escHtml('a:'+a.id)}" onclick="goAssignment(this.dataset.k)" style="margin-bottom:0;">${escHtml(a.title)}を書く</button>
+        <button class="btn-text" data-k="${escHtml('assign:'+a.id)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`));
     }
   }catch(e){}
   el.style.display = cards.length ? 'block' : 'none';
   el.innerHTML = cards.join('');
 }
+// 「いまはやらない」で閉じた案内は、このスマホ（ブラウザ）だけで覚えておく
+function dismissedCards(uid){
+  try{ return new Set(JSON.parse(localStorage.getItem('reuse_dismissed_'+uid)||'[]')); }catch(e){ return new Set(); }
+}
+window.dismissCard = function(btn){
+  try{
+    const set = dismissedCards(currentUser.uid); set.add(btn.dataset.k);
+    localStorage.setItem('reuse_dismissed_'+currentUser.uid, JSON.stringify([...set]));
+  }catch(e){}
+  const card = btn.closest('.intro-cta'); if(card) card.remove();
+  const el = document.getElementById('intro-nudge'); if(el && !el.querySelector('.intro-cta')) el.style.display = 'none';
+};
 window.goRedeem = function(){
   const c = document.getElementById('redeem-card');
   if(c){ c.scrollIntoView({ behavior:'smooth', block:'center' }); const i = document.getElementById('redeem-input'); if(i) setTimeout(()=>i.focus(), 400); }
