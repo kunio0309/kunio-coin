@@ -206,6 +206,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border:1px solid rgba(105,240,174,.3);border-radius:10px;padding:3px 10px;margin-top:8px;}
 .post-actions{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;}
 .comment-text{white-space:pre-wrap;}
+.profile-modal{position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:var(--dark);overflow-y:auto;display:none;}
+.profile-head{position:sticky;top:0;z-index:2;background:var(--dark);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.profile-head .t{font-size:17px;font-weight:900;color:var(--gb);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.profile-body{max-width:600px;margin:0 auto;padding:16px;zoom:1.12;}
+.rank-row.tap{cursor:pointer;}
 .comment-row{padding:8px 0;border-top:1px dashed var(--border);font-size:13px;line-height:1.7;word-break:break-word;}
 .comment-name{font-weight:700;color:var(--gb);margin-right:6px;}
 .comment-time{font-size:10px;color:var(--dim);margin-left:6px;}
@@ -614,6 +619,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 </div>
 
+<div id="profile-modal" class="profile-modal">
+  <div class="profile-head"><span class="t" id="profile-title"></span><button class="btn-grant" onclick="closeProfile()">閉じる ✕</button></div>
+  <div class="profile-body" id="profile-body"></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -813,13 +822,13 @@ async function loadRanking(myUid){
     } else {
       badge=`<span class="rank-num">${i+1}</span>`;
     }
-    return `<div class="rank-row${isMe?' rank-me':''}">
+    return `<div class="rank-row tap${isMe?' rank-me':''}" data-uid="${escHtml(u.uid)}" data-name="${escHtml(u.name)}" onclick="openProfile(this.dataset.uid, this.dataset.name)">
       ${badge}
       <div class="rank-name" style="${i<3?`color:${crownColors[i]};`:''}">
         ${escHtml(u.name)}${isMe?' <span style="font-size:10px;color:var(--gb);">← あなた</span>':''}
       </div>
       <span class="rank-coin" style="${i<3?`color:${crownColors[i]};`:''}">
-        ${u.coins.toLocaleString()}</span><span class="rank-coin-unit">枚</span>
+        ${u.coins.toLocaleString()}</span><span class="rank-coin-unit">枚</span><span style="color:var(--dim);margin-left:8px;">›</span>
     </div>`;
   };
   let html = top.map((u,i)=>rowHtml(u,i,u.uid===myUid)).join('');
@@ -969,8 +978,8 @@ async function loadAdminData(){
       rhtml+=`<div class="user-row" style="padding:10px 0;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:10px;">
           ${rank}
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||(emailMap[d.id]||'')||'名前なし')}${bb}</div>
+          <div style="flex:1;min-width:0;cursor:pointer;" data-uid="${d.id}" data-name="${escHtml(u.bandName||(emailMap[d.id]||'')||'名前なし')}" onclick="openProfile(this.dataset.uid, this.dataset.name)">
+            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(u.bandName||(emailMap[d.id]||'')||'名前なし')}${bb} <span style="color:var(--gb);font-size:11px;">投稿を見る ›</span></div>
             <div style="font-size:11px;color:var(--dim);">${escHtml((emailMap[d.id]||'')||'')}</div>
           </div>
           <span style="color:var(--gb);font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:20px;flex-shrink:0;">${(u.coins||0).toLocaleString()}<span style="font-size:11px;color:var(--dim);margin-left:2px;">枚</span></span>
@@ -1841,7 +1850,7 @@ function renderPost(p, forAdmin, extraHtml){
         <div style="display:flex;gap:8px;"><button class="btn-grant" onclick="savePostEdit(this)">変更を保存</button>
         <button class="chip" onclick="cancelPostEdit(this)">キャンセル</button></div></div>` : '';
   return `<div class="post" data-id="${escHtml(p.id)}" data-uid="${escHtml(p.uid||'')}">
-    <div class="post-head"><span class="post-name">${escHtml(p.name||'—')}</span>${p.hidden?'<span class="badge-banned">非表示中</span>':''}<span class="post-time">${fmtDT(p.createdAt)}${p.editedAt?'（編集済み）':''}</span></div>
+    <div class="post-head"><span class="post-name" style="cursor:pointer;" data-uid="${escHtml(p.uid||'')}" onclick="openProfile(this.dataset.uid, this.textContent)">${escHtml(p.name||'—')}</span>${p.hidden?'<span class="badge-banned">非表示中</span>':''}<span class="post-time">${fmtDT(p.createdAt)}${p.editedAt?'（編集済み）':''}</span></div>
     ${tagHtml}
     ${bodyHtml}
     ${linkHtml}
@@ -2469,6 +2478,42 @@ async function syncCodeBox(docs){
     await setDoc(doc(db,'seminar_config','codes'),{ open:items.length>0, items, updatedAt:serverTimestamp() });
   }catch(e){}
 }
+
+
+// ── その人の画面：自己紹介と課題の提出を、まとめて見る ──────
+window.openProfile = async function(uid, name){
+  if(!uid) return;
+  const m = document.getElementById('profile-modal'), body = document.getElementById('profile-body');
+  document.getElementById('profile-title').textContent = (name||'') + ' さん';
+  body.innerHTML = '<div class="loading">読み込み中...</div>';
+  m.style.display = 'block'; m.scrollTop = 0; document.body.style.overflow = 'hidden';
+  try{
+    const asAdmin = !_me;
+    if(!asAdmin){
+      try{
+        const ls = await getDocs(query(collection(db,'seminar_likes'), where('uid','==',currentUser.uid)));
+        _myLikes = new Set(ls.docs.map(d=>d.data().postId));
+      }catch(e){}
+    }
+    const col = collection(db,'seminar_posts');
+    const q = asAdmin ? query(col, where('uid','==',uid), limit(80))
+                      : query(col, where('uid','==',uid), where('hidden','==',false), limit(80));
+    const snap = await getDocs(q);
+    const posts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+      const x = a.type==='intro'?0:1, y = b.type==='intro'?0:1;
+      return (x-y) || ((b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    });
+    body.innerHTML = posts.length
+      ? posts.map(p=> asAdmin ? renderAdminPost(p) : renderPost(p,false)).join('')
+      : '<div style="font-size:13px;color:var(--dim);text-align:center;padding:24px;">まだ投稿はありません</div>';
+  }catch(e){
+    body.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:16px;">読み込みエラー</div>';
+  }
+};
+window.closeProfile = function(){
+  document.getElementById('profile-modal').style.display = 'none';
+  document.body.style.overflow = '';
+};
 
 
 // ═══════════════════════════════════════════════
