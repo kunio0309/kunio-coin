@@ -205,6 +205,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .post-badge{display:inline-block;font-size:12px;font-weight:700;color:var(--gb);background:rgba(105,240,174,.1);
   border:1px solid rgba(105,240,174,.3);border-radius:10px;padding:3px 10px;margin-top:8px;}
 .post-actions{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.comment-text{white-space:pre-wrap;}
 .comment-row{padding:8px 0;border-top:1px dashed var(--border);font-size:13px;line-height:1.7;word-break:break-word;}
 .comment-name{font-weight:700;color:var(--gb);margin-right:6px;}
 .comment-time{font-size:10px;color:var(--dim);margin-left:6px;}
@@ -319,7 +320,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="section-title">🔑 合言葉を入力してコインをもらう</div>
       <div id="redeem-now" style="font-size:14px;font-weight:700;color:var(--gb);margin-bottom:8px;"></div>
       <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">セミナー・生放送の中でお伝えする合言葉を入力してください。（同じ合言葉は1人1回まで）</div>
-      <input class="form-input" type="text" id="redeem-input" placeholder="合言葉" autocomplete="off" autocapitalize="off" onkeydown="if(event.key==='Enter')redeemCode()">
+      <input class="form-input" type="text" id="redeem-input" placeholder="合言葉" autocomplete="off" autocapitalize="off" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229)redeemCode()">
       <button class="btn-primary" id="redeem-btn" onclick="redeemCode()" style="margin-bottom:0;">受け取る</button>
     </div>
 
@@ -1872,7 +1873,7 @@ async function renderComments(box, postId, forAdmin){
       || '<div style="font-size:12px;color:var(--dim);padding:6px 0;">まだやりとりはありません</div>';
     box.innerHTML = list + (canWrite
       ? `<div style="display:flex;gap:8px;margin-top:10px;">
-      <input class="form-input" type="text" maxlength="500" placeholder="返信を書く" style="margin:0;flex:1;" onkeydown="if(event.key==='Enter')submitComment(this)">
+      <textarea class="form-textarea reply-input" maxlength="500" rows="2" placeholder="返信を書く（改行できます。送るときは「送信」を押します）" style="margin:0;flex:1;min-height:56px;"></textarea>
       <button class="btn-grant" onclick="submitComment(this)">送信</button></div>`
       : '<div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.7;">💬 この投稿に書き込めるのは、KUNIOと投稿した本人だけです（みんなは読めます）</div>');
   }catch(e){ box.innerHTML = '<div style="font-size:12px;color:var(--dim);padding:6px 0;">読み込みエラー</div>'; }
@@ -1937,7 +1938,7 @@ window.toggleComments = async function(btn, forAdmin){
 
 window.submitComment = async function(el){
   const post = el.closest('.post'); const box = post.querySelector('.comments-box');
-  const input = box.querySelector('input'); const text = input.value.trim();
+  const input = box.querySelector('.reply-input'); const text = input.value.trim();
   const who = commentIdentity();
   if(!who){ showToast('ログインし直してください'); return; }
   if(!text){ showToast('コメントを入力してください'); return; }
