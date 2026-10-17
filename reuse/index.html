@@ -184,6 +184,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .tabbar{display:flex;gap:8px;margin-bottom:16px;}
 .tab-btn{flex:1;padding:12px 6px;border-radius:12px;border:1px solid var(--border);background:var(--d3);
   color:var(--dim);font-size:13px;font-weight:700;cursor:pointer;}
+#screen-admin .tab-btn{font-size:11px;padding:8px 2px;line-height:1.45;white-space:nowrap;}
 .tab-btn.active{background:rgba(105,240,174,.15);border-color:rgba(105,240,174,.5);color:var(--gb);}
 .form-textarea{width:100%;min-height:110px;background:var(--d3);border:1px solid var(--border);border-radius:10px;
   padding:12px 14px;color:var(--text);font-size:14px;line-height:1.6;margin-bottom:10px;outline:none;
@@ -309,6 +310,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div id="user-tab-coin">
     <div id="intro-nudge" style="display:none;"></div>
+    <div id="event-card"></div>
     <div id="offer-card"></div>
     <div class="card">
       <div class="coin-label">● セミナー参加者専用コイン</div>
@@ -437,10 +439,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
   <div class="content">
     <div class="tabbar">
-      <button id="admin-tabbtn-coin" class="tab-btn active" onclick="switchTab('admin','coin')">💰 コイン</button>
-      <button id="admin-tabbtn-codes" class="tab-btn" onclick="switchTab('admin','codes')">🔑 合言葉</button>
-      <button id="admin-tabbtn-posts" class="tab-btn" onclick="switchTab('admin','posts')">📝 課題</button>
-      <button id="admin-tabbtn-offer" class="tab-btn" onclick="switchTab('admin','offer')">🎁 特典</button>
+      <button id="admin-tabbtn-coin" class="tab-btn active" onclick="switchTab('admin','coin')">💰<br>コイン</button>
+      <button id="admin-tabbtn-codes" class="tab-btn" onclick="switchTab('admin','codes')">🔑<br>合言葉</button>
+      <button id="admin-tabbtn-posts" class="tab-btn" onclick="switchTab('admin','posts')">📝<br>課題</button>
+      <button id="admin-tabbtn-offer" class="tab-btn" onclick="switchTab('admin','offer')">🎁<br>特典</button>
+      <button id="admin-tabbtn-event" class="tab-btn" onclick="switchTab('admin','event')">📅<br>勉強会</button>
     </div>
     <div id="admin-tab-coin">
 
@@ -597,6 +600,36 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">振込名義とお振込み金額を、銀行の入金と照らし合わせて「入金確認」を押し、商品を送ったら「送付済み」を押します。</div>
         <button class="btn-secondary" onclick="loadOrders()" style="font-size:12px;padding:10px;">🔄 最新に更新</button>
         <div id="admin-orders"><div class="loading">読み込み中...</div></div>
+      </div>
+    </div>
+
+    <div id="admin-tab-event" style="display:none;">
+      <div class="card">
+        <div class="section-title">● 勉強会（コインで特別参加）</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">コインを使うと参加できる勉強会です。ONにすると、参加者のコイン画面にカードが出ます。参加した人にだけ、下のZoomの情報が見えます（1人1回まで）。</div>
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:14px;font-weight:700;">
+          <input type="checkbox" id="event-enabled-toggle" onchange="saveEventEnabled()" style="width:20px;height:20px;accent-color:var(--gb);">
+          <span id="event-enabled-label" style="color:var(--dim);">OFF（非公開）</span></label>
+        <input class="form-input" type="text" id="event-title" placeholder="勉強会の名前" maxlength="60">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+          <span style="font-size:12px;color:var(--dim);width:110px;">必要なコイン(枚)</span>
+          <input type="number" id="event-price" class="grant-input" style="width:120px;" value="3000" min="0"></div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">開催の日時</div>
+        <input class="form-input" type="datetime-local" id="event-starts">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">参加の受付を終える日時（空欄＝期限なし）</div>
+        <input class="form-input" type="datetime-local" id="event-ends">
+        <textarea id="event-desc" class="form-textarea" style="min-height:60px;" maxlength="200" placeholder="ひとこと説明（任意）"></textarea>
+        <div class="section-title" style="margin-top:6px;">● Zoomの情報（参加した人にだけ見えます）</div>
+        <input class="form-input" type="text" id="event-zoom-url" placeholder="Zoomの参加リンク（https://…）" autocomplete="off">
+        <input class="form-input" type="text" id="event-zoom-id" placeholder="ミーティングID" autocomplete="off">
+        <input class="form-input" type="text" id="event-zoom-pass" placeholder="パスコード" autocomplete="off">
+        <textarea id="event-zoom-note" class="form-textarea" style="min-height:60px;" maxlength="300" placeholder="補足（任意）"></textarea>
+        <button class="btn-primary" onclick="saveEvent()">💾 設定を保存する</button>
+      </div>
+      <div class="card">
+        <div class="section-title">● 参加した人</div>
+        <button class="btn-secondary" onclick="loadAttendees()" style="font-size:12px;padding:10px;">🔄 最新に更新</button>
+        <div id="admin-attendees"><div class="loading">読み込み中...</div></div>
       </div>
     </div>
 
@@ -1207,11 +1240,12 @@ async function loadUserCoinHistory(uid, joinedAt){
       else if(h.type==='post'){ icon='📝'; label='課題の評価：'+escHtml(h.comment||''); }
       else if(h.type==='intro_bonus'){ icon='👋'; label='自己紹介ボーナス'; }
       else if(h.type==='offer'){ icon='🎁'; label='特典で使用'; }
+      else if(h.type==='event'){ icon='🎓'; label='勉強会の参加：'+escHtml(h.comment||''); }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
       const sign   = amt>=0 ? '+' : '';
-      const comment = (h.comment && h.type!=='code' && h.type!=='post' && h.type!=='intro_bonus' && h.type!=='offer') ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${escHtml(h.comment)}</div>` : '';
+      const comment = (h.comment && h.type!=='code' && h.type!=='post' && h.type!=='intro_bonus' && h.type!=='offer' && h.type!=='event') ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${escHtml(h.comment)}</div>` : '';
       html+=`<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:18px;flex-shrink:0;">${icon}</span>
@@ -1454,6 +1488,7 @@ async function loadHistory(){
     else if(h.type==='join_bonus') who=`<span style="color:var(--gold);font-weight:700;">🎉 新規参加：${escHtml(h.name)}</span>`;
     else if(h.type==='code') who=`<span style="color:var(--gb);font-weight:700;">🔑 ${escHtml(h.name||'')}</span>（合言葉：${escHtml(h.comment||'')}）`;
     else if(h.type==='post') who=`<span style="color:var(--gb);font-weight:700;">📝 ${escHtml(h.name||'')}</span>（課題：${escHtml(h.comment||'')}）`;
+    else if(h.type==='event') who=`<span style="color:var(--gb);font-weight:700;">🎓 ${escHtml(h.name||'')}</span>（勉強会：${escHtml(h.comment||'')}）`;
     else if(h.type==='offer') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（特典：${escHtml(h.comment||'')}）`;
     else if(h.type==='intro_bonus') who=`<span style="color:var(--gb);font-weight:700;">👋 ${escHtml(h.name||'')}</span>（自己紹介ボーナス）`;
     const comment = h.comment ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;padding-left:4px;">💬 ${escHtml(h.comment)}</div>` : '';
@@ -1509,7 +1544,7 @@ window.doShare = async function(){
 // ═══════════════════════════════════════════════
 //  リユースコイン：タブ・合言葉・課題ボード
 // ═══════════════════════════════════════════════
-const TAB_NAMES = { user:['coin','board'], admin:['coin','codes','posts','offer'] };
+const TAB_NAMES = { user:['coin','board'], admin:['coin','codes','posts','offer','event'] };
 window.switchTab = function(group, name){
   TAB_NAMES[group].forEach(n=>{
     const pane = document.getElementById(`${group}-tab-${n}`);
@@ -1521,6 +1556,7 @@ window.switchTab = function(group, name){
   if(group==='admin' && name==='codes') loadCodes();
   if(group==='admin' && name==='posts') loadAdminPosts();
   if(group==='admin' && name==='offer') loadOfferAdmin();
+  if(group==='admin' && name==='event') loadEventAdmin();
 };
 
 // ── 共通ヘルパー ────────────────────────────────
@@ -2555,6 +2591,7 @@ function renderOrderCard(o, off){
 async function loadOfferCard(){
   loadCodeBox();
   refreshIntroNudge();
+  loadEventCard();
   const el = document.getElementById('offer-card');
   if(!el || !currentUser || !_me) return;
   try{
@@ -2756,6 +2793,196 @@ window.cancelOrder = async function(btn){
     await batch.commit();
     showToast('✅ 取り消して、コインを返しました');
     await loadOrders();
+  }catch(e){ showToast('❌ 取り消せませんでした'); }
+};
+
+
+// ═══════════════════════════════════════════════
+//  勉強会：コインを使うと参加できる（Zoomの情報は、参加した人にだけ見える）
+// ═══════════════════════════════════════════════
+function fmtEvent(ts){
+  if(!ts || !ts.toDate) return '';
+  return ts.toDate().toLocaleString('ja-JP',{ month:'numeric', day:'numeric', weekday:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── 参加者：カード ───────────────────────────
+async function loadEventCard(){
+  const el = document.getElementById('event-card');
+  if(!el || !currentUser || !_me) return;
+  try{
+    const [evSnap, atSnap, uSnap] = await Promise.all([
+      getDoc(doc(db,'seminar_config','event')),
+      getDoc(doc(db,'seminar_event_attendees',currentUser.uid)),
+      getDoc(doc(db,'seminar_users',currentUser.uid))
+    ]);
+    const ev = evSnap.exists() ? evSnap.data() : null;
+    if(!ev || ev.enabled!==true || !ev.title){ el.innerHTML = ''; return; }
+    const when = fmtEvent(ev.startsAt);
+    const title = escHtml(ev.title);
+
+    // 参加登録済み → Zoomの情報を、ずっと表示
+    if(atSnap.exists()){
+      let z = null;
+      try{ const zs = await getDoc(doc(db,'seminar_event_secret','main')); if(zs.exists()) z = zs.data(); }catch(e){}
+      const url = z ? safeUrl(z.url) : null;
+      el.innerHTML = `<div class="offer-card">
+        <div class="offer-title">🎓 ${title}</div>
+        ${when ? `<div class="offer-count">📅 ${escHtml(when)}〜</div>` : ''}
+        <div style="font-size:14px;font-weight:800;color:var(--gb);margin-bottom:10px;">✅ 参加登録済みです</div>
+        ${z ? `
+          ${url ? `<a class="btn-primary" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">Zoomに参加する</a>` : ''}
+          <div class="bank-box" style="user-select:all;">${z.meetingId ? 'ミーティングID：'+escHtml(z.meetingId)+'\n' : ''}${z.passcode ? 'パスコード：'+escHtml(z.passcode) : ''}</div>
+          ${z.note ? `<div style="font-size:12px;color:var(--dim);margin-top:8px;line-height:1.7;white-space:pre-wrap;">${escHtml(z.note)}</div>` : ''}
+        ` : '<div style="font-size:12px;color:var(--dim);">Zoomの情報は、準備ができたら、ここに表示されます。</div>'}
+      </div>`;
+      return;
+    }
+
+    // 受付が終わっている
+    const end = (ev.saleEndsAt && ev.saleEndsAt.toDate) ? ev.saleEndsAt.toDate() : null;
+    if(end && end <= new Date()){
+      el.innerHTML = `<div class="offer-card"><div class="offer-title">🎓 ${title}</div>
+        ${when ? `<div class="offer-count">📅 ${escHtml(when)}〜</div>` : ''}
+        <div style="font-size:13px;color:var(--dim);">参加の受付は終了しました</div></div>`;
+      return;
+    }
+
+    // まだ参加していない → 参加ボタン
+    const price = Number(ev.price)||0;
+    const coins = uSnap.exists() ? (uSnap.data().coins||0) : 0;
+    const short = coins < price;
+    el.innerHTML = `<div class="offer-card">
+      <div class="offer-title">🎓 ${title}</div>
+      ${when ? `<div class="offer-count">📅 ${escHtml(when)}〜</div>` : ''}
+      ${end ? `<div class="offer-count" style="margin-top:-4px;">⏰ 参加の受付：${escHtml(fmtEvent(ev.saleEndsAt))}まで</div>` : ''}
+      <div style="font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:10px;">コインを使うと、特別に参加できます。${ev.description ? '<br>'+escHtml(ev.description) : ''}</div>
+      <div class="offer-calc">
+        <div class="row"><span>必要なコイン</span><span>${price.toLocaleString()}枚</span></div>
+        <div class="row"><span>いまのコイン</span><span>${coins.toLocaleString()}枚</span></div>
+      </div>
+      <button class="btn-primary" onclick="joinEvent()" ${short?'disabled style="margin-bottom:0;opacity:.5;"':'style="margin-bottom:0;"'}>${short ? `コインが足りません（あと${(price-coins).toLocaleString()}枚）` : `${price.toLocaleString()}枚を使って参加する`}</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">参加すると、Zoomの情報が、このカードに、ずっと表示されます。</div>
+    </div>`;
+  }catch(e){ el.innerHTML = ''; }
+}
+
+window.joinEvent = async function(){
+  if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
+  try{
+    const userRef = doc(db,'seminar_users',currentUser.uid);
+    const atRef   = doc(db,'seminar_event_attendees',currentUser.uid);
+    const [evSnap, uSnap, aSnap] = await Promise.all([ getDoc(doc(db,'seminar_config','event')), getDoc(userRef), getDoc(atRef) ]);
+    if(aSnap.exists()){ showToast('すでに参加登録済みです'); await loadEventCard(); return; }
+    const ev = evSnap.exists() ? evSnap.data() : null;
+    if(!ev || ev.enabled!==true){ showToast('現在、受け付けていません'); await loadEventCard(); return; }
+    if(ev.saleEndsAt && ev.saleEndsAt.toDate && ev.saleEndsAt.toDate() <= new Date()){ showToast('受付は終了しました'); await loadEventCard(); return; }
+    if(!uSnap.exists() || uSnap.data().banned){ showToast('現在ご利用できません'); return; }
+    const price = Number(ev.price)||0, coins = uSnap.data().coins||0;
+    if(coins < price){ showToast('コインが足りません'); return; }
+    if(!confirm(`${ev.title}\n\n${price.toLocaleString()}枚のコインを使って、参加します。\n（取り消しはできません）\n\nよろしいですか？`)) return;
+    const batch = writeBatch(db);
+    batch.set(atRef,{ uid:currentUser.uid, name:_me.bandName, price, createdAt:serverTimestamp() });
+    batch.update(userRef,{ coins:increment(-price) });
+    batch.set(doc(collection(db,'seminar_coin_history')),
+      { type:'event', uid:currentUser.uid, name:_me.bandName, amount:-price, comment:ev.title, grantedAt:serverTimestamp() });
+    await batch.commit();
+    playCoinSound();
+    showToast('✅ 参加登録しました');
+    await refreshMyCoins();
+  }catch(e){ showToast('参加登録できませんでした：'+(e.code||e.message)); }
+};
+
+// ── 管理者：設定と参加者の一覧 ───────────────────
+async function loadEventAdmin(){
+  try{
+    const f = document.getElementById('event-title');
+    if(f && f.dataset.filled!=='1'){
+      const [es, zs] = await Promise.all([ getDoc(doc(db,'seminar_config','event')), getDoc(doc(db,'seminar_event_secret','main')).catch(()=>null) ]);
+      const e = es.exists() ? es.data() : {};
+      const z = (zs && zs.exists()) ? zs.data() : {};
+      f.value = e.title || 'コミュニティ勉強会　特別参加';
+      document.getElementById('event-price').value = (e.price!==undefined) ? e.price : 3000;
+      document.getElementById('event-starts').value = toLocalInput(e.startsAt);
+      document.getElementById('event-ends').value = toLocalInput(e.saleEndsAt);
+      document.getElementById('event-desc').value = e.description || '';
+      document.getElementById('event-zoom-url').value = z.url || '';
+      document.getElementById('event-zoom-id').value = z.meetingId || '';
+      document.getElementById('event-zoom-pass').value = z.passcode || '';
+      document.getElementById('event-zoom-note').value = z.note || '';
+      const tg = document.getElementById('event-enabled-toggle'); tg.checked = (e.enabled===true);
+      const lb = document.getElementById('event-enabled-label');
+      lb.textContent = tg.checked ? 'ON（公開中）' : 'OFF（非公開）'; lb.style.color = tg.checked ? 'var(--gb)' : 'var(--dim)';
+      f.dataset.filled = '1';
+    }
+  }catch(e){}
+  await loadAttendees();
+}
+
+window.saveEvent = async function(){
+  const v = id => document.getElementById(id).value.trim();
+  const title = v('event-title');
+  const price = parseInt(v('event-price'));
+  if(!title){ showToast('勉強会の名前を入力してください'); return; }
+  if(isNaN(price) || price<0){ showToast('必要なコインの枚数を入力してください'); return; }
+  const toTs = id => { const s = v(id); if(!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? undefined : Timestamp.fromDate(d); };
+  const startsAt = toTs('event-starts'), saleEndsAt = toTs('event-ends');
+  if(startsAt===undefined || saleEndsAt===undefined){ showToast('日時が正しくありません'); return; }
+  const url = v('event-zoom-url');
+  if(url && !safeUrl(url)){ showToast('ZoomのURLは、https:// から始まる形で入力してください'); return; }
+  try{
+    await setDoc(doc(db,'seminar_config','event'),{ title, price, startsAt, saleEndsAt, description:v('event-desc'), updatedAt:serverTimestamp() },{ merge:true });
+    await setDoc(doc(db,'seminar_event_secret','main'),{ url, meetingId:v('event-zoom-id'), passcode:v('event-zoom-pass'), note:v('event-zoom-note') });
+    showToast('✅ 勉強会の設定を保存しました');
+  }catch(e){ showToast('❌ 保存できませんでした'); }
+};
+
+window.saveEventEnabled = async function(){
+  const tg = document.getElementById('event-enabled-toggle');
+  try{
+    await setDoc(doc(db,'seminar_config','event'),{ enabled: tg.checked },{ merge:true });
+    const lb = document.getElementById('event-enabled-label');
+    lb.textContent = tg.checked ? 'ON（公開中）' : 'OFF（非公開）'; lb.style.color = tg.checked ? 'var(--gb)' : 'var(--dim)';
+    showToast(tg.checked ? '✅ 公開しました（参加者のコイン画面に出ます）' : '非公開にしました');
+  }catch(e){ tg.checked = !tg.checked; showToast('❌ 変更できませんでした'); }
+};
+
+async function loadAttendees(){
+  const el = document.getElementById('admin-attendees');
+  el.innerHTML = '<div class="loading">読み込み中...</div>';
+  try{
+    const snap = await getDocs(collection(db,'seminar_event_attendees'));
+    if(snap.empty){ el.innerHTML = '<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ参加者はいません</div>'; return; }
+    const rows = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+    el.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:8px;">参加者 ${rows.length}人</div>` + rows.map((r,i)=>`<div class="code-card" data-uid="${escHtml(r.id)}" style="padding:10px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--dim);width:24px;">${i+1}</span>
+        <span style="flex:1;font-size:14px;font-weight:700;">${escHtml(r.name||'—')}</span>
+        <span style="font-size:11px;color:var(--dim);">${fmtDT(r.createdAt)}</span>
+        <button class="btn-ban" onclick="cancelAttendee(this)">取消（コイン返還）</button>
+      </div></div>`).join('');
+  }catch(e){ el.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>'; }
+}
+
+window.cancelAttendee = async function(btn){
+  const uid = btn.closest('.code-card').dataset.uid;
+  if(!confirm('この参加登録を取り消して、使ったコインを返しますか？')) return;
+  try{
+    const atRef = doc(db,'seminar_event_attendees',uid);
+    const aSnap = await getDoc(atRef);
+    if(!aSnap.exists()){ await loadAttendees(); return; }
+    const a = aSnap.data();
+    const userRef = doc(db,'seminar_users',uid);
+    const uSnap = await getDoc(userRef);
+    const batch = writeBatch(db);
+    if((a.price||0)>0 && uSnap.exists()){
+      batch.update(userRef,{ coins:increment(a.price) });
+      batch.set(doc(collection(db,'seminar_coin_history')),
+        { type:'individual', uid, name:a.name||'', amount:a.price, comment:'勉強会の参加取消による返還', grantedAt:serverTimestamp() });
+    }
+    batch.delete(atRef);
+    await batch.commit();
+    showToast('✅ 取り消して、コインを返しました');
+    await loadAttendees();
   }catch(e){ showToast('❌ 取り消せませんでした'); }
 };
 
