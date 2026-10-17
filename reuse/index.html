@@ -2825,6 +2825,11 @@ async function loadEventCard(){
       let z = null;
       try{ const zs = await getDoc(doc(db,'seminar_event_secret','main')); if(zs.exists()) z = zs.data(); }catch(e){}
       const url = z ? safeUrl(z.url) : null;
+      // 自分に送る・コピーするための文章
+      const zoomText = z ? [ ev.title, when ? ('日時：'+when+'〜') : '', url ? ('Zoom：'+url) : '',
+        z.meetingId ? ('ミーティングID：'+z.meetingId) : '', z.passcode ? ('パスコード：'+z.passcode) : '' ].filter(Boolean).join('\n') : '';
+      window._zoomText = zoomText;
+      const mailHref = 'mailto:' + encodeURIComponent(currentUser.email||'') + '?subject=' + encodeURIComponent(ev.title+'のZoom情報') + '&body=' + encodeURIComponent(zoomText);
       el.innerHTML = `<div class="offer-card">
         <div class="offer-title">🎓 ${title}</div>
         ${when ? `<div class="offer-count">📅 ${escHtml(when)}〜</div>` : ''}
@@ -2832,6 +2837,11 @@ async function loadEventCard(){
         ${z ? `
           ${url ? `<a class="btn-primary" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">Zoomに参加する</a>` : ''}
           <div class="bank-box" style="user-select:all;">${z.meetingId ? 'ミーティングID：'+escHtml(z.meetingId)+'\n' : ''}${z.passcode ? 'パスコード：'+escHtml(z.passcode) : ''}</div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <a class="btn-secondary" href="${escHtml(mailHref)}" style="flex:1;min-width:140px;text-align:center;text-decoration:none;margin:0;padding:12px 8px;">📧 自分にメールで送る</a>
+            <button class="btn-secondary" onclick="copyZoomInfo()" style="flex:1;min-width:120px;margin:0;padding:12px 8px;">📋 コピー</button>
+          </div>
+          <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">パソコンで参加するときは、パソコンで、同じメールとパスワードでログインすると、このカードが出ます。または、上のボタンで、自分にメールを送ると便利です。</div>
           ${z.note ? `<div style="font-size:12px;color:var(--dim);margin-top:8px;line-height:1.7;white-space:pre-wrap;">${escHtml(z.note)}</div>` : ''}
         ` : '<div style="font-size:12px;color:var(--dim);">Zoomの情報は、準備ができたら、ここに表示されます。</div>'}
       </div>`;
@@ -2865,6 +2875,17 @@ async function loadEventCard(){
     </div>`;
   }catch(e){ el.innerHTML = ''; }
 }
+
+window.copyZoomInfo = async function(){
+  const t = window._zoomText || '';
+  try{ await navigator.clipboard.writeText(t); showToast('✅ コピーしました'); }
+  catch(e){
+    try{
+      const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); showToast('✅ コピーしました');
+    }catch(e2){ showToast('コピーできませんでした。IDを長押しして、コピーしてください'); }
+  }
+};
 
 window.joinEvent = async function(){
   if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
