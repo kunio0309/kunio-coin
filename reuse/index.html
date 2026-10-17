@@ -278,6 +278,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="logo-img"><div class="coin-face"></div></div>
   <div class="app-title">REUSE COIN</div>
   <div class="app-subtitle" id="loading-msg">読み込み中です…（初回は少し時間がかかることがあります）</div>
+  <button class="btn-text" onclick="doSignOut()" style="margin-top:14px;">ログアウト</button>
 </div>
 
 <div id="screen-name" class="screen">
@@ -291,6 +292,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <input class="form-input" type="text" id="band-name-input" placeholder="例：田中マン" maxlength="20">
     <button class="btn-primary" onclick="submitName()">登録して始める</button>
+    <div id="name-account" style="font-size:12px;color:var(--dim);text-align:center;margin:10px 0 4px;word-break:break-all;"></div>
+    <button class="btn-text" onclick="doSignOut()" style="display:block;margin:0 auto;">このメールではない場合は、ログアウト</button>
   </div>
 </div>
 
@@ -777,6 +780,7 @@ onAuthStateChanged(auth, async(user)=>{
 
     if(!userSnap.exists() || !userSnap.data().bandName){
       // 初回 or 名前未設定 → 名前入力画面
+      const na = document.getElementById('name-account'); if(na) na.textContent = 'いまのログイン：' + (user.email||'');
       showScreen('screen-name');
       return;
     }
