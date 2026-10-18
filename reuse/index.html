@@ -400,8 +400,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="intro-card"></div>
       <div id="board-chips" class="board-chips"></div>
       <div id="board-notice"></div>
+      <div id="board-redeem"></div>
       <div class="card" id="post-card" style="display:none;">
-        <div class="section-title">✍️ 課題を提出する</div>
+        <div class="section-title" id="post-card-title">✍️ 課題を提出する</div>
         <div id="post-assign-wrap" style="display:none;margin-bottom:10px;">
           <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">どの課題への提出ですか？</div>
           <select id="post-assign" class="form-input" style="margin-bottom:0;"></select>
@@ -412,7 +413,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.7;">投稿は参加者全員が読めます。この投稿へのコメント（やりとり）を書けるのは、KUNIOと投稿した本人だけです。</div>
       </div>
       <div class="card">
-        <div class="section-title">📋 みんなの投稿</div>
+        <div class="section-title" id="feed-title">📋 みんなの投稿</div>
         <div id="board-feed"><div class="loading">読み込み中...</div></div>
       </div>
     </div>
@@ -544,6 +545,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">先に登録しておき、配信中にONにします。同じ合言葉は1人1回まで受け取れます。推測されにくい言葉がおすすめです。</div>
         <input class="form-input" type="text" id="code-text" placeholder="合言葉（例：りゆーす1day）" autocomplete="off">
         <input class="form-input" type="text" id="code-label" placeholder="名前（例：DAY1 参加ボーナス）" autocomplete="off">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">どの回の合言葉ですか？（選ぶと、その回のボタンの中に、入力欄が出ます）</div>
+        <select id="code-assign" class="form-input"><option value="">（どの回にも、つけない）</option></select>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
           <input type="number" id="code-points" class="grant-input" style="width:100px;" value="3000" min="1">
           <span style="font-size:13px;color:var(--dim);">枚</span>
@@ -621,6 +624,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <input class="form-input" type="datetime-local" id="event-starts">
         <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">参加の受付を終える日時（空欄＝期限なし）</div>
         <input class="form-input" type="datetime-local" id="event-ends">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">カードを全員の画面から消す日時（空欄＝消さない。消えると、Zoomの情報も見えなくなります）</div>
+        <input class="form-input" type="datetime-local" id="event-hide">
         <textarea id="event-desc" class="form-textarea" style="min-height:60px;" maxlength="200" placeholder="ひとこと説明（任意）"></textarea>
         <div class="section-title" style="margin-top:6px;">● Zoomの情報（参加した人にだけ見えます）</div>
         <input class="form-input" type="text" id="event-zoom-url" placeholder="Zoomの参加リンク（https://…）" autocomplete="off">
@@ -1583,19 +1588,21 @@ function commentIdentity(){
 }
 
 // ── 合言葉を受け取る（参加者） ───────────────────────
-window.redeemCode = async function(){
+window.redeemCode = async function(where){
   if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
-  const input = document.getElementById('redeem-input');
+  const inId = (where==='board') ? 'board-redeem-input' : 'redeem-input';
+  const btnId = (where==='board') ? 'board-redeem-btn' : 'redeem-btn';
+  const input = document.getElementById(inId);
   const id = normalizeCode(input.value);
   if(!isValidCodeId(id)){ showToast('合言葉を入力してください'); return; }
-  const btn = document.getElementById('redeem-btn');
+  const btn = document.getElementById(btnId);
   btn.disabled = true; btn.textContent = '確認中...';
   const codeRef  = doc(db,'seminar_codes',id);
   const claimRef = doc(db,'seminar_codes',id,'claims',currentUser.uid);
   const userRef  = doc(db,'seminar_users',currentUser.uid);
   const histRef  = doc(collection(db,'seminar_coin_history'));
   try{
-    const points = await runTransaction(db, async(tx)=>{
+    const res = await runTransaction(db, async(tx)=>{
       const codeSnap = await tx.get(codeRef);
       if(!codeSnap.exists()) throw new Error('NOT_FOUND');
       const c = codeSnap.data();
@@ -1612,8 +1619,10 @@ window.redeemCode = async function(){
       tx.update(userRef,{ coins:increment(pts), lastClaim:id });
       tx.set(histRef,{ type:'code', uid:currentUser.uid, name:_me.bandName, amount:pts,
                        comment:(c.label||c.code||id), codeId:id, grantedAt:serverTimestamp() });
-      return pts;
+      return { pts, label:(c.label||'') };
     });
+    const points = res.pts;
+    if(res.label){ window._gotLabels = window._gotLabels || new Set(); window._gotLabels.add(res.label); }
     input.value = '';
     playCoinSound();
     showToast(`🎉 ${points.toLocaleString()}枚 もらいました！`);
@@ -1625,6 +1634,7 @@ window.redeemCode = async function(){
     loadRanking(currentUser.uid);
     loadUserCoinHistory(currentUser.uid, _me.joinedAt);
     loadOfferCard();
+    if(where==='board') renderBoard();
   }catch(e){
     const m = String((e && e.message) || '');
     if(m.includes('NOT_FOUND'))      showToast('合言葉が違います');
@@ -1657,6 +1667,7 @@ window.addCode = async function(){
     const ref = doc(db,'seminar_codes',id);
     if((await getDoc(ref)).exists()){ showToast('同じ合言葉がすでに登録されています'); return; }
     await setDoc(ref,{ code:raw, label, points, active:document.getElementById('code-active-now').checked,
+                       assignmentId:(document.getElementById('code-assign').value||''),
                        expiresAt, createdAt:serverTimestamp() });
     ['code-text','code-label','code-expires'].forEach(i=>{ document.getElementById(i).value=''; });
     document.getElementById('code-points').value = 3000;
@@ -1670,6 +1681,12 @@ async function loadCodes(){
   const el = document.getElementById('admin-codes');
   el.innerHTML = '<div class="loading">読み込み中...</div>';
   try{
+    try{
+      await fetchAssignments(true);
+      const sel = document.getElementById('code-assign'), keep = sel.value;
+      sel.innerHTML = '<option value="">（どの回にも、つけない）</option>' + _assignments.map(a=>`<option value="${escHtml(a.id)}">${escHtml(a.title)}</option>`).join('');
+      sel.value = keep;
+    }catch(e){}
     const snap = await getDocs(collection(db,'seminar_codes'));
     if(snap.empty){
       el.innerHTML = '<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ合言葉がありません</div>';
@@ -1689,7 +1706,7 @@ async function loadCodes(){
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
           <div style="min-width:0;flex:1;">
             <div style="font-size:15px;font-weight:900;color:var(--gb);word-break:break-all;">${escHtml(c.code||d.id)}</div>
-            <div style="font-size:12px;color:var(--dim);margin-top:2px;">${escHtml(c.label||'')}</div>
+            <div style="font-size:12px;color:var(--dim);margin-top:2px;">${escHtml(c.label||'')}${(()=>{ const a=_assignments.find(x=>x.id===c.assignmentId); return a ? ' <span style="color:var(--gb);">→ '+escHtml(a.title)+'</span>' : ''; })()}</div>
           </div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gb);flex-shrink:0;">${pts.toLocaleString()}<span style="font-size:11px;color:var(--dim);margin-left:2px;">枚</span></div>
         </div>
@@ -2023,6 +2040,17 @@ async function loadBoardPosts(){
   const snap = await getDocs(q);
   _boardPosts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
 }
+// 合言葉の情報（ONの合言葉の名前・どの回か／自分の受け取り済み）
+async function loadCodeItems(){
+  try{
+    const [cs, hs] = await Promise.all([
+      getDoc(doc(db,'seminar_config','codes')),
+      getDocs(query(collection(db,'seminar_coin_history'), where('uid','==',currentUser.uid), limit(200)))
+    ]);
+    window._codeItems = cs.exists() && Array.isArray(cs.data().items) ? cs.data().items : [];
+    window._gotLabels = new Set(hs.docs.map(d=>d.data()).filter(h=>h.type==='code').map(h=>h.comment));
+  }catch(e){ window._codeItems = window._codeItems || []; }
+}
 window.setBoardFilter = async function(k){
   _boardFilter = k;
   try{ await loadBoardPosts(); }catch(e){}
@@ -2036,13 +2064,29 @@ function renderBoard(){
     ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div></div>`
     : (_boardFilter==='intro' && !_assignments.length
         ? '<div style="font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.7;">📌 課題は、KUNIOから案内があったら、ここに表示されます。</div>' : '');
+  // ボタンごとに、その中身だけを出す（自己紹介のフォームは「自己紹介」のときだけ／課題の提出欄は課題のときだけ）
+  const isIntro = (_boardFilter==='intro');
+  // この回に結びついた合言葉（KUNIOがONにしていて、期限内のもの）があれば、入力欄を出す
+  const br = document.getElementById('board-redeem');
+  if(br){
+    const items = (cur && window._codeItems) ? window._codeItems.filter(x=>x.assignmentId===cur.id && x.label && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date())) : [];
+    const got = window._gotLabels || new Set();
+    const open = items.filter(x=>!got.has(x.label)), done = items.filter(x=>got.has(x.label));
+    br.innerHTML = open.length
+      ? `<div class="card"><div class="section-title">🔑 ${escHtml(cur.title)}の合言葉</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">生放送でお伝えした合言葉を入力すると、コインがもらえます。（同じ合言葉は1人1回まで）</div>
+          <input class="form-input" type="text" id="board-redeem-input" placeholder="合言葉" autocomplete="off" autocapitalize="off" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229)redeemCode('board')">
+          <button class="btn-primary" id="board-redeem-btn" onclick="redeemCode('board')" style="margin-bottom:0;">受け取る</button></div>`
+      : (done.length ? '<div style="font-size:13px;color:var(--gb);font-weight:700;margin-bottom:14px;">✅ この回の合言葉は、受け取り済みです</div>' : '');
+  }
+  const introCard = document.getElementById('intro-card'); if(introCard) introCard.style.display = isIntro ? '' : 'none';
   const card = document.getElementById('post-card'), sel = document.getElementById('post-assign'), wrap = document.getElementById('post-assign-wrap');
-  if(_assignments.length){
-    const keep = sel.value;
-    sel.innerHTML = _assignments.map(a=>`<option value="${escHtml(a.id)}">${escHtml(a.title)}</option>`).join('');
-    sel.value = cur ? cur.id : (_assignments.some(a=>a.id===keep) ? keep : _assignments[_assignments.length-1].id);
-    wrap.style.display = ''; card.style.display = '';
+  if(cur){
+    sel.innerHTML = `<option value="${escHtml(cur.id)}">${escHtml(cur.title)}</option>`; sel.value = cur.id;
+    wrap.style.display = 'none'; card.style.display = '';
+    document.getElementById('post-card-title').textContent = '✍️ ' + cur.title + 'を提出する';
   } else { wrap.style.display = 'none'; card.style.display = 'none'; sel.innerHTML = ''; }
+  document.getElementById('feed-title').textContent = isIntro ? '👋 みんなの自己紹介' : ('📋 ' + (cur ? cur.title : '') + ' みんなの投稿');
   const posts = filterPosts(_boardPosts, _boardFilter);
   feed.innerHTML = posts.length
     ? posts.map(p=>renderPost(p,false)).join('')
@@ -2055,6 +2099,7 @@ async function loadBoard(){
     if(_boardFilter===null || (_boardFilter.startsWith('a:') && !_assignments.some(a=>'a:'+a.id===_boardFilter)))
       _boardFilter = _assignments.length ? 'a:'+_assignments[_assignments.length-1].id : 'intro';
     await loadBoardPosts();
+    await loadCodeItems();
     const posts = _boardPosts;
     try{
       const ls = await getDocs(query(collection(db,'seminar_likes'), where('uid','==',currentUser.uid)));
@@ -2285,12 +2330,13 @@ async function _refreshIntroNudge(){
     ]);
     const items = cs.exists() && Array.isArray(cs.data().items) ? cs.data().items : [];
     const got = new Set(hs.docs.map(d=>d.data()).filter(h=>h.type==='code').map(h=>h.comment));
+    window._gotLabels = got; window._codeItems = items;
     const hid = dismissedCards(uid);
     items.filter(x=> x.label && !got.has(x.label) && !hid.has('code:'+x.label) && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()))
       .forEach(x=> cards.push(`<div class="intro-cta">
         <div class="big">🔑 ${escHtml(x.label)}</div>
         <div class="sub">生放送でお伝えした合言葉を入力して、コインをもらいましょう。</div>
-        <button class="btn-primary" onclick="goRedeem()" style="margin-bottom:0;">合言葉を入力する</button>
+        <button class="btn-primary" ${x.assignmentId ? `data-k="${escHtml('a:'+x.assignmentId)}" onclick="goAssignment(this.dataset.k)"` : 'onclick="goRedeem()"'} style="margin-bottom:0;">合言葉を入力する</button>
         <button class="btn-text" data-k="${escHtml('code:'+x.label)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`));
   }catch(e){}
   // ③ 課題（KUNIOが公開していて、まだ提出していない人）
@@ -2514,7 +2560,7 @@ async function loadCodeBox(){
 async function syncCodeBox(docs){
   try{
     const items = docs.map(d=>d.data()).filter(c=>c.active===true)
-      .map(c=>({ label:(c.label||''), expiresAt:c.expiresAt||null })).slice(0,5);
+      .map(c=>({ label:(c.label||''), assignmentId:(c.assignmentId||''), expiresAt:c.expiresAt||null })).slice(0,8);
     await setDoc(doc(db,'seminar_config','codes'),{ open:items.length>0, items, updatedAt:serverTimestamp() });
   }catch(e){}
 }
@@ -2823,6 +2869,8 @@ async function loadEventCard(){
     if(!ev || ev.enabled!==true || !ev.title){ el.innerHTML = ''; return; }
     const when = fmtEvent(ev.startsAt);
     const title = escHtml(ev.title);
+    // 「表示を消す日時」を過ぎたら、全員のカードを消す
+    if(ev.hideAt && ev.hideAt.toDate && ev.hideAt.toDate() <= new Date()){ el.innerHTML = ''; return; }
 
     // 参加登録済み → Zoomの情報を、ずっと表示
     if(atSnap.exists()){
@@ -2929,6 +2977,7 @@ async function loadEventAdmin(){
       document.getElementById('event-price').value = (e.price!==undefined) ? e.price : 3000;
       document.getElementById('event-starts').value = toLocalInput(e.startsAt);
       document.getElementById('event-ends').value = toLocalInput(e.saleEndsAt);
+      document.getElementById('event-hide').value = toLocalInput(e.hideAt);
       document.getElementById('event-desc').value = e.description || '';
       document.getElementById('event-zoom-url').value = z.url || '';
       document.getElementById('event-zoom-id').value = z.meetingId || '';
@@ -2950,12 +2999,12 @@ window.saveEvent = async function(){
   if(!title){ showToast('勉強会の名前を入力してください'); return; }
   if(isNaN(price) || price<0){ showToast('必要なコインの枚数を入力してください'); return; }
   const toTs = id => { const s = v(id); if(!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? undefined : Timestamp.fromDate(d); };
-  const startsAt = toTs('event-starts'), saleEndsAt = toTs('event-ends');
-  if(startsAt===undefined || saleEndsAt===undefined){ showToast('日時が正しくありません'); return; }
+  const startsAt = toTs('event-starts'), saleEndsAt = toTs('event-ends'), hideAt = toTs('event-hide');
+  if(startsAt===undefined || saleEndsAt===undefined || hideAt===undefined){ showToast('日時が正しくありません'); return; }
   const url = v('event-zoom-url');
   if(url && !safeUrl(url)){ showToast('ZoomのURLは、https:// から始まる形で入力してください'); return; }
   try{
-    await setDoc(doc(db,'seminar_config','event'),{ title, price, startsAt, saleEndsAt, description:v('event-desc'), updatedAt:serverTimestamp() },{ merge:true });
+    await setDoc(doc(db,'seminar_config','event'),{ title, price, startsAt, saleEndsAt, hideAt, description:v('event-desc'), updatedAt:serverTimestamp() },{ merge:true });
     await setDoc(doc(db,'seminar_event_secret','main'),{ url, meetingId:v('event-zoom-id'), passcode:v('event-zoom-pass'), note:v('event-zoom-note') });
     showToast('✅ 勉強会の設定を保存しました');
   }catch(e){ showToast('❌ 保存できませんでした'); }
