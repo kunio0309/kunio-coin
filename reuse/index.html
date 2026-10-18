@@ -233,6 +233,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .intro-q{font-size:11px;color:var(--gold);font-weight:700;margin:10px 0 2px;}
 /* 文字を全体に少し大きく（約12%） */
 .content{zoom:1.12;}
+#day-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;}
+#day-wrap .card{background:none;border:none;box-shadow:none;padding:0;margin:0 0 16px;}
+#day-wrap .notice-box{background:none;border:none;padding:0;margin:0 0 14px;}
+#day-wrap > :last-child{margin-bottom:0;}
+.day-sep{border-top:1px dashed var(--border);margin:6px 0 14px;}
 .like-btn.on{color:var(--gold)!important;font-weight:800;}
 .kunio-reply{background:rgba(255,213,79,.08);border-left:3px solid var(--gold);border-radius:8px;padding:9px 12px;margin-top:10px;font-size:13px;line-height:1.7;word-break:break-word;}
 .kunio-reply .tag{display:block;font-size:11px;font-weight:800;color:var(--gold);margin-bottom:2px;}
@@ -399,6 +404,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="user-tab-board" style="display:none;">
       <div id="intro-card"></div>
       <div id="board-chips" class="board-chips"></div>
+      <div id="board-empty-note"></div>
+      <div id="day-wrap" style="display:none;">
       <div id="board-notice"></div>
       <div id="board-redeem"></div>
       <div class="card" id="post-card" style="display:none;">
@@ -411,6 +418,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <input class="form-input" type="text" id="post-link" placeholder="リンク（任意） https://..." autocomplete="off">
         <button class="btn-primary" id="post-btn" onclick="submitPost()" style="margin-bottom:0;">投稿する</button>
         <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.7;">投稿は参加者全員が読めます。この投稿へのコメント（やりとり）を書けるのは、KUNIOと投稿した本人だけです。</div>
+      </div>
       </div>
       <div class="card">
         <div class="section-title" id="feed-title">📋 みんなの投稿</div>
@@ -551,6 +559,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <input type="number" id="code-points" class="grant-input" style="width:100px;" value="3000" min="1">
           <span style="font-size:13px;color:var(--dim);">枚</span>
         </div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">枚数を途中で変えるとき（任意）：この日時から、下の枚数になります</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+          <input class="form-input" type="datetime-local" id="code-pts2-from" style="margin:0;flex:1;min-width:170px;">
+          <input type="number" id="code-pts2" class="grant-input" style="width:90px;" min="1" placeholder="枚数"><span style="font-size:13px;color:var(--dim);">枚</span>
+        </div>
         <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">終了日時（空欄＝期限なし）</div>
         <input class="form-input" type="datetime-local" id="code-expires">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);margin-bottom:14px;"><input type="checkbox" id="code-active-now"> 登録と同時にONにする</label>
@@ -570,6 +583,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="font-size:13px;font-weight:700;margin:12px 0 8px;">＋ 新しい課題を追加</div>
         <input class="form-input" type="text" id="assign-title" placeholder="課題名（例：DAY1課題）" maxlength="40">
         <textarea id="assign-body" class="form-textarea" placeholder="課題の内容・提出のしかたなど" maxlength="1500"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+          <span style="font-size:12px;color:var(--dim);">提出ボーナス（初回のみ・0＝なし）</span>
+          <input type="number" id="assign-reward" class="grant-input" style="width:90px;" value="0" min="0"><span style="font-size:13px;color:var(--dim);">枚</span></div>
         <button class="btn-primary" onclick="addAssignment()" style="margin-bottom:0;">＋ この課題を追加する（まだ非公開）</button>
       </div>
       <div class="card">
@@ -1250,11 +1266,12 @@ async function loadUserCoinHistory(uid, joinedAt){
       else if(h.type==='intro_bonus'){ icon='👋'; label='自己紹介ボーナス'; }
       else if(h.type==='offer'){ icon='🎁'; label='特典で使用'; }
       else if(h.type==='event'){ icon='🎓'; label='勉強会の参加：'+escHtml(h.comment||''); }
+      else if(h.type==='assign_bonus'){ icon='🎁'; label='課題の提出ボーナス：'+escHtml(h.comment||''); }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
       const sign   = amt>=0 ? '+' : '';
-      const comment = (h.comment && h.type!=='code' && h.type!=='post' && h.type!=='intro_bonus' && h.type!=='offer' && h.type!=='event') ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${escHtml(h.comment)}</div>` : '';
+      const comment = (h.comment && h.type!=='code' && h.type!=='post' && h.type!=='intro_bonus' && h.type!=='offer' && h.type!=='event' && h.type!=='assign_bonus') ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${escHtml(h.comment)}</div>` : '';
       html+=`<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:18px;flex-shrink:0;">${icon}</span>
@@ -1497,6 +1514,7 @@ async function loadHistory(){
     else if(h.type==='join_bonus') who=`<span style="color:var(--gold);font-weight:700;">🎉 新規参加：${escHtml(h.name)}</span>`;
     else if(h.type==='code') who=`<span style="color:var(--gb);font-weight:700;">🔑 ${escHtml(h.name||'')}</span>（合言葉：${escHtml(h.comment||'')}）`;
     else if(h.type==='post') who=`<span style="color:var(--gb);font-weight:700;">📝 ${escHtml(h.name||'')}</span>（課題：${escHtml(h.comment||'')}）`;
+    else if(h.type==='assign_bonus') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（課題の提出ボーナス：${escHtml(h.comment||'')}）`;
     else if(h.type==='event') who=`<span style="color:var(--gb);font-weight:700;">🎓 ${escHtml(h.name||'')}</span>（勉強会：${escHtml(h.comment||'')}）`;
     else if(h.type==='offer') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（特典：${escHtml(h.comment||'')}）`;
     else if(h.type==='intro_bonus') who=`<span style="color:var(--gb);font-weight:700;">👋 ${escHtml(h.name||'')}</span>（自己紹介ボーナス）`;
@@ -1588,6 +1606,12 @@ function commentIdentity(){
 }
 
 // ── 合言葉を受け取る（参加者） ───────────────────────
+// 合言葉の、いまの枚数（日時で枚数が変わる設定があれば、その日時以降は後の枚数）
+function codeEffPoints(c){
+  const t = new Date();
+  if(c.points2From && c.points2From.toDate && c.points2From.toDate() <= t && Number(c.points2)>0) return Number(c.points2);
+  return Number(c.points)||0;
+}
 window.redeemCode = async function(where){
   if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
   const inId = (where==='board') ? 'board-redeem-input' : 'redeem-input';
@@ -1613,7 +1637,7 @@ window.redeemCode = async function(where){
       const userSnap = await tx.get(userRef);
       if(!userSnap.exists()) throw new Error('NOUSER');
       if(userSnap.data().banned) throw new Error('BANNED');
-      const pts = Number(c.points)||0;
+      const pts = codeEffPoints(c);
       if(pts<=0) throw new Error('NOT_FOUND');
       tx.set(claimRef,{ uid:currentUser.uid, name:_me.bandName, points:pts, claimedAt:serverTimestamp() });
       tx.update(userRef,{ coins:increment(pts), lastClaim:id });
@@ -1656,6 +1680,13 @@ window.addCode = async function(){
   const label  = document.getElementById('code-label').value.trim();
   const points = parseInt(document.getElementById('code-points').value);
   if(!points || points<=0){ showToast('枚数を入力してください'); return; }
+  let points2 = null, points2From = null;
+  const p2v = document.getElementById('code-pts2-from').value, p2n = parseInt(document.getElementById('code-pts2').value);
+  if(p2v || p2n){
+    const d2 = new Date(p2v);
+    if(!p2v || isNaN(d2.getTime()) || !p2n || p2n<=0){ showToast('枚数を途中で変えるときは、日時と枚数の両方を入れてください'); return; }
+    points2 = p2n; points2From = Timestamp.fromDate(d2);
+  }
   const expVal = document.getElementById('code-expires').value;
   let expiresAt = null;
   if(expVal){
@@ -1666,7 +1697,7 @@ window.addCode = async function(){
   try{
     const ref = doc(db,'seminar_codes',id);
     if((await getDoc(ref)).exists()){ showToast('同じ合言葉がすでに登録されています'); return; }
-    await setDoc(ref,{ code:raw, label, points, active:document.getElementById('code-active-now').checked,
+    await setDoc(ref,{ code:raw, label, points, points2, points2From, active:document.getElementById('code-active-now').checked,
                        assignmentId:(document.getElementById('code-assign').value||''),
                        expiresAt, createdAt:serverTimestamp() });
     ['code-text','code-label','code-expires'].forEach(i=>{ document.getElementById(i).value=''; });
@@ -1701,7 +1732,9 @@ async function loadCodes(){
       const c = d.data();
       const expired = !!(c.expiresAt && c.expiresAt.toDate() <= new Date());
       const exp = c.expiresAt ? fmtDT(c.expiresAt,{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '期限なし';
-      const pts = Number(c.points)||0;
+      const pts = codeEffPoints(c);
+      const p2note = (c.points2From && c.points2From.toDate && Number(c.points2)>0)
+        ? `<div style="font-size:11px;color:var(--gold);margin-top:2px;">${fmtDT(c.points2From,{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}から ${Number(c.points2).toLocaleString()}枚（それまでは ${(Number(c.points)||0).toLocaleString()}枚）</div>` : '';
       return `<div class="code-card" data-id="${escHtml(d.id)}" data-expired="${expired?'1':'0'}" data-count="${counts[i]}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
           <div style="min-width:0;flex:1;">
@@ -1710,6 +1743,19 @@ async function loadCodes(){
           </div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gb);flex-shrink:0;">${pts.toLocaleString()}<span style="font-size:11px;color:var(--dim);margin-left:2px;">枚</span></div>
         </div>
+        ${p2note}
+        <details style="margin-top:6px;"><summary style="font-size:12px;color:var(--gb);cursor:pointer;">枚数を変更する</summary>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+            <span style="font-size:12px;color:var(--dim);">最初の枚数</span>
+            <input type="number" class="grant-input cp-1" value="${Number(c.points)||0}" min="1" style="width:90px;">
+            <span style="font-size:12px;color:var(--dim);">日時</span>
+            <input class="form-input cp-from" type="datetime-local" value="${toLocalInput(c.points2From)}" style="margin:0;min-width:170px;">
+            <span style="font-size:12px;color:var(--dim);">その後の枚数</span>
+            <input type="number" class="grant-input cp-2" value="${c.points2?Number(c.points2):''}" min="1" style="width:90px;">
+            <button class="btn-grant" onclick="saveCodePoints(this)">保存</button>
+          </div>
+          <div style="font-size:11px;color:var(--dim);margin-top:6px;">日時と「その後の枚数」を空にすると、ずっと「最初の枚数」のままです。</div>
+        </details>
         <div style="font-size:11px;color:var(--dim);margin:8px 0;">終了：${exp}${expired?' <span style="color:var(--red);">（期限切れ）</span>':''} ／ 受け取り：${counts[i]}人</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <label class="toggle-switch"><input type="checkbox" ${c.active?'checked':''} onchange="toggleCode(this)"><span class="toggle-slider"></span></label>
@@ -1725,6 +1771,22 @@ async function loadCodes(){
   }
 }
 
+window.saveCodePoints = async function(btn){
+  const card = btn.closest('.code-card'); const id = card.dataset.id;
+  const p1 = parseInt(card.querySelector('.cp-1').value), p2 = parseInt(card.querySelector('.cp-2').value), fv = card.querySelector('.cp-from').value;
+  if(!p1 || p1<=0){ showToast('最初の枚数を入力してください'); return; }
+  let points2 = null, points2From = null;
+  if(fv || p2){
+    const d = new Date(fv);
+    if(!fv || isNaN(d.getTime()) || !p2 || p2<=0){ showToast('日時と「その後の枚数」の両方を入れてください'); return; }
+    points2 = p2; points2From = Timestamp.fromDate(d);
+  }
+  try{
+    await updateDoc(doc(db,'seminar_codes',id),{ points:p1, points2, points2From });
+    showToast('✅ 枚数を保存しました');
+    await loadCodes();
+  }catch(e){ showToast('❌ 保存できませんでした'); }
+};
 window.toggleCode = async function(el){
   const card = el.closest('.code-card'); const id = card.dataset.id;
   if(el.checked && card.dataset.expired==='1'){
@@ -1808,6 +1870,8 @@ function renderAssignAdmin(){
         <input type="checkbox" ${a.active?'checked':''} onchange="toggleAssignment(this)" style="width:18px;height:18px;accent-color:var(--gb);">${a.active?'公開中':'非公開'}</label>
     </div>
     <textarea class="form-textarea assign-edit-body" maxlength="1500" style="min-height:90px;">${escHtml(a.body||'')}</textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><span style="font-size:12px;color:var(--dim);">提出ボーナス（初回のみ）</span>
+      <input type="number" class="grant-input assign-edit-reward" value="${Number(a.reward)||0}" min="0" style="width:90px;"><span style="font-size:13px;color:var(--dim);">枚</span></div>
     <div style="display:flex;gap:8px;"><button class="btn-grant" onclick="saveAssignBody(this)">内容を保存</button>
     <button class="btn-ban" onclick="deleteAssignment(this)" style="margin-left:auto;">削除</button></div></div>`).join('')
     : '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">まだ課題が登録されていません</div>';
@@ -1821,10 +1885,12 @@ window.addAssignment = async function(){
   try{
     await fetchAssignments(true);
     if(_assignments.some(a=>a.title===title)){ showToast('同じ課題名がすでにあります'); return; }
-    await addDoc(collection(db,'seminar_assignments'),{ title, body, active:false, createdAt:serverTimestamp() });
+    const reward = Math.max(0, parseInt(document.getElementById('assign-reward').value)||0);
+    await addDoc(collection(db,'seminar_assignments'),{ title, body, reward, active:false, createdAt:serverTimestamp() });
     await fetchAssignments(true); renderAssignAdmin();
     document.getElementById('assign-title').value = '';
     document.getElementById('assign-body').value = '';
+    document.getElementById('assign-reward').value = 0;
     showToast('✅ 追加しました（まだ非公開です。ONにすると参加者に見えます）');
   }catch(e){ showToast('❌ 保存できませんでした'); }
 };
@@ -1839,8 +1905,9 @@ window.toggleAssignment = async function(el){
 window.saveAssignBody = async function(btn){
   const card = btn.closest('.code-card'); const id = card.dataset.id;
   const body = card.querySelector('.assign-edit-body').value.trim();
+  const reward = Math.max(0, parseInt(card.querySelector('.assign-edit-reward').value)||0);
   try{
-    await updateDoc(doc(db,'seminar_assignments',id),{ body });
+    await updateDoc(doc(db,'seminar_assignments',id),{ body, reward });
     showToast('✅ 内容を保存しました');
   }catch(e){ showToast('❌ 保存できませんでした'); }
 };
@@ -2050,6 +2117,16 @@ async function loadCodeItems(){
     window._codeItems = cs.exists() && Array.isArray(cs.data().items) ? cs.data().items : [];
     window._gotLabels = new Set(hs.docs.map(d=>d.data()).filter(h=>h.type==='code').map(h=>h.comment));
   }catch(e){ window._codeItems = window._codeItems || []; }
+  await loadClaimedAssign();
+}
+// 課題の提出ボーナスを、もう受け取った課題
+async function loadClaimedAssign(){
+  window._claimedAssign = new Set();
+  try{
+    const rs = await Promise.all(_assignments.filter(a=>Number(a.reward)>0).map(a=>
+      getDoc(doc(db,'seminar_assignments',a.id,'claims',currentUser.uid)).then(sn=>sn.exists()?a.id:null)));
+    rs.filter(Boolean).forEach(id=>window._claimedAssign.add(id));
+  }catch(e){}
 }
 window.setBoardFilter = async function(k){
   _boardFilter = k;
@@ -2060,10 +2137,14 @@ function renderBoard(){
   const feed = document.getElementById('board-feed');
   const cur = _assignments.find(a=>'a:'+a.id===_boardFilter);
   document.getElementById('board-chips').innerHTML = chipsHtml(_boardFilter, 'setBoardFilter', false);
+  const claimed = window._claimedAssign || new Set();
+  const rewardLine = (cur && Number(cur.reward)>0 && !claimed.has(cur.id))
+    ? `<div style="font-size:13px;font-weight:800;color:var(--gold);margin-top:8px;">🎁 提出すると、${Number(cur.reward).toLocaleString()}枚もらえます（初回のみ・10文字以上）</div>` : '';
   document.getElementById('board-notice').innerHTML = cur
-    ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div></div>`
-    : (_boardFilter==='intro' && !_assignments.length
-        ? '<div style="font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.7;">📌 課題は、KUNIOから案内があったら、ここに表示されます。</div>' : '');
+    ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div>${rewardLine}</div>` : '';
+  document.getElementById('board-empty-note').innerHTML = (_boardFilter==='intro' && !_assignments.length)
+    ? '<div style="font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.7;">📌 課題は、KUNIOから案内があったら、ここに表示されます。</div>' : '';
+  const dayWrap = document.getElementById('day-wrap'); if(dayWrap) dayWrap.style.display = cur ? '' : 'none';
   // ボタンごとに、その中身だけを出す（自己紹介のフォームは「自己紹介」のときだけ／課題の提出欄は課題のときだけ）
   const isIntro = (_boardFilter==='intro');
   // この回に結びついた合言葉（KUNIOがONにしていて、期限内のもの）があれば、入力欄を出す
@@ -2078,6 +2159,7 @@ function renderBoard(){
           <input class="form-input" type="text" id="board-redeem-input" placeholder="合言葉" autocomplete="off" autocapitalize="off" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229)redeemCode('board')">
           <button class="btn-primary" id="board-redeem-btn" onclick="redeemCode('board')" style="margin-bottom:0;">受け取る</button></div>`
       : (done.length ? '<div style="font-size:13px;color:var(--gb);font-weight:700;margin-bottom:14px;">✅ この回の合言葉は、受け取り済みです</div>' : '');
+    if(open.length || done.length) br.innerHTML += '<div class="day-sep"></div>';
   }
   const introCard = document.getElementById('intro-card'); if(introCard) introCard.style.display = isIntro ? '' : 'none';
   const card = document.getElementById('post-card'), sel = document.getElementById('post-assign'), wrap = document.getElementById('post-assign-wrap');
@@ -2322,7 +2404,7 @@ async function _refreshIntroNudge(){
       <div class="sub">みんなに読んでもらえます。KUNIOから返信がもらえることもあります。<br>書き終わると、すぐにコインが入ります。</div>
       <button class="btn-primary" onclick="switchTab('user','board')" style="margin-bottom:0;">自己紹介を書く</button></div>`);
   }
-  // ② 生放送の合言葉（KUNIOがONにしていて、まだ受け取っていない人）
+  // ② 合言葉・③ 課題：回（DAY1セミナーなど）ごとに、1枚のカードにまとめる
   try{
     const [cs, hs] = await Promise.all([
       getDoc(doc(db,'seminar_config','codes')),
@@ -2331,27 +2413,36 @@ async function _refreshIntroNudge(){
     const items = cs.exists() && Array.isArray(cs.data().items) ? cs.data().items : [];
     const got = new Set(hs.docs.map(d=>d.data()).filter(h=>h.type==='code').map(h=>h.comment));
     window._gotLabels = got; window._codeItems = items;
-    const hid = dismissedCards(uid);
-    items.filter(x=> x.label && !got.has(x.label) && !hid.has('code:'+x.label) && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()))
-      .forEach(x=> cards.push(`<div class="intro-cta">
-        <div class="big">🔑 ${escHtml(x.label)}</div>
-        <div class="sub">生放送でお伝えした合言葉を入力して、コインをもらいましょう。</div>
-        <button class="btn-primary" ${x.assignmentId ? `data-k="${escHtml('a:'+x.assignmentId)}" onclick="goAssignment(this.dataset.k)"` : 'onclick="goRedeem()"'} style="margin-bottom:0;">合言葉を入力する</button>
-        <button class="btn-text" data-k="${escHtml('code:'+x.label)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`));
-  }catch(e){}
-  // ③ 課題（KUNIOが公開していて、まだ提出していない人）
-  try{
+    const liveCodes = items.filter(x=> x.label && !got.has(x.label) && !(x.expiresAt && x.expiresAt.toDate && x.expiresAt.toDate() <= new Date()));
     await fetchAssignments(false);
+    let done = new Set();
     if(_assignments.length){
       const ps = await getDocs(query(collection(db,'seminar_posts'), where('uid','==',uid), limit(300)));
-      const done = new Set(ps.docs.map(d=>d.data()).filter(p=>p.type!=='intro').map(p=>p.assignmentId));
-      const hid2 = dismissedCards(uid);
-      _assignments.filter(a=>!done.has(a.id) && !hid2.has('assign:'+a.id)).forEach(a=> cards.push(`<div class="intro-cta">
-        <div class="big">📝 ${escHtml(a.title)}を提出してください</div>
-        <div class="sub">提出すると、KUNIOが確認します。内容によってコインがもらえます。</div>
-        <button class="btn-primary" data-k="${escHtml('a:'+a.id)}" onclick="goAssignment(this.dataset.k)" style="margin-bottom:0;">${escHtml(a.title)}を書く</button>
-        <button class="btn-text" data-k="${escHtml('assign:'+a.id)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`));
+      done = new Set(ps.docs.map(d=>d.data()).filter(p=>p.type!=='intro').map(p=>p.assignmentId));
     }
+    await loadClaimedAssign();
+    const hid = dismissedCards(uid);
+    const usedCodes = new Set();
+    _assignments.forEach(a=>{
+      const myCodes = liveCodes.filter(x=>x.assignmentId===a.id); myCodes.forEach(x=>usedCodes.add(x));
+      const needPost = !done.has(a.id);
+      if(hid.has('day:'+a.id) || (!myCodes.length && !needPost)) return;
+      const rw = Number(a.reward)||0;
+      const lines = [];
+      if(myCodes.length) lines.push('🔑 合言葉を入力して、コインをもらおう（' + myCodes.map(x=>escHtml(x.label)).join('・') + '）');
+      if(needPost) lines.push('✍️ 課題を提出しよう' + ((rw>0 && !(window._claimedAssign||new Set()).has(a.id)) ? '（' + rw.toLocaleString() + '枚もらえます）' : ''));
+      cards.push(`<div class="intro-cta">
+        <div class="big">📌 ${escHtml(a.title)}</div>
+        <div class="sub">${lines.join('<br>')}</div>
+        <button class="btn-primary" data-k="${escHtml('a:'+a.id)}" onclick="goAssignment(this.dataset.k)" style="margin-bottom:0;">${escHtml(a.title)}を開く</button>
+        <button class="btn-text" data-k="${escHtml('day:'+a.id)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`);
+    });
+    // どの回にも結びついていない合言葉は、これまでどおり、単独のカード
+    liveCodes.filter(x=>!usedCodes.has(x) && !hid.has('code:'+x.label)).forEach(x=> cards.push(`<div class="intro-cta">
+        <div class="big">🔑 ${escHtml(x.label)}</div>
+        <div class="sub">生放送でお伝えした合言葉を入力して、コインをもらいましょう。</div>
+        <button class="btn-primary" onclick="goRedeem()" style="margin-bottom:0;">合言葉を入力する</button>
+        <button class="btn-text" data-k="${escHtml('code:'+x.label)}" onclick="dismissCard(this)" style="margin-top:10px;font-size:12px;">いまはやらない（閉じる）</button></div>`));
   }catch(e){}
   el.style.display = cards.length ? 'block' : 'none';
   el.innerHTML = cards.join('');
@@ -2383,16 +2474,37 @@ window.submitPost = async function(){
   const asel = document.getElementById('post-assign');
   const chosen = _assignments.find(a=>a.id===(asel&&asel.value));
   if(!chosen){ showToast('提出先の課題を選んでください'); return; }
+  const reward = Number(chosen.reward)||0;
+  const claimed = window._claimedAssign || new Set();
+  const getsBonus = reward>0 && !claimed.has(chosen.id);
+  if(getsBonus && text.length < 10){ showToast('10文字以上で書いてください（提出ボーナスがもらえます）'); return; }
   const btn = document.getElementById('post-btn');
   btn.disabled = true; btn.textContent = '投稿中...';
   try{
-    await addDoc(collection(db,'seminar_posts'),{
+    const postData = {
       uid:currentUser.uid, name:_me.bandName, text, link,
       assignmentTitle:chosen.title, assignmentId:chosen.id, createdAt:serverTimestamp(), hidden:false, rewardTotal:0
-    });
+    };
+    if(getsBonus){
+      // 初回だけ、提出と同時に、コインを自動で配布（1人1回）
+      const uid = currentUser.uid;
+      const batch = writeBatch(db);
+      batch.set(doc(db,'seminar_posts','a_'+chosen.id+'_'+uid), postData);
+      batch.set(doc(db,'seminar_assignments',chosen.id,'claims',uid), { uid, name:_me.bandName, points:reward, claimedAt:serverTimestamp() });
+      batch.update(doc(db,'seminar_users',uid), { coins:increment(reward), lastAssignClaim:chosen.id });
+      batch.set(doc(collection(db,'seminar_coin_history')),
+        { type:'assign_bonus', uid, name:_me.bandName, amount:reward, comment:chosen.title, assignmentId:chosen.id, grantedAt:serverTimestamp() });
+      await batch.commit();
+      window._claimedAssign = new Set([...claimed, chosen.id]);
+      playCoinSound();
+      showToast(`✅ 提出しました。${reward.toLocaleString()}枚もらいました！`);
+      refreshMyCoins();
+    } else {
+      await addDoc(collection(db,'seminar_posts'), postData);
+      showToast('✅ 投稿しました');
+    }
     document.getElementById('post-text').value = '';
     document.getElementById('post-link').value = '';
-    showToast('✅ 投稿しました');
     await loadBoard();
     refreshIntroNudge();
   }catch(e){ showToast('投稿できませんでした：'+(e.code||e.message)); }
