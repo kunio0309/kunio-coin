@@ -408,6 +408,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="day-wrap" style="display:none;">
       <div id="board-notice"></div>
       <div id="board-redeem"></div>
+      <div id="my-sub"></div>
       <div class="card" id="post-card" style="display:none;">
         <div class="section-title" id="post-card-title">✍️ 課題を提出する</div>
         <div id="post-assign-wrap" style="display:none;margin-bottom:10px;">
@@ -2128,7 +2129,9 @@ async function loadClaimedAssign(){
     rs.filter(Boolean).forEach(id=>window._claimedAssign.add(id));
   }catch(e){}
 }
+window.showNewPost = function(){ window._showNewPost = true; renderBoard(); };
 window.setBoardFilter = async function(k){
+  window._showNewPost = false;
   _boardFilter = k;
   try{ await loadBoardPosts(); }catch(e){}
   renderBoard();
@@ -2163,11 +2166,24 @@ function renderBoard(){
   }
   const introCard = document.getElementById('intro-card'); if(introCard) introCard.style.display = isIntro ? '' : 'none';
   const card = document.getElementById('post-card'), sel = document.getElementById('post-assign'), wrap = document.getElementById('post-assign-wrap');
+  const mySub = document.getElementById('my-sub');
   if(cur){
     sel.innerHTML = `<option value="${escHtml(cur.id)}">${escHtml(cur.title)}</option>`; sel.value = cur.id;
-    wrap.style.display = 'none'; card.style.display = '';
-    document.getElementById('post-card-title').textContent = '✍️ ' + cur.title + 'を提出する';
-  } else { wrap.style.display = 'none'; card.style.display = 'none'; sel.innerHTML = ''; }
+    wrap.style.display = 'none';
+    // すでに提出している人は、自分の提出を見せる。追記は「編集」で、同じ場所に
+    const mine = _me ? _boardPosts.filter(p=>p.uid===_me.uid && p.type!=='intro') : [];
+    if(mine.length && !window._showNewPost){
+      card.style.display = 'none';
+      mySub.innerHTML = `<div class="card"><div class="section-title">✅ あなたの提出（${escHtml(cur.title)}）</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">書き足したいときは、下の「✏️ 編集する」を押して、同じ文章に追記してください。</div>
+        ${renderPost(mine[0], false)}
+        <button class="btn-text" onclick="showNewPost()" style="margin-top:10px;font-size:12px;">＋別の投稿として追加する</button></div>`;
+    } else {
+      mySub.innerHTML = '';
+      card.style.display = '';
+      document.getElementById('post-card-title').textContent = '✍️ ' + cur.title + 'を提出する';
+    }
+  } else { wrap.style.display = 'none'; card.style.display = 'none'; sel.innerHTML = ''; mySub.innerHTML = ''; }
   document.getElementById('feed-title').textContent = isIntro ? '👋 みんなの自己紹介' : ('📋 ' + (cur ? cur.title : '') + ' みんなの投稿');
   const posts = filterPosts(_boardPosts, _boardFilter);
   feed.innerHTML = posts.length
@@ -2503,6 +2519,7 @@ window.submitPost = async function(){
       await addDoc(collection(db,'seminar_posts'), postData);
       showToast('✅ 投稿しました');
     }
+    window._showNewPost = false;
     document.getElementById('post-text').value = '';
     document.getElementById('post-link').value = '';
     await loadBoard();
