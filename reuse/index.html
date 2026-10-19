@@ -1850,12 +1850,20 @@ async function fetchAssignments(forAdmin){
   }
   _assignments = snap.docs.map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.seconds||0)-(y.createdAt?.seconds||0));
 }
+// 承認制の課題で、まだKUNIOがOKしていない投稿
+function isPendingPost(p){
+  if(!p.hidden || p.approvedAt || p.type==='intro') return false;
+  const a = _assignments.find(x=>x.id===p.assignmentId);
+  return !!(a && a.approval);
+}
 function chipsHtml(sel, fnName, withOff){
   const items = [['intro','👋 自己紹介'], ..._assignments.map(a=>['a:'+a.id, a.title + ((withOff && !a.active) ? '（非公開）' : '')])];
+  if(withOff){ const n = (window._adminPosts||[]).filter(isPendingPost).length; items.push(['pending', '⏳ 確認待ち'+(n?'（'+n+'）':'')]); }
   return items.map(([k,l])=>`<button class="chip${sel===k?' on':''}" data-k="${escHtml(k)}" onclick="${fnName}(this.dataset.k)">${escHtml(l)}</button>`).join('');
 }
 function filterPosts(posts, sel){
   if(sel==='intro') return posts.filter(p=>p.type==='intro');
+  if(sel==='pending') return posts.filter(isPendingPost);
   if(sel.startsWith('a:')){
     const a = _assignments.find(x=>'a:'+x.id===sel);
     return posts.filter(p=>p.type!=='intro' && (p.assignmentId ? ('a:'+p.assignmentId===sel) : (a && p.assignmentTitle===a.title)));
@@ -1871,6 +1879,8 @@ function renderAssignAdmin(){
         <input type="checkbox" ${a.active?'checked':''} onchange="toggleAssignment(this)" style="width:18px;height:18px;accent-color:var(--gb);">${a.active?'公開中':'非公開'}</label>
     </div>
     <textarea class="form-textarea assign-edit-body" maxlength="1500" style="min-height:90px;">${escHtml(a.body||'')}</textarea>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:10px;color:${a.approval?'var(--gold)':'var(--dim)'};">
+      <input type="checkbox" ${a.approval?'checked':''} onchange="toggleApproval(this)" style="width:18px;height:18px;accent-color:var(--gold);">承認制（KUNIOがOKした投稿だけ、みんなに表示）${a.approval?'：ON':''}</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><span style="font-size:12px;color:var(--dim);">提出ボーナス（初回のみ）</span>
       <input type="number" class="grant-input assign-edit-reward" value="${Number(a.reward)||0}" min="0" style="width:90px;"><span style="font-size:13px;color:var(--dim);">枚</span></div>
     <div style="display:flex;gap:8px;"><button class="btn-grant" onclick="saveAssignBody(this)">内容を保存</button>
@@ -1901,6 +1911,14 @@ window.toggleAssignment = async function(el){
     await updateDoc(doc(db,'seminar_assignments',id),{ active: el.checked });
     await fetchAssignments(true); renderAssignAdmin();
     showToast(el.checked ? '✅ 公開しました（参加者に見えます）' : '非公開にしました');
+  }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
+};
+window.toggleApproval = async function(el){
+  const id = el.closest('.code-card').dataset.id;
+  try{
+    await updateDoc(doc(db,'seminar_assignments',id),{ approval: el.checked });
+    await fetchAssignments(true); renderAssignAdmin();
+    showToast(el.checked ? '✅ 承認制にしました（これから提出される分は、KUNIOがOKするまで表示されません）' : '承認制をやめました（これから提出される分は、すぐ表示されます）');
   }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
 };
 window.saveAssignBody = async function(btn){
@@ -1975,7 +1993,7 @@ function renderPost(p, forAdmin, extraHtml){
         <div style="display:flex;gap:8px;"><button class="btn-grant" onclick="savePostEdit(this)">変更を保存</button>
         <button class="chip" onclick="cancelPostEdit(this)">キャンセル</button></div></div>` : '';
   return `<div class="post" data-id="${escHtml(p.id)}" data-uid="${escHtml(p.uid||'')}">
-    <div class="post-head"><span class="post-name" style="cursor:pointer;" data-uid="${escHtml(p.uid||'')}" onclick="openProfile(this.dataset.uid, this.textContent)">${escHtml(p.name||'—')}</span>${p.hidden?'<span class="badge-banned">非表示中</span>':''}<span class="post-time">${fmtDT(p.createdAt)}${p.editedAt?'（編集済み）':''}</span></div>
+    <div class="post-head"><span class="post-name" style="cursor:pointer;" data-uid="${escHtml(p.uid||'')}" onclick="openProfile(this.dataset.uid, this.textContent)">${escHtml(p.name||'—')}</span>${p.hidden?(isPendingPost(p)?'<span class="badge-banned" style="color:var(--gold);border-color:rgba(255,213,79,.5);background:rgba(255,213,79,.1);">確認待ち</span>':'<span class="badge-banned">非表示中</span>'):''}<span class="post-time">${fmtDT(p.createdAt)}${p.editedAt?'（編集済み）':''}</span></div>
     ${tagHtml}
     ${bodyHtml}
     ${linkHtml}
@@ -2107,6 +2125,15 @@ async function loadBoardPosts(){
     : query(col, where('hidden','==',false), where('assignmentId','==',String(_boardFilter).slice(2)), limit(150));
   const snap = await getDocs(q);
   _boardPosts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+  // 自分の投稿は、非表示にされたものも含めて読む（本人には見える）
+  window._myPostsAll = [];
+  if(_me && String(_boardFilter).startsWith('a:')){
+    try{
+      const s2 = await getDocs(query(col, where('uid','==',_me.uid), where('assignmentId','==',String(_boardFilter).slice(2)), limit(30)));
+      window._myPostsAll = s2.docs.map(d=>({id:d.id,...d.data()})).filter(p=>p.type!=='intro')
+        .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    }catch(e){}
+  }
 }
 // 合言葉の情報（ONの合言葉の名前・どの回か／自分の受け取り済み）
 async function loadCodeItems(){
@@ -2171,10 +2198,17 @@ function renderBoard(){
     sel.innerHTML = `<option value="${escHtml(cur.id)}">${escHtml(cur.title)}</option>`; sel.value = cur.id;
     wrap.style.display = 'none';
     // すでに提出している人は、自分の提出を見せる。追記は「編集」で、同じ場所に
-    const mine = _me ? _boardPosts.filter(p=>p.uid===_me.uid && p.type!=='intro') : [];
+    const mine = _me ? (window._myPostsAll||[]).filter(p=>p.uid===_me.uid && p.type!=='intro') : [];
     if(mine.length && !window._showNewPost){
       card.style.display = 'none';
+      const pend = isPendingPost(mine[0]);
+      const hiddenNote = mine[0].hidden
+        ? (pend
+            ? '<div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:10px;line-height:1.7;">✅ 提出できました。KUNIOが確認したあと、みんなに表示されます。それまでは、あなたにだけ見えています。</div>'
+            : '<div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:10px;line-height:1.7;">この投稿は、いま、ほかの人には表示されていません（KUNIOが確認中です）。内容に問題があれば、「✏️ 編集する」で直すか、「🗑 削除」をお願いします。</div>')
+        : '';
       mySub.innerHTML = `<div class="card"><div class="section-title">✅ あなたの提出（${escHtml(cur.title)}）</div>
+        ${hiddenNote}
         <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">書き足したいときは、下の「✏️ 編集する」を押して、同じ文章に追記してください。</div>
         ${renderPost(mine[0], false)}
         <button class="btn-text" onclick="showNewPost()" style="margin-top:10px;font-size:12px;">＋別の投稿として追加する</button></div>`;
@@ -2499,7 +2533,7 @@ window.submitPost = async function(){
   try{
     const postData = {
       uid:currentUser.uid, name:_me.bandName, text, link,
-      assignmentTitle:chosen.title, assignmentId:chosen.id, createdAt:serverTimestamp(), hidden:false, rewardTotal:0
+      assignmentTitle:chosen.title, assignmentId:chosen.id, createdAt:serverTimestamp(), hidden:!!chosen.approval, rewardTotal:0
     };
     if(getsBonus){
       // 初回だけ、提出と同時に、コインを自動で配布（1人1回）
@@ -2513,11 +2547,11 @@ window.submitPost = async function(){
       await batch.commit();
       window._claimedAssign = new Set([...claimed, chosen.id]);
       playCoinSound();
-      showToast(`✅ 提出しました。${reward.toLocaleString()}枚もらいました！`);
+      showToast(`✅ 提出しました。${reward.toLocaleString()}枚もらいました！` + (chosen.approval ? '（KUNIOが確認したあと、みんなに表示されます）' : ''));
       refreshMyCoins();
     } else {
       await addDoc(collection(db,'seminar_posts'), postData);
-      showToast('✅ 投稿しました');
+      showToast(chosen.approval ? '✅ 提出しました。KUNIOが確認したあと、みんなに表示されます' : '✅ 投稿しました');
     }
     window._showNewPost = false;
     document.getElementById('post-text').value = '';
@@ -2559,21 +2593,25 @@ function renderAdminPost(p){
       <button class="chip" onclick="setRewardAmount(this,1000)">1,000</button>
       <button class="chip" onclick="setRewardAmount(this,5000)">5,000</button>
       <button class="btn-grant" onclick="rewardPost(this)">🪙 配布</button>
-      <button class="chip" onclick="togglePostHidden(this,${p.hidden?'false':'true'})">${p.hidden?'表示に戻す':'非表示にする'}</button>
+      <button class="${isPendingPost(p)?'btn-grant':'chip'}" onclick="togglePostHidden(this,${p.hidden?'false':'true'})">${p.hidden?(isPendingPost(p)?'✅ OKして表示する':'表示に戻す'):'非表示にする'}</button>
     </div></div>`;
   return renderPost(p, true, panel);
 }
 
 let _adminFilter = null;
 let _adminPosts = [];
+Object.defineProperty(window,'_adminPosts',{ get(){ return _adminPosts; } });
 window.setAdminFilter = function(k){ _adminFilter = k; renderAdminPosts(); };
 function renderAdminPosts(){
   const el = document.getElementById('admin-posts');
   document.getElementById('admin-post-chips').innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
   const posts = filterPosts(_adminPosts, _adminFilter);
-  el.innerHTML = posts.length
+  const nPend = _adminPosts.filter(isPendingPost).length;
+  const pendBanner = (nPend && _adminFilter!=='pending')
+    ? `<div style="background:rgba(255,213,79,.1);border:1px solid rgba(255,213,79,.45);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--gold);">⏳ 確認待ちが ${nPend}件 あります <button class="btn-grant" onclick="setAdminFilter('pending')" style="margin-left:8px;">見る</button></div>` : '';
+  el.innerHTML = pendBanner + (posts.length
     ? posts.map(renderAdminPost).join('')
-    : '<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ提出はありません</div>';
+    : '<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">'+(_adminFilter==='pending'?'確認待ちは、ありません':'まだ提出はありません')+'</div>');
 }
 async function loadAdminPosts(){
   const el = document.getElementById('admin-posts');
@@ -2663,8 +2701,8 @@ window.rewardPost = async function(btn){
 window.togglePostHidden = async function(btn, hide){
   const post = btn.closest('.post');
   try{
-    await updateDoc(doc(db,'seminar_posts',post.dataset.id),{ hidden:hide });
-    showToast(hide ? '非表示にしました' : '表示に戻しました');
+    await updateDoc(doc(db,'seminar_posts',post.dataset.id), hide ? { hidden:true } : { hidden:false, approvedAt:serverTimestamp() });
+    showToast(hide ? '非表示にしました' : '表示しました（みんなに見えます）');
     await loadAdminPosts();
   }catch(e){ showToast('❌ 変更できませんでした'); }
 };
