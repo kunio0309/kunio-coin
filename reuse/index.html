@@ -317,9 +317,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="user-tabbtn-board" class="tab-btn" onclick="switchTab('user','board')">📝 課題ボード</button>
     </div>
     <div id="user-tab-coin">
+    <div id="perk-card"></div>
     <div id="intro-nudge" style="display:none;"></div>
     <div id="event-card"></div>
-    <div id="perk-card"></div>
     <div id="offer-card"></div>
     <div class="card">
       <div class="coin-label">● セミナー参加者専用コイン</div>
@@ -1911,6 +1911,8 @@ function renderAssignAdmin(){
         <input type="checkbox" ${a.active?'checked':''} onchange="toggleAssignment(this)" style="width:18px;height:18px;accent-color:var(--gb);">${a.active?'公開中':'非公開'}</label>
     </div>
     <textarea class="form-textarea assign-edit-body" maxlength="1500" style="min-height:90px;">${escHtml(a.body||'')}</textarea>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:8px;color:${a.grantsPerk?'var(--gb)':'var(--dim)'};">
+      <input type="checkbox" ${a.grantsPerk?'checked':''} onchange="toggleGrantsPerk(this)" style="width:18px;height:18px;accent-color:var(--gb);">承認すると、特典（ツール）の対象になる${a.grantsPerk?'：ON':''}</label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:10px;color:${a.approval?'var(--gold)':'var(--dim)'};">
       <input type="checkbox" ${a.approval?'checked':''} onchange="toggleApproval(this)" style="width:18px;height:18px;accent-color:var(--gold);">承認制（KUNIOがOKした投稿だけ、みんなに表示）${a.approval?'：ON':''}</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><span style="font-size:12px;color:var(--dim);">提出ボーナス（初回のみ）</span>
@@ -1943,6 +1945,14 @@ window.toggleAssignment = async function(el){
     await updateDoc(doc(db,'seminar_assignments',id),{ active: el.checked });
     await fetchAssignments(true); renderAssignAdmin();
     showToast(el.checked ? '✅ 公開しました（参加者に見えます）' : '非公開にしました');
+  }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
+};
+window.toggleGrantsPerk = async function(el){
+  const id = el.closest('.code-card').dataset.id;
+  try{
+    await updateDoc(doc(db,'seminar_assignments',id),{ grantsPerk: el.checked });
+    await fetchAssignments(true); renderAssignAdmin();
+    showToast(el.checked ? '✅ この課題を承認（または「ツールの対象にする」）すると、その人が特典の対象になります' : '特典の対象にするのをやめました');
   }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
 };
 window.toggleApproval = async function(el){
@@ -2626,6 +2636,7 @@ function renderAdminPost(p){
       <button class="chip" onclick="setRewardAmount(this,5000)">5,000</button>
       <button class="btn-grant" onclick="rewardPost(this)">🪙 配布</button>
       <button class="${isPendingPost(p)?'btn-grant':'chip'}" onclick="togglePostHidden(this,${p.hidden?'false':'true'})">${p.hidden?(isPendingPost(p)?'✅ OKして表示する':'表示に戻す'):'非表示にする'}</button>
+      ${(p.type!=='intro' && (_assignments.find(x=>x.id===p.assignmentId)||{}).grantsPerk) ? '<button class="chip" onclick="grantPerkToPost(this)">🎁 ツールの対象にする</button>' : ''}
     </div></div>`;
   return renderPost(p, true, panel);
 }
@@ -2733,8 +2744,20 @@ window.rewardPost = async function(btn){
 window.togglePostHidden = async function(btn, hide){
   const post = btn.closest('.post');
   try{
-    await updateDoc(doc(db,'seminar_posts',post.dataset.id), hide ? { hidden:true } : { hidden:false, approvedAt:serverTimestamp() });
-    showToast(hide ? '非表示にしました' : '表示しました（みんなに見えます）');
+    const pid = post.dataset.id, puid = post.dataset.uid;
+    const pa = _adminPosts.find(x=>x.id===pid);
+    const asg = pa ? _assignments.find(x=>x.id===pa.assignmentId) : null;
+    if(!hide && asg && asg.grantsPerk && puid){
+      // 承認と同時に、その人を特典（ツール）の対象にする
+      const batch = writeBatch(db);
+      batch.update(doc(db,'seminar_posts',pid), { hidden:false, approvedAt:serverTimestamp() });
+      batch.set(doc(db,'seminar_perk_access',puid), { uid:puid, name:(post.querySelector('.post-name')||{}).textContent||'', grantedAt:serverTimestamp(), via:asg.id });
+      await batch.commit();
+      showToast('✅ 表示しました。この人は、特典（ツール）の対象にもなりました');
+    } else {
+      await updateDoc(doc(db,'seminar_posts',pid), hide ? { hidden:true } : { hidden:false, approvedAt:serverTimestamp() });
+      showToast(hide ? '非表示にしました' : '表示しました（みんなに見えます）');
+    }
     await loadAdminPosts();
   }catch(e){ showToast('❌ 変更できませんでした'); }
 };
@@ -3288,11 +3311,13 @@ async function loadPerkCard(){
       if(!ps.exists()){ el.innerHTML = ''; return; }
       const p = ps.data();
       const url = safeUrl(p.toolUrl);
+      window._perkPass = p.password || '';
       el.innerHTML = `<div class="offer-card">
         <div class="offer-title">🎁 ${escHtml(p.title||cfg.title||'特典')}</div>
         <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:10px;">✅ 見られるようになりました</div>
-        ${url ? `<a class="btn-primary" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">ツールを開く</a>` : ''}
-        ${p.password ? `<div class="bank-box" style="user-select:all;">パスワード：${escHtml(p.password)}</div>` : ''}
+        ${url ? `<a class="btn-primary" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">${escHtml(p.title||'ツール')}を開く</a>` : ''}
+        ${p.password ? `<div class="bank-box" style="user-select:all;">パスワード：${escHtml(p.password)}</div>
+          <button class="btn-secondary" onclick="copyPerkPass()" style="margin:10px 0 0;padding:12px 8px;">📋 パスワードをコピー</button>` : ''}
         ${p.body ? `<div style="font-size:13px;line-height:1.9;margin-top:12px;white-space:pre-wrap;word-break:break-word;">${escHtml(p.body)}</div>` : ''}
       </div>`;
       return;
@@ -3313,6 +3338,17 @@ async function loadPerkCard(){
     </div>`;
   }catch(e){ el.innerHTML = ''; }
 }
+
+window.copyPerkPass = async function(){
+  const t = window._perkPass || '';
+  try{ await navigator.clipboard.writeText(t); showToast('✅ パスワードをコピーしました'); }
+  catch(e){
+    try{
+      const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); showToast('✅ パスワードをコピーしました');
+    }catch(e2){ showToast('コピーできませんでした。パスワードを長押しして、コピーしてください'); }
+  }
+};
 
 window.unlockPerk = async function(){
   if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
@@ -3401,6 +3437,16 @@ window.updatePerkBtn = function(){
   const n = document.querySelectorAll('.perk-pick:checked:not(:disabled)').length;
   b.disabled = !n; b.style.opacity = n ? '' : '.5';
   b.textContent = n ? ('チェックした '+n+'人を、対象にする') : '対象にする人は、いません';
+};
+// 投稿ごとに「ツールの対象にする」（承認制でない課題の投稿や、すでに表示された投稿用）
+window.grantPerkToPost = async function(btn){
+  const post = btn.closest('.post'); const uid = post.dataset.uid;
+  const name = (post.querySelector('.post-name')||{}).textContent || '';
+  if(!uid) return;
+  try{
+    await setDoc(doc(db,'seminar_perk_access',uid),{ uid, name, grantedAt:serverTimestamp(), via:'manual' });
+    showToast('✅ '+name+' さんを、特典（ツール）の対象にしました');
+  }catch(e){ showToast('❌ 対象にできませんでした'); }
 };
 window.savePerk = async function(){
   const v = id => document.getElementById(id).value.trim();
