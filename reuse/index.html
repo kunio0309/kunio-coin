@@ -599,13 +599,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <div class="card" id="perk-admin">
         <div class="section-title">● 特典コンテンツ（課題を出した人だけに表示）</div>
-        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">URLとパスワードは、ここに入れます（公開ページには書かれません）。「この人たちに公開する」を押した人だけが、コイン画面で見られます。</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">URLとパスワードは、ここに入れます（公開ページには書かれません）。「対象にする」を押した人が、コイン画面で、上のコインを使うと、中身が見られます。</div>
         <input class="form-input" type="text" id="perk-title" placeholder="見出し（例：Note記事生成ツール）" maxlength="60" autocomplete="off">
         <input class="form-input" type="text" id="perk-url" placeholder="ツールのURL（https://…）" autocomplete="off">
         <input class="form-input" type="text" id="perk-pass" placeholder="パスワード" autocomplete="off">
         <textarea id="perk-body" class="form-textarea" style="min-height:160px;" maxlength="3000" placeholder="使い方・ルールの文章"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+          <span style="font-size:12px;color:var(--dim);">見るために必要なコイン</span>
+          <input type="number" id="perk-price" class="grant-input" style="width:100px;" value="1000" min="0"><span style="font-size:13px;color:var(--dim);">枚</span></div>
         <button class="btn-primary" onclick="savePerk()">💾 内容を保存する</button>
-        <div class="section-title" style="margin-top:14px;">● 公開する人</div>
+        <div class="section-title" style="margin-top:14px;">● 対象にする人</div>
         <div style="font-size:12px;color:var(--dim);margin-bottom:8px;">次の課題を、すべて提出した人が対象です</div>
         <div id="perk-assign-pick" style="margin-bottom:12px;"></div>
         <div id="perk-eligible"></div>
@@ -797,6 +800,8 @@ window.doSignOut = async function(){ await signOut(auth); showScreen('screen-log
 
 onAuthStateChanged(auth, async(user)=>{
   try{ _me = null; _myIntro = null; _boardFilter = null; _adminFilter = null; }catch(e){}
+  ['perk-card','event-card','offer-card','intro-nudge','board-redeem','my-sub','board-feed','profile-body'].forEach(id=>{ const e=document.getElementById(id); if(e) e.innerHTML=''; });
+  try{ window._codeItems = []; window._gotLabels = new Set(); window._claimedAssign = new Set(); window._myPostsAll = []; }catch(e){}
   if(!user){ currentUser = null; showScreen('screen-login'); return; }
   currentUser = user;
 
@@ -1281,12 +1286,13 @@ async function loadUserCoinHistory(uid, joinedAt){
       else if(h.type==='intro_bonus'){ icon='👋'; label='自己紹介ボーナス'; }
       else if(h.type==='offer'){ icon='🎁'; label='特典で使用'; }
       else if(h.type==='event'){ icon='🎓'; label='勉強会の参加：'+escHtml(h.comment||''); }
+      else if(h.type==='perk'){ icon='🎁'; label='特典を見る：'+escHtml(h.comment||''); }
       else if(h.type==='assign_bonus'){ icon='🎁'; label='課題の提出ボーナス：'+escHtml(h.comment||''); }
       else if(h.type==='individual' && amt>=0){ icon='🎁'; label='管理者から配布'; }
       else if(h.type==='individual' && amt<0){ icon='📉'; label='コイン調整'; }
       const color  = amt>=0 ? 'var(--gb)' : 'var(--red)';
       const sign   = amt>=0 ? '+' : '';
-      const comment = (h.comment && h.type!=='code' && h.type!=='post' && h.type!=='intro_bonus' && h.type!=='offer' && h.type!=='event' && h.type!=='assign_bonus') ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${escHtml(h.comment)}</div>` : '';
+      const comment = (h.comment && h.type!=='code' && h.type!=='post' && h.type!=='intro_bonus' && h.type!=='offer' && h.type!=='event' && h.type!=='assign_bonus' && h.type!=='perk') ? `<div style="font-size:11px;color:var(--dim);margin-top:2px;">${escHtml(h.comment)}</div>` : '';
       html+=`<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:18px;flex-shrink:0;">${icon}</span>
@@ -1530,6 +1536,7 @@ async function loadHistory(){
     else if(h.type==='code') who=`<span style="color:var(--gb);font-weight:700;">🔑 ${escHtml(h.name||'')}</span>（合言葉：${escHtml(h.comment||'')}）`;
     else if(h.type==='post') who=`<span style="color:var(--gb);font-weight:700;">📝 ${escHtml(h.name||'')}</span>（課題：${escHtml(h.comment||'')}）`;
     else if(h.type==='assign_bonus') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（課題の提出ボーナス：${escHtml(h.comment||'')}）`;
+    else if(h.type==='perk') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（特典：${escHtml(h.comment||'')}）`;
     else if(h.type==='event') who=`<span style="color:var(--gb);font-weight:700;">🎓 ${escHtml(h.name||'')}</span>（勉強会：${escHtml(h.comment||'')}）`;
     else if(h.type==='offer') who=`<span style="color:var(--gb);font-weight:700;">🎁 ${escHtml(h.name||'')}</span>（特典：${escHtml(h.comment||'')}）`;
     else if(h.type==='intro_bonus') who=`<span style="color:var(--gb);font-weight:700;">👋 ${escHtml(h.name||'')}</span>（自己紹介ボーナス）`;
@@ -3259,27 +3266,79 @@ window.cancelAttendee = async function(btn){
 //  （URL・パスワードは、公開ページには書かず、権限のある人だけが読める場所に保存）
 // ═══════════════════════════════════════════════
 
-// ── 参加者：カード ───────────────────────────
+// ── 参加者：カード（対象になった人が、1,000枚などを使うと、中身が見える） ──
 async function loadPerkCard(){
   const el = document.getElementById('perk-card');
   if(!el || !currentUser || !_me) return;
   try{
-    const acc = await getDoc(doc(db,'seminar_perk_access',currentUser.uid));
+    const uid = currentUser.uid;
+    const acc = await getDoc(doc(db,'seminar_perk_access',uid));
     if(!acc.exists()){ el.innerHTML = ''; return; }
-    const ps = await getDoc(doc(db,'seminar_perks','main'));
-    if(!ps.exists()){ el.innerHTML = ''; return; }
-    const p = ps.data();
-    if(p.enabled === false){ el.innerHTML = ''; return; }
-    const url = safeUrl(p.toolUrl);
+    const [un, cfgS, uS] = await Promise.all([
+      getDoc(doc(db,'seminar_perk_unlocked',uid)),
+      getDoc(doc(db,'seminar_config','perk')),
+      getDoc(doc(db,'seminar_users',uid))
+    ]);
+    const cfg = cfgS.exists() ? cfgS.data() : {};
+    if(cfg.enabled === false){ el.innerHTML = ''; return; }
+    const title = escHtml(cfg.title || '特典');
+    // もう見られる状態 → 中身を、ずっと表示
+    if(un.exists()){
+      const ps = await getDoc(doc(db,'seminar_perks','main'));
+      if(!ps.exists()){ el.innerHTML = ''; return; }
+      const p = ps.data();
+      const url = safeUrl(p.toolUrl);
+      el.innerHTML = `<div class="offer-card">
+        <div class="offer-title">🎁 ${escHtml(p.title||cfg.title||'特典')}</div>
+        <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:10px;">✅ 見られるようになりました</div>
+        ${url ? `<a class="btn-primary" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">ツールを開く</a>` : ''}
+        ${p.password ? `<div class="bank-box" style="user-select:all;">パスワード：${escHtml(p.password)}</div>` : ''}
+        ${p.body ? `<div style="font-size:13px;line-height:1.9;margin-top:12px;white-space:pre-wrap;word-break:break-word;">${escHtml(p.body)}</div>` : ''}
+      </div>`;
+      return;
+    }
+    // まだ → コインを使って見るボタン
+    const price = Number(cfg.price)||0;
+    const coins = uS.exists() ? (uS.data().coins||0) : 0;
+    const short = coins < price;
     el.innerHTML = `<div class="offer-card">
-      <div class="offer-title">🎁 ${escHtml(p.title||'特典')}</div>
-      <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:10px;">課題を提出してくれた方への特典です</div>
-      ${url ? `<a class="btn-primary" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">ツールを開く</a>` : ''}
-      ${p.password ? `<div class="bank-box" style="user-select:all;">パスワード：${escHtml(p.password)}</div>` : ''}
-      ${p.body ? `<div style="font-size:13px;line-height:1.9;margin-top:12px;white-space:pre-wrap;word-break:break-word;">${escHtml(p.body)}</div>` : ''}
+      <div class="offer-title">🎁 ${title}</div>
+      <div style="font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:10px;">課題を提出してくれた方への特典です。コインを使うと、ツールと使い方が見られます。</div>
+      <div class="offer-calc">
+        <div class="row"><span>必要なコイン</span><span>${price.toLocaleString()}枚</span></div>
+        <div class="row"><span>いまのコイン</span><span>${coins.toLocaleString()}枚</span></div>
+      </div>
+      <button class="btn-primary" onclick="unlockPerk()" ${short?'disabled style="margin-bottom:0;opacity:.5;"':'style="margin-bottom:0;"'}>${short ? `コインが足りません（あと${(price-coins).toLocaleString()}枚）` : `${price.toLocaleString()}枚を使って見る`}</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">一度見られるようになると、ずっとこのカードに表示されます。</div>
     </div>`;
   }catch(e){ el.innerHTML = ''; }
 }
+
+window.unlockPerk = async function(){
+  if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
+  try{
+    const uid = currentUser.uid;
+    const userRef = doc(db,'seminar_users',uid), unRef = doc(db,'seminar_perk_unlocked',uid);
+    const [cfgS, uS, unS, acc] = await Promise.all([ getDoc(doc(db,'seminar_config','perk')), getDoc(userRef), getDoc(unRef), getDoc(doc(db,'seminar_perk_access',uid)) ]);
+    if(unS.exists()){ showToast('すでに見られる状態です'); await loadPerkCard(); return; }
+    if(!acc.exists()){ showToast('対象ではありません'); return; }
+    const cfg = cfgS.exists() ? cfgS.data() : null;
+    if(!cfg || cfg.enabled===false){ showToast('現在、受け付けていません'); return; }
+    if(!uS.exists() || uS.data().banned){ showToast('現在ご利用できません'); return; }
+    const price = Number(cfg.price)||0, coins = uS.data().coins||0;
+    if(coins < price){ showToast('コインが足りません'); return; }
+    if(!confirm(`${cfg.title||'特典'}\n\n${price.toLocaleString()}枚のコインを使って、見られるようにします。\n（取り消しはできません）\n\nよろしいですか？`)) return;
+    const batch = writeBatch(db);
+    batch.set(unRef,{ uid, name:_me.bandName, price, createdAt:serverTimestamp() });
+    batch.update(userRef,{ coins:increment(-price) });
+    batch.set(doc(collection(db,'seminar_coin_history')),
+      { type:'perk', uid, name:_me.bandName, amount:-price, comment:(cfg.title||'特典'), grantedAt:serverTimestamp() });
+    await batch.commit();
+    playCoinSound();
+    showToast('✅ 見られるようになりました');
+    await refreshMyCoins();
+  }catch(e){ showToast('できませんでした：'+(e.code||e.message)); }
+};
 
 // ── 管理者：設定と対象者 ──────────────────────
 let _perkEligible = [];
@@ -3292,6 +3351,7 @@ async function loadPerkAdmin(){
       const ps = await getDoc(doc(db,'seminar_perks','main'));
       const p = ps.exists() ? ps.data() : {};
       f.value = p.title || 'Note記事生成ツール';
+      try{ const cs = await getDoc(doc(db,'seminar_config','perk')); document.getElementById('perk-price').value = (cs.exists() && cs.data().price!==undefined) ? cs.data().price : 1000; }catch(e){ document.getElementById('perk-price').value = 1000; }
       document.getElementById('perk-url').value = p.toolUrl || '';
       document.getElementById('perk-pass').value = p.password || '';
       document.getElementById('perk-body').value = p.body || '';
@@ -3323,13 +3383,14 @@ window.computePerkEligible = async function(){
     }));
     let both = [...sets[0].keys()].filter(uid=>sets.every(m=>m.has(uid)));
     const granted = new Set(); try{ (await getDocs(collection(db,'seminar_perk_access'))).forEach(d=>granted.add(d.id)); }catch(e){}
-    _perkEligible = both.map(uid=>({ uid, name: sets[0].get(uid)||'—', granted: granted.has(uid) }));
+    const unlocked = new Set(); try{ (await getDocs(collection(db,'seminar_perk_unlocked'))).forEach(d=>unlocked.add(d.id)); }catch(e){}
+    _perkEligible = both.map(uid=>({ uid, name: sets[0].get(uid)||'—', granted: granted.has(uid), unlocked: unlocked.has(uid) }));
     const todo = _perkEligible.filter(x=>!x.granted);
-    out.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:8px;">対象の課題をすべて提出した人：${_perkEligible.length}人（公開済み ${_perkEligible.length-todo.length}人・まだ ${todo.length}人）</div>`
+    out.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:8px;">対象の課題をすべて提出した人：${_perkEligible.length}人（対象にした ${_perkEligible.length-todo.length}人・まだ ${todo.length}人／コインを使って見た ${_perkEligible.filter(x=>x.unlocked).length}人）</div>`
       + (_perkEligible.length ? `<div style="font-size:12px;color:var(--dim);margin-bottom:6px;">公開したくない人は、チェックを外してください（名前を押すと、その人の投稿が見られます）</div>
         <div style="margin-bottom:10px;">${_perkEligible.map(x=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;">
           <input type="checkbox" class="perk-pick" value="${escHtml(x.uid)}" ${x.granted?'checked disabled':'checked'} onchange="updatePerkBtn()" style="width:18px;height:18px;accent-color:var(--gb);">
-          <span data-uid="${escHtml(x.uid)}" onclick="event.preventDefault();openProfile(this.dataset.uid, this.textContent)" style="cursor:pointer;">${escHtml(x.name)}</span>${x.granted?'<span style="color:var(--gb);font-size:11px;">✅ 公開済み</span>':''}</label>`).join('')}</div>` : '')
+          <span data-uid="${escHtml(x.uid)}" onclick="event.preventDefault();openProfile(this.dataset.uid, this.textContent)" style="cursor:pointer;">${escHtml(x.name)}</span>${x.unlocked?'<span style="color:var(--gb);font-size:11px;">✅ コインを使って見た</span>':(x.granted?'<span style="color:var(--gb);font-size:11px;">対象にした（まだ見ていない）</span>':'')}</label>`).join('')}</div>` : '')
       + `<button class="btn-primary" id="perk-grant-btn" onclick="grantPerk()"></button>`;
     updatePerkBtn();
   }catch(e){ out.innerHTML = '<div style="font-size:12px;color:var(--dim);">読み込みエラー</div>'; }
@@ -3339,7 +3400,7 @@ window.updatePerkBtn = function(){
   const b = document.getElementById('perk-grant-btn'); if(!b) return;
   const n = document.querySelectorAll('.perk-pick:checked:not(:disabled)').length;
   b.disabled = !n; b.style.opacity = n ? '' : '.5';
-  b.textContent = n ? ('チェックした '+n+'人に公開する') : '公開する人は、いません';
+  b.textContent = n ? ('チェックした '+n+'人を、対象にする') : '対象にする人は、いません';
 };
 window.savePerk = async function(){
   const v = id => document.getElementById(id).value.trim();
@@ -3347,8 +3408,11 @@ window.savePerk = async function(){
   if(!title){ showToast('見出しを入力してください'); return; }
   const url = v('perk-url');
   if(url && !safeUrl(url)){ showToast('URLは、https:// から始まる形で入力してください'); return; }
+  const price = parseInt(v('perk-price'));
+  if(isNaN(price) || price<0){ showToast('必要なコインの枚数を入力してください'); return; }
   try{
     await setDoc(doc(db,'seminar_perks','main'),{ title, toolUrl:url, password:v('perk-pass'), body:v('perk-body'), enabled:true, updatedAt:serverTimestamp() });
+    await setDoc(doc(db,'seminar_config','perk'),{ title, price, enabled:true, updatedAt:serverTimestamp() });
     showToast('✅ 特典の内容を保存しました');
   }catch(e){ showToast('❌ 保存できませんでした'); }
 };
@@ -3357,14 +3421,14 @@ window.grantPerk = async function(){
   const picked = new Set([...document.querySelectorAll('.perk-pick:checked:not(:disabled)')].map(i=>i.value));
   const todo = _perkEligible.filter(x=>!x.granted && picked.has(x.uid));
   if(!todo.length) return;
-  if(!confirm(`${todo.length}人に、特典（${document.getElementById('perk-title').value.trim()}）を公開します。よろしいですか？`)) return;
+  if(!confirm(`${todo.length}人を、特典（${document.getElementById('perk-title').value.trim()}）の対象にします。対象の人は、コインを使うと、中身が見られます。よろしいですか？`)) return;
   try{
     for(let i=0;i<todo.length;i+=400){
       const batch = writeBatch(db);
       todo.slice(i,i+400).forEach(x=> batch.set(doc(db,'seminar_perk_access',x.uid),{ uid:x.uid, name:x.name, grantedAt:serverTimestamp() }));
       await batch.commit();
     }
-    showToast(`✅ ${todo.length}人に公開しました`);
+    showToast(`✅ ${todo.length}人を対象にしました`);
     await computePerkEligible();
   }catch(e){ showToast('❌ 公開できませんでした'); }
 };
