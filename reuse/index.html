@@ -1828,7 +1828,7 @@ window.toggleCode = async function(el){
   try{
     await updateDoc(doc(db,'seminar_codes',id),{ active:el.checked });
     showToast(el.checked ? '✅ ONにしました（受付中）' : 'OFFにしました');
-    await loadCodes();
+    await refreshAssignCodes();
   }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
 };
 
@@ -1856,7 +1856,7 @@ window.deleteCode = async function(btn){
   try{
     await deleteDoc(doc(db,'seminar_codes',card.dataset.id));
     showToast('🗑️ 削除しました');
-    await loadCodes();
+    await refreshAssignCodes();
   }catch(e){ showToast('❌ 削除できませんでした'); }
 };
 
@@ -1902,6 +1902,81 @@ function filterPosts(posts, sel){
   }
   return posts;
 }
+// ── 課題のカードの中で、その回の合言葉をセットで設定する ──
+let _adminCodes = [];
+async function loadAdminCodes(){
+  try{
+    const cs = await getDocs(collection(db,'seminar_codes'));
+    _adminCodes = cs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+    // 受け取った人数（受け取った人がいる合言葉は、削除できないようにするため）
+    await Promise.all(_adminCodes.map(c=>getDocs(collection(db,'seminar_codes',c.id,'claims')).then(sn=>{ c._count = sn.size; }).catch(()=>{ c._count = 0; })));
+  }catch(e){ _adminCodes = []; }
+}
+function assignCodesHtml(a){
+  const mine = _adminCodes.filter(c=>c.assignmentId===a.id);
+  const rows = mine.map(c=>{
+    const expired = !!(c.expiresAt && c.expiresAt.toDate && c.expiresAt.toDate() <= new Date());
+    const p2 = (c.points2From && c.points2From.toDate && Number(c.points2)>0)
+      ? ' → '+fmtDT(c.points2From,{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+'から'+Number(c.points2).toLocaleString()+'枚' : '';
+    const exp = c.expiresAt ? '　終了：'+fmtDT(c.expiresAt,{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+(expired?'（期限切れ）':'') : '';
+    return `<div class="code-card sub-code" data-id="${escHtml(c.id)}" data-expired="${expired?'1':'0'}" data-count="${Number(c._count)||0}" style="padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+        <div style="min-width:0;"><div style="font-size:15px;font-weight:900;color:var(--gb);word-break:break-all;">${escHtml(c.code||c.id)}</div>
+          <div style="font-size:11px;color:var(--dim);">${escHtml(c.label||'')}</div></div>
+        <div style="font-size:13px;font-weight:800;color:var(--gb);flex-shrink:0;">${codeEffPoints(c).toLocaleString()}枚</div></div>
+      <div style="font-size:11px;color:var(--dim);margin:4px 0 6px;">${escHtml((p2+exp).trim())}　受け取り：${Number(c._count)||0}人</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label class="toggle-switch"><input type="checkbox" ${c.active?'checked':''} onchange="toggleCode(this)"><span class="toggle-slider"></span></label>
+        <span style="font-size:12px;font-weight:700;color:${c.active?'var(--gb)':'var(--dim)'};">${c.active?'ON（受付中）':'OFF'}</span>
+        <button class="btn-ban" onclick="deleteCode(this)" style="margin-left:auto;">削除</button></div></div>`;
+  }).join('');
+  return `<details class="assign-codes" ${mine.length?'open':''} style="margin-top:12px;border-top:1px dashed var(--border);padding-top:10px;">
+    <summary style="font-size:13px;font-weight:800;color:var(--gb);cursor:pointer;">🔑 この回の合言葉（${mine.length}件）</summary>
+    <div style="margin-top:8px;">${rows || '<div style="font-size:12px;color:var(--dim);margin-bottom:8px;">まだ合言葉がありません</div>'}
+      <div style="font-size:12px;font-weight:700;margin:8px 0 6px;">＋ 合言葉を追加</div>
+      <input class="form-input ac-code" type="text" placeholder="合言葉（例：プラネタリウム）" autocomplete="off">
+      <input class="form-input ac-label" type="text" placeholder="名前（例：DAY2生放送特典）" autocomplete="off">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><input type="number" class="grant-input ac-pts" value="5000" min="1" style="width:100px;"><span style="font-size:13px;color:var(--dim);">枚</span></div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">枚数を途中で変えるとき（任意）：この日時から、右の枚数</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input class="form-input ac-from" type="datetime-local" style="margin:0;flex:1;min-width:170px;">
+        <input type="number" class="grant-input ac-pts2" min="1" placeholder="枚数" style="width:90px;"><span style="font-size:13px;color:var(--dim);">枚</span></div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">終了日時（空欄＝期限なし）</div>
+      <input class="form-input ac-exp" type="datetime-local">
+      <button class="btn-primary" onclick="addCodeToAssign(this)" style="margin-bottom:0;">＋ この回の合言葉を登録する（OFFで登録）</button>
+    </div></details>`;
+}
+window.addCodeToAssign = async function(btn){
+  const card = btn.closest('.code-card[data-id]:not(.sub-code)'); const aid = card.dataset.id;
+  const a = _assignments.find(x=>x.id===aid);
+  const q = c => card.querySelector('.'+c);
+  const raw = q('ac-code').value.trim(); const id = normalizeCode(raw);
+  if(!isValidCodeId(id)){ showToast('合言葉を入力してください（/ は使えません）'); return; }
+  const label = q('ac-label').value.trim() || ((a?a.title:'')+'の合言葉');
+  const points = parseInt(q('ac-pts').value);
+  if(!points || points<=0){ showToast('枚数を入力してください'); return; }
+  let points2 = null, points2From = null;
+  const fv = q('ac-from').value, p2 = parseInt(q('ac-pts2').value);
+  if(fv || p2){
+    const d2 = new Date(fv);
+    if(!fv || isNaN(d2.getTime()) || !p2 || p2<=0){ showToast('枚数を途中で変えるときは、日時と枚数の両方を入れてください'); return; }
+    points2 = p2; points2From = Timestamp.fromDate(d2);
+  }
+  let expiresAt = null; const ev = q('ac-exp').value;
+  if(ev){ const dt = new Date(ev); if(isNaN(dt.getTime())){ showToast('終了日時が正しくありません'); return; } expiresAt = Timestamp.fromDate(dt); }
+  try{
+    const ref = doc(db,'seminar_codes',id);
+    if((await getDoc(ref)).exists()){ showToast('同じ合言葉がすでに登録されています'); return; }
+    await setDoc(ref,{ code:raw, label, points, points2, points2From, active:false, assignmentId:aid, expiresAt, createdAt:serverTimestamp() });
+    showToast('✅ 合言葉を登録しました（OFFです。生放送で言うときに、ONにしてください）');
+    await refreshAssignCodes();
+  }catch(e){ showToast('❌ 登録できませんでした：'+(e.code||e.message)); }
+};
+// 合言葉を変えたあと、課題のカードと、合言葉タブを最新にする（参加者に見せる情報も更新）
+async function refreshAssignCodes(){
+  await loadAdminCodes(); renderAssignAdmin();
+  try{ await loadCodes(); }catch(e){}
+}
 function renderAssignAdmin(){
   const el = document.getElementById('admin-assign-list'); if(!el) return;
   el.innerHTML = _assignments.length ? _assignments.map(a=>`<div class="code-card" data-id="${escHtml(a.id)}">
@@ -1918,7 +1993,7 @@ function renderAssignAdmin(){
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><span style="font-size:12px;color:var(--dim);">提出ボーナス（初回のみ）</span>
       <input type="number" class="grant-input assign-edit-reward" value="${Number(a.reward)||0}" min="0" style="width:90px;"><span style="font-size:13px;color:var(--dim);">枚</span></div>
     <div style="display:flex;gap:8px;"><button class="btn-grant" onclick="saveAssignBody(this)">内容を保存</button>
-    <button class="btn-ban" onclick="deleteAssignment(this)" style="margin-left:auto;">削除</button></div></div>`).join('')
+    <button class="btn-ban" onclick="deleteAssignment(this)" style="margin-left:auto;">削除</button></div>${assignCodesHtml(a)}</div>`).join('')
     : '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">まだ課題が登録されていません</div>';
   const ch = document.getElementById('admin-post-chips');
   if(ch && typeof _adminFilter!=='undefined' && _adminFilter!==null) ch.innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
@@ -2658,7 +2733,7 @@ function renderAdminPosts(){
 }
 async function loadAdminPosts(){
   const el = document.getElementById('admin-posts');
-  try{ await fetchAssignments(true); renderAssignAdmin(); }catch(e){}
+  try{ await fetchAssignments(true); await loadAdminCodes(); renderAssignAdmin(); }catch(e){}
   el.innerHTML = '<div class="loading">読み込み中...</div>';
   try{
     _introFlags = {};
