@@ -1573,6 +1573,16 @@ window.doShare = async function(){
 //  リユースコイン：タブ・合言葉・課題ボード
 // ═══════════════════════════════════════════════
 const TAB_NAMES = { user:['coin','board'], admin:['coin','codes','posts','offer','event'] };
+// 管理画面を開きっぱなしにして、別のタブから戻ってきたとき、コインの数字などを最新にする
+let _lastAdminRefresh = Date.now();
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible') return;
+  const adm = document.getElementById('screen-admin');
+  if(adm && adm.classList.contains('active') && Date.now()-_lastAdminRefresh > 30000){
+    _lastAdminRefresh = Date.now();
+    try{ loadAdminData(); }catch(e){}
+  }
+});
 window.switchTab = function(group, name){
   TAB_NAMES[group].forEach(n=>{
     const pane = document.getElementById(`${group}-tab-${n}`);
@@ -1583,6 +1593,7 @@ window.switchTab = function(group, name){
   if(group==='user'  && name==='board') loadBoard();
   if(group==='admin' && name==='codes') loadCodes();
   if(group==='admin' && name==='posts') loadAdminPosts();
+  if(group==='admin' && name==='coin') loadAdminData();
   if(group==='admin' && name==='offer') loadOfferAdmin();
   if(group==='admin' && name==='event') loadEventAdmin();
 };
