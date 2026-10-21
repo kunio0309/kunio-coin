@@ -579,10 +579,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <div id="admin-tab-posts" style="display:none;">
       <div class="card">
-        <div class="section-title">● 課題の出題（DAY1課題・DAY2課題…）</div>
-        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">課題を追加しただけでは、参加者には<strong>見えません</strong>。「公開する」をONにした課題だけが、参加者の課題ボードに並び、書き込めます。OFFに戻すと、また見えなくなります。課題名は後から変更できません（変更したいときは削除して作り直してください）。</div>
+        <div class="section-title">● 課題を選ぶ</div>
+        <div id="admin-post-chips" class="board-chips" style="margin-bottom:0;"></div>
+      </div>
+      <div class="card" id="admin-assign-card">
+        <div class="section-title">● この課題の設定</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">「公開中」にした課題だけが、参加者の課題ボードに並びます。課題名は後から変更できません（変更したいときは削除して作り直してください）。</div>
         <div id="admin-assign-list"></div>
-        <div style="font-size:13px;font-weight:700;margin:12px 0 8px;">＋ 新しい課題を追加</div>
+      </div>
+      <div class="card" id="admin-assign-new">
+        <div style="font-size:13px;font-weight:700;margin:0 0 8px;">＋ 新しい課題を追加</div>
         <input class="form-input" type="text" id="assign-title" placeholder="課題名（例：DAY1課題）" maxlength="40">
         <textarea id="assign-body" class="form-textarea" placeholder="課題の内容・提出のしかたなど" maxlength="1500"></textarea>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
@@ -590,11 +596,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <input type="number" id="assign-reward" class="grant-input" style="width:90px;" value="0" min="0"><span style="font-size:13px;color:var(--dim);">枚</span></div>
         <button class="btn-primary" onclick="addAssignment()" style="margin-bottom:0;">＋ この課題を追加する（まだ非公開）</button>
       </div>
-      <div class="card">
-        <div class="section-title">● 提出された課題</div>
+      <div class="card" id="admin-posts-card">
+        <div class="section-title" id="admin-posts-title">● 提出された課題</div>
         <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">各投稿の下に枚数を入れて「配布」を押します。配布した枚数は投稿の下に記録され、コインタブの「配布履歴」にも残ります。</div>
         <button class="btn-secondary" onclick="loadAdminPosts()" style="font-size:12px;padding:10px;">🔄 最新に更新</button>
-        <div id="admin-post-chips" class="board-chips"></div>
         <div id="admin-posts"><div class="loading">読み込み中...</div></div>
       </div>
       <div class="card" id="perk-admin">
@@ -1890,7 +1895,7 @@ function isPendingPost(p){
 }
 function chipsHtml(sel, fnName, withOff){
   const items = [['intro','👋 自己紹介'], ..._assignments.map(a=>['a:'+a.id, a.title + ((withOff && !a.active) ? '（非公開）' : '')])];
-  if(withOff){ const n = (window._adminPosts||[]).filter(isPendingPost).length; items.push(['pending', '⏳ 確認待ち'+(n?'（'+n+'）':'')]); }
+  if(withOff){ const n = (window._adminPosts||[]).filter(isPendingPost).length; items.push(['pending', '⏳ 確認待ち'+(n?'（'+n+'）':'')]); items.push(['new', '＋ 新しい課題']); }
   return items.map(([k,l])=>`<button class="chip${sel===k?' on':''}" data-k="${escHtml(k)}" onclick="${fnName}(this.dataset.k)">${escHtml(l)}</button>`).join('');
 }
 function filterPosts(posts, sel){
@@ -1979,7 +1984,9 @@ async function refreshAssignCodes(){
 }
 function renderAssignAdmin(){
   const el = document.getElementById('admin-assign-list'); if(!el) return;
-  el.innerHTML = _assignments.length ? _assignments.map(a=>`<div class="code-card" data-id="${escHtml(a.id)}">
+  ensureAdminFilter();
+  const shown = _assignments.filter(a=>'a:'+a.id===_adminFilter);
+  el.innerHTML = shown.length ? shown.map(a=>`<div class="code-card" data-id="${escHtml(a.id)}">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
       <span style="font-size:14px;font-weight:700;">📌 ${escHtml(a.title)}</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:${a.active?'var(--gb)':'var(--dim)'};">
@@ -1996,7 +2003,24 @@ function renderAssignAdmin(){
     <button class="btn-ban" onclick="deleteAssignment(this)" style="margin-left:auto;">削除</button></div>${assignCodesHtml(a)}</div>`).join('')
     : '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">まだ課題が登録されていません</div>';
   const ch = document.getElementById('admin-post-chips');
-  if(ch && typeof _adminFilter!=='undefined' && _adminFilter!==null) ch.innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
+  if(ch) ch.innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
+  applyAdminView();
+}
+// 選んだボタンに合わせて、出すカードを切り替える
+function ensureAdminFilter(){
+  if(_adminFilter==='intro' || _adminFilter==='pending' || _adminFilter==='new') return;
+  if(_adminFilter===null || !_assignments.some(a=>'a:'+a.id===_adminFilter))
+    _adminFilter = _assignments.length ? 'a:'+_assignments[_assignments.length-1].id : 'new';
+}
+function applyAdminView(){
+  const k = _adminFilter||'';
+  const show = (id,on)=>{ const e=document.getElementById(id); if(e) e.style.display = on?'':'none'; };
+  show('admin-assign-card', k.startsWith('a:'));
+  show('admin-assign-new', k==='new');
+  show('admin-posts-card', k!=='new');
+  const t = document.getElementById('admin-posts-title');
+  if(t){ const a = _assignments.find(x=>'a:'+x.id===k);
+    t.textContent = '● ' + (a ? a.title + ' の提出' : k==='intro' ? '自己紹介の投稿' : k==='pending' ? '確認待ちの投稿' : '提出された課題'); }
 }
 window.addAssignment = async function(){
   const title = document.getElementById('assign-title').value.trim();
@@ -2006,8 +2030,8 @@ window.addAssignment = async function(){
     await fetchAssignments(true);
     if(_assignments.some(a=>a.title===title)){ showToast('同じ課題名がすでにあります'); return; }
     const reward = Math.max(0, parseInt(document.getElementById('assign-reward').value)||0);
-    await addDoc(collection(db,'seminar_assignments'),{ title, body, reward, active:false, createdAt:serverTimestamp() });
-    await fetchAssignments(true); renderAssignAdmin();
+    const ref = await addDoc(collection(db,'seminar_assignments'),{ title, body, reward, active:false, createdAt:serverTimestamp() });
+    await fetchAssignments(true); _adminFilter = 'a:'+ref.id; renderAssignAdmin(); renderAdminPosts();
     document.getElementById('assign-title').value = '';
     document.getElementById('assign-body').value = '';
     document.getElementById('assign-reward').value = 0;
@@ -2719,10 +2743,11 @@ function renderAdminPost(p){
 let _adminFilter = null;
 let _adminPosts = [];
 Object.defineProperty(window,'_adminPosts',{ get(){ return _adminPosts; } });
-window.setAdminFilter = function(k){ _adminFilter = k; renderAdminPosts(); };
+window.setAdminFilter = function(k){ _adminFilter = k; renderAssignAdmin(); renderAdminPosts(); };
 function renderAdminPosts(){
   const el = document.getElementById('admin-posts');
   document.getElementById('admin-post-chips').innerHTML = chipsHtml(_adminFilter, 'setAdminFilter', true);
+  applyAdminView();
   const posts = filterPosts(_adminPosts, _adminFilter);
   const nPend = _adminPosts.filter(isPendingPost).length;
   const pendBanner = (nPend && _adminFilter!=='pending')
@@ -2740,8 +2765,7 @@ async function loadAdminPosts(){
     try{ (await getDocs(collection(db,'seminar_users'))).forEach(d=>{ if(d.data().introBonusGiven) _introFlags[d.id]=true; }); }catch(e){}
     const snap = await getDocs(query(collection(db,'seminar_posts'), limit(300)));
     _adminPosts = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-    if(_adminFilter===null || (_adminFilter.startsWith('a:') && !_assignments.some(a=>'a:'+a.id===_adminFilter)))
-      _adminFilter = _assignments.length ? 'a:'+_assignments[_assignments.length-1].id : 'intro';
+    ensureAdminFilter(); renderAssignAdmin();
     renderAdminPosts();
   }catch(e){
     el.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>';
