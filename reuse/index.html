@@ -320,6 +320,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="perk-card"></div>
     <div id="intro-nudge" style="display:none;"></div>
     <div id="event-card"></div>
+    <div id="join-card"></div>
     <div id="offer-card"></div>
     <div class="card">
       <div class="coin-label">● セミナー参加者専用コイン</div>
@@ -456,7 +457,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="admin-tabbtn-coin" class="tab-btn active" onclick="switchTab('admin','coin')">💰<br>コイン</button>
       <button id="admin-tabbtn-codes" class="tab-btn" onclick="switchTab('admin','codes')">🔑<br>合言葉</button>
       <button id="admin-tabbtn-posts" class="tab-btn" onclick="switchTab('admin','posts')">📝<br>課題</button>
-      <button id="admin-tabbtn-offer" class="tab-btn" onclick="switchTab('admin','offer')">🎁<br>特典</button>
+      <button id="admin-tabbtn-offer" class="tab-btn" onclick="switchTab('admin','offer')">🎁<span id="join-badge"></span><br>特典</button>
       <button id="admin-tabbtn-event" class="tab-btn" onclick="switchTab('admin','event')">📅<br>勉強会</button>
     </div>
     <div id="admin-tab-coin">
@@ -621,6 +622,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
     <div id="admin-tab-offer" style="display:none;">
+      <div class="card">
+        <div class="section-title">● コミュニティ入会の割引（コインを全部使う申請）</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">ONにすると、コインを持っている参加者のコイン画面に「入会費の割引を申請する」ボタンが出ます。押すと、持っているコインが全部引かれ、「○○さんが○○枚＝○○円の値引き」として、下の一覧に出ます。入会費からその金額を引いて、請求してください。</div>
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:14px;font-weight:700;">
+          <input type="checkbox" id="join-enabled-toggle" onchange="saveJoinEnabled()" style="width:20px;height:20px;accent-color:var(--gb);">
+          <span id="join-enabled-label" style="color:var(--dim);">OFF（非公開）</span></label>
+        <div style="font-size:12px;color:var(--dim);margin:10px 0 6px;line-height:1.7;">全体がOFFでも、チェックを入れた人にだけ、申請ボタンが出ます（全体がONのときは、全員に出ます）。</div>
+        <input class="form-input" type="text" id="join-people-q" placeholder="名前で探す" oninput="renderJoinPeople()" autocomplete="off" style="margin-bottom:6px;">
+        <div id="admin-join-people" style="max-height:320px;overflow-y:auto;"><div class="loading">読み込み中...</div></div>
+      </div>
+      <div class="card">
+        <div class="section-title" id="join-list-title">● 入会の割引の申請</div>
+        <button class="btn-secondary" onclick="loadJoinRequests()" style="font-size:12px;padding:10px;">🔄 最新に更新</button>
+        <div id="admin-join-list"><div class="loading">読み込み中...</div></div>
+      </div>
       <div class="card">
         <div class="section-title">● 参加者限定の特典の設定</div>
         <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.7;">コインを1枚＝1円の値引きにして、残りを銀行振込してもらいます。ONにすると、参加者のコイン画面に「参加者限定の特典」が出ます。</div>
@@ -805,7 +821,7 @@ window.doSignOut = async function(){ await signOut(auth); showScreen('screen-log
 
 onAuthStateChanged(auth, async(user)=>{
   try{ _me = null; _myIntro = null; _boardFilter = null; _adminFilter = null; }catch(e){}
-  ['perk-card','event-card','offer-card','intro-nudge','board-redeem','my-sub','board-feed','profile-body'].forEach(id=>{ const e=document.getElementById(id); if(e) e.innerHTML=''; });
+  ['perk-card','event-card','offer-card','join-card','intro-nudge','board-redeem','my-sub','board-feed','profile-body'].forEach(id=>{ const e=document.getElementById(id); if(e) e.innerHTML=''; });
   try{ window._codeItems = []; window._gotLabels = new Set(); window._claimedAssign = new Set(); window._myPostsAll = []; }catch(e){}
   if(!user){ currentUser = null; showScreen('screen-login'); return; }
   currentUser = user;
@@ -1003,6 +1019,7 @@ window.saveNameEdit = async function(){
 
 // ── 管理者データ読み込み ─────────────────────────
 async function loadAdminData(){
+  try{ refreshJoinBadge(); }catch(e){}
 
   // カウントダウン状況
   const cfgSnap = await getDoc(doc(db,'seminar_config','main'));
@@ -1620,7 +1637,7 @@ window.switchTab = function(group, name){
   if(group==='admin' && name==='codes') loadCodes();
   if(group==='admin' && name==='posts'){ loadAdminPosts().then(()=>loadPerkAdmin()); }
   if(group==='admin' && name==='coin') loadAdminData();
-  if(group==='admin' && name==='offer') loadOfferAdmin();
+  if(group==='admin' && name==='offer'){ loadOfferAdmin(); loadJoinAdmin(); }
   if(group==='admin' && name==='event') loadEventAdmin();
 };
 
@@ -2960,6 +2977,7 @@ function renderOrderCard(o, off){
 
 // ── 参加者：オファーの表示と申込み ───────────────────
 async function loadOfferCard(){
+  loadJoinCard();
   loadCodeBox();
   refreshIntroNudge();
   loadEventCard();
@@ -2967,13 +2985,15 @@ async function loadOfferCard(){
   const el = document.getElementById('offer-card');
   if(!el || !currentUser || !_me) return;
   try{
-    const [offSnap, ordSnap, uSnap] = await Promise.all([
+    const [offSnap, ordSnap, uSnap, joinSnap] = await Promise.all([
       getDoc(doc(db,'seminar_config','offer')),
       getDoc(doc(db,'seminar_offer_orders',currentUser.uid)),
-      getDoc(doc(db,'seminar_users',currentUser.uid))
+      getDoc(doc(db,'seminar_users',currentUser.uid)),
+      getDoc(doc(db,'seminar_join_requests',currentUser.uid))
     ]);
     const off = offSnap.exists() ? offSnap.data() : null;
     if(ordSnap.exists()){ el.innerHTML = renderOrderCard(ordSnap.data(), off); return; }
+    if(joinSnap.exists()){ el.innerHTML = ''; return; }   // 入会の割引を申請した人には、教材の特典を出さない（入会に教材がついてくるため）
     if(!off || off.enabled!==true || !off.name || !off.price){ el.innerHTML = ''; return; }
     const dl = (off.deadline && off.deadline.toDate) ? off.deadline.toDate() : null;
     if(dl && dl <= new Date()){
@@ -3576,6 +3596,214 @@ window.grantPerk = async function(){
     showToast(`✅ ${todo.length}人を対象にしました`);
     await computePerkEligible();
   }catch(e){ showToast('❌ 公開できませんでした'); }
+};
+
+// ═══════════════════════════════════════════════
+//  コミュニティ入会：持っているコインを全部、入会費の割引に使う申請
+// ═══════════════════════════════════════════════
+const JOIN_STATUS = { pending:'⏳ 確認待ち', done:'✅ 確認済み' };
+
+// ── 参加者：申請のカード ───────────────────
+async function loadJoinCard(){
+  const el = document.getElementById('join-card');
+  if(!el || !currentUser || !_me) return;
+  try{
+    const [cfgSnap, reqSnap, uSnap, allowSnap] = await Promise.all([
+      getDoc(doc(db,'seminar_config','join')),
+      getDoc(doc(db,'seminar_join_requests',currentUser.uid)),
+      getDoc(doc(db,'seminar_users',currentUser.uid)),
+      getDoc(doc(db,'seminar_join_allow',currentUser.uid))
+    ]);
+    if(reqSnap.exists()){
+      const r = reqSnap.data();
+      el.innerHTML = `<div class="offer-card">
+        <div class="offer-title">🏠 コミュニティ入会　割引の申請済み</div>
+        <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:8px;">${JOIN_STATUS[r.status]||''}</div>
+        <div class="offer-calc">
+          <div class="row"><span>使ったコイン</span><span>${(r.coinsUsed||0).toLocaleString()}枚</span></div>
+          <div class="row total"><span>入会費の割引</span><span>−${yen(r.discountYen)}</span></div>
+        </div>
+        <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7;">入会の手続きのときに、この割引が引かれます。<br>申請日時：${fmtDT(r.createdAt)}</div>
+      </div>`;
+      return;
+    }
+    const cfg = cfgSnap.exists() ? cfgSnap.data() : null;
+    const coins = uSnap.exists() ? (uSnap.data().coins||0) : 0;
+    const open = (cfg && cfg.enabled===true) || allowSnap.exists();
+    if(!open || coins<=0){ el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="offer-card">
+      <div class="offer-title">🏠 コミュニティ入会の割引</div>
+      <div style="font-size:13px;color:var(--dim);line-height:1.7;">お持ちのコインを、1枚＝1円として、コミュニティの入会費の割引に使えます。</div>
+      <div class="offer-calc">
+        <div class="row"><span>使うコイン</span><span>${coins.toLocaleString()}枚</span></div>
+        <div class="row total"><span>入会費の割引</span><span>−${yen(coins)}</span></div>
+      </div>
+      <button class="btn-primary" id="join-btn" onclick="submitJoin()" style="margin-bottom:0;">入会費の割引を申請する</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">申請すると、お持ちのコインが全部引かれます（取り消しはKUNIOに連絡してください）。</div>
+    </div>`;
+  }catch(e){ el.innerHTML = ''; }
+}
+
+window.submitJoin = async function(){
+  if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
+  const btn = document.getElementById('join-btn'); if(btn) btn.disabled = true;
+  try{
+    const userRef = doc(db,'seminar_users',currentUser.uid);
+    const reqRef  = doc(db,'seminar_join_requests',currentUser.uid);
+    const [cfgSnap, uSnap, rSnap, allowSnap] = await Promise.all([getDoc(doc(db,'seminar_config','join')), getDoc(userRef), getDoc(reqRef), getDoc(doc(db,'seminar_join_allow',currentUser.uid))]);
+    if(rSnap.exists()){ showToast('すでに申請済みです'); await loadJoinCard(); return; }
+    if(!((cfgSnap.exists() && cfgSnap.data().enabled===true) || allowSnap.exists())){ showToast('現在受け付けていません'); await loadJoinCard(); return; }
+    if(!uSnap.exists() || uSnap.data().banned){ showToast('現在ご利用できません'); return; }
+    const coins = uSnap.data().coins||0;
+    if(coins<=0){ showToast('コインがありません'); await loadJoinCard(); return; }
+    if(!confirm(`コミュニティ入会費の割引を申請します。\n\n使うコイン ${coins.toLocaleString()}枚\n入会費の割引 ${yen(coins)}\n\nお持ちのコインは全部引かれます。よろしいですか？`)){ if(btn) btn.disabled=false; return; }
+    const batch = writeBatch(db);
+    batch.set(reqRef,{
+      uid:currentUser.uid, name:_me.bandName, loginEmail:currentUser.email||'',
+      coinsUsed:coins, discountYen:coins, status:'pending', createdAt:serverTimestamp()
+    });
+    batch.update(userRef,{ coins:0 });
+    batch.set(doc(collection(db,'seminar_coin_history')),
+      { type:'join_discount', uid:currentUser.uid, name:_me.bandName, amount:-coins, comment:`コミュニティ入会費の割引（${yen(coins)}）`, grantedAt:serverTimestamp() });
+    await batch.commit();
+    playCoinSound();
+    showToast('✅ 申請を受け付けました');
+    await refreshMyCoins();
+    await loadJoinCard(); loadOfferCard();
+  }catch(e){
+    showToast('申請できませんでした：'+(e.code||e.message));
+    if(btn) btn.disabled = false;
+  }
+};
+
+// ── 管理者：ON/OFFと申請の一覧 ───────────────────
+async function loadJoinAdmin(){
+  try{
+    const s = await getDoc(doc(db,'seminar_config','join'));
+    const tg = document.getElementById('join-enabled-toggle');
+    if(tg){
+      tg.checked = s.exists() && s.data().enabled===true;
+      const lb = document.getElementById('join-enabled-label');
+      lb.textContent = tg.checked ? 'ON（公開中）' : 'OFF（非公開）'; lb.style.color = tg.checked ? 'var(--gb)' : 'var(--dim)';
+    }
+  }catch(e){}
+  await loadJoinRequests();
+  await loadJoinPeople();
+}
+
+// 個別にON：全体がOFFでも、選んだ人にだけ「入会費の割引を申請する」を出す
+let _joinPeople = [], _joinAllow = new Set(), _joinReqUids = new Set();
+async function loadJoinPeople(){
+  const el = document.getElementById('admin-join-people'); if(!el) return;
+  try{
+    const [us, al] = await Promise.all([getDocs(collection(db,'seminar_users')), getDocs(collection(db,'seminar_join_allow'))]);
+    _joinAllow = new Set(al.docs.map(d=>d.id));
+    _joinPeople = us.docs.map(d=>({uid:d.id, name:d.data().bandName||'名前なし', coins:d.data().coins||0}))
+      .sort((a,b)=>b.coins-a.coins);
+    renderJoinPeople();
+  }catch(e){ el.innerHTML = '<div style="font-size:12px;color:var(--dim);">読み込みエラー</div>'; }
+}
+window.renderJoinPeople = function(){
+  const el = document.getElementById('admin-join-people'); if(!el) return;
+  const q = (document.getElementById('join-people-q')||{value:''}).value.trim().toLowerCase();
+  const rows = _joinPeople.filter(p=>!q || p.name.toLowerCase().includes(q));
+  el.innerHTML = rows.length ? rows.map(p=>{
+    const done = _joinReqUids.has(p.uid);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px;">
+      <input type="checkbox" data-uid="${escHtml(p.uid)}" ${_joinAllow.has(p.uid)?'checked':''} ${done?'disabled':''} onchange="toggleJoinAllow(this)" style="width:18px;height:18px;accent-color:var(--gb);flex:none;">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(p.name)}</span>
+      <span style="color:var(--dim);font-size:12px;">${p.coins.toLocaleString()}枚${done?'（申請済み）':''}</span></label>`;
+  }).join('') : '<div style="font-size:12px;color:var(--dim);padding:8px;">該当する人がいません</div>';
+};
+window.toggleJoinAllow = async function(cb){
+  const uid = cb.dataset.uid;
+  try{
+    if(cb.checked) await setDoc(doc(db,'seminar_join_allow',uid),{ uid, at:serverTimestamp() });
+    else await deleteDoc(doc(db,'seminar_join_allow',uid));
+    if(cb.checked) _joinAllow.add(uid); else _joinAllow.delete(uid);
+    showToast(cb.checked ? '✅ この人にだけ、申請ボタンを出します' : 'この人の個別ONを外しました');
+  }catch(e){ cb.checked = !cb.checked; showToast('❌ 変更できませんでした'); }
+};
+
+window.saveJoinEnabled = async function(){
+  const tg = document.getElementById('join-enabled-toggle');
+  try{
+    await setDoc(doc(db,'seminar_config','join'),{ enabled: tg.checked, updatedAt:serverTimestamp() },{ merge:true });
+    const lb = document.getElementById('join-enabled-label');
+    lb.textContent = tg.checked ? 'ON（公開中）' : 'OFF（非公開）'; lb.style.color = tg.checked ? 'var(--gb)' : 'var(--dim)';
+    showToast(tg.checked ? '✅ 入会の割引申請を公開しました' : '入会の割引申請を非公開にしました');
+  }catch(e){ tg.checked = !tg.checked; showToast('❌ 変更できませんでした'); }
+};
+
+function setJoinBadge(n){
+  const b = document.getElementById('join-badge'); if(!b) return;
+  b.textContent = n>0 ? '（'+n+'）' : '';
+}
+async function refreshJoinBadge(){
+  try{
+    const snap = await getDocs(collection(db,'seminar_join_requests'));
+    setJoinBadge(snap.docs.filter(d=>d.data().status!=='done').length);
+  }catch(e){}
+}
+
+async function loadJoinRequests(){
+  const el = document.getElementById('admin-join-list'); if(!el) return;
+  el.innerHTML = '<div class="loading">読み込み中...</div>';
+  try{
+    const snap = await getDocs(collection(db,'seminar_join_requests'));
+    const reqs = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    _joinReqUids = new Set(reqs.map(r=>r.id));
+    const nPend = reqs.filter(r=>r.status!=='done').length;
+    setJoinBadge(nPend);
+    const ttl = document.getElementById('join-list-title');
+    if(ttl) ttl.textContent = '● 入会の割引の申請' + (nPend ? '（未確認 '+nPend+'件）' : '');
+    if(!reqs.length){ el.innerHTML = '<div style="font-size:13px;color:var(--dim);text-align:center;padding:16px;">まだ申請はありません</div>'; return; }
+    el.innerHTML = reqs.map(r=>`<div class="code-card" data-uid="${escHtml(r.id)}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span style="font-size:14px;font-weight:700;">${escHtml(r.name||'—')} さん</span>
+        <span style="font-size:12px;color:var(--gb);font-weight:700;">${JOIN_STATUS[r.status]||''}</span>
+      </div>
+      <div style="font-size:13px;margin:8px 0;">${(r.coinsUsed||0).toLocaleString()}枚 ＝ <strong style="color:var(--gb);font-size:16px;">${yen(r.discountYen)} 値引き</strong></div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:8px;line-height:1.8;">
+        ${fmtDT(r.createdAt)} ／ ログイン：${escHtml(r.loginEmail||'')}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-grant" onclick="setJoinStatus(this,'done')">✅ 確認済み</button>
+        <button class="chip" onclick="setJoinStatus(this,'pending')">確認待ちに戻す</button>
+        <button class="btn-ban" onclick="cancelJoin(this)" style="margin-left:auto;">取消（コイン返還）</button>
+      </div></div>`).join('');
+  }catch(e){ el.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:12px;">読み込みエラー</div>'; }
+}
+
+window.setJoinStatus = async function(btn, status){
+  const uid = btn.closest('.code-card').dataset.uid;
+  try{
+    await updateDoc(doc(db,'seminar_join_requests',uid),{ status, statusAt:serverTimestamp() });
+    showToast('✅ 状態を更新しました');
+    await loadJoinRequests();
+  }catch(e){ showToast('❌ 更新できませんでした'); }
+};
+
+window.cancelJoin = async function(btn){
+  const uid = btn.closest('.code-card').dataset.uid;
+  if(!confirm('この申請を取り消して、使ったコインを返しますか？')) return;
+  try{
+    const reqRef = doc(db,'seminar_join_requests',uid);
+    const rSnap = await getDoc(reqRef);
+    if(!rSnap.exists()){ await loadJoinRequests(); return; }
+    const r = rSnap.data();
+    const userRef = doc(db,'seminar_users',uid);
+    const uSnap = await getDoc(userRef);
+    const batch = writeBatch(db);
+    if((r.coinsUsed||0)>0 && uSnap.exists()){
+      batch.update(userRef,{ coins:increment(r.coinsUsed) });
+      batch.set(doc(collection(db,'seminar_coin_history')),
+        { type:'individual', uid, name:r.name||'', amount:r.coinsUsed, comment:'入会の割引申請の取消による返還', grantedAt:serverTimestamp() });
+    }
+    batch.delete(reqRef);
+    await batch.commit();
+    showToast('✅ 取り消して、コインを返しました');
+    await loadJoinRequests();
+  }catch(e){ showToast('❌ 取り消せませんでした'); }
 };
 
 </script>
