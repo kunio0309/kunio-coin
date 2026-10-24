@@ -2927,9 +2927,9 @@ window.openProfile = async function(uid, name){
       const x = a.type==='intro'?0:1, y = b.type==='intro'?0:1;
       return (x-y) || ((b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
     });
-    body.innerHTML = posts.length
+    body.innerHTML = (asAdmin ? await joinProfileBlock(uid) : '') + (posts.length
       ? posts.map(p=> asAdmin ? renderAdminPost(p) : renderPost(p,false)).join('')
-      : '<div style="font-size:13px;color:var(--dim);text-align:center;padding:24px;">まだ投稿はありません</div>';
+      : '<div style="font-size:13px;color:var(--dim);text-align:center;padding:24px;">まだ投稿はありません</div>');
   }catch(e){
     body.innerHTML = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:16px;">読み込みエラー</div>';
   }
@@ -3705,8 +3705,9 @@ async function loadJoinPeople(){
 }
 window.renderJoinPeople = function(){
   const el = document.getElementById('admin-join-people'); if(!el) return;
-  const q = (document.getElementById('join-people-q')||{value:''}).value.trim().toLowerCase();
-  const rows = _joinPeople.filter(p=>!q || p.name.toLowerCase().includes(q));
+  const q = (document.getElementById('join-people-q')||{value:''}).value;
+  const nq = normalizeCode(q);
+  const rows = _joinPeople.filter(p=>!nq || normalizeCode(p.name).includes(nq));
   el.innerHTML = rows.length ? rows.map(p=>{
     const done = _joinReqUids.has(p.uid);
     return `<label style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px;">
@@ -3715,6 +3716,27 @@ window.renderJoinPeople = function(){
       <span style="color:var(--dim);font-size:12px;">${p.coins.toLocaleString()}枚${done?'（申請済み）':''}</span></label>`;
   }).join('') : '<div style="font-size:12px;color:var(--dim);padding:8px;">該当する人がいません</div>';
 };
+// 管理者が、その人の投稿を見る画面の上に出す「入会の割引申請」のON/OFF
+async function joinProfileBlock(uid){
+  try{
+    const [al, rq, us, cf] = await Promise.all([
+      getDoc(doc(db,'seminar_join_allow',uid)), getDoc(doc(db,'seminar_join_requests',uid)),
+      getDoc(doc(db,'seminar_users',uid)), getDoc(doc(db,'seminar_config','join'))]);
+    const coins = us.exists() ? (us.data().coins||0) : 0;
+    const all = cf.exists() && cf.data().enabled===true;
+    let inner;
+    if(rq.exists()){
+      const r = rq.data();
+      inner = `<div style="font-size:13px;font-weight:700;color:var(--gb);">申請済み：${(r.coinsUsed||0).toLocaleString()}枚＝${yen(r.discountYen)} 値引き（${JOIN_STATUS[r.status]||''}）</div>`;
+    } else {
+      inner = `<label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;">
+        <input type="checkbox" data-uid="${escHtml(uid)}" ${al.exists()?'checked':''} onchange="toggleJoinAllow(this)" style="width:20px;height:20px;accent-color:var(--gb);flex:none;">
+        この人に「入会費の割引を申請する」を出す</label>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7;">いまのコイン：${coins.toLocaleString()}枚　${all?'（全体がONなので、すでに全員に出ています）':'（全体がOFFのため、チェックした人にだけ出ます）'}</div>`;
+    }
+    return `<div style="background:var(--d3);border:1px solid rgba(255,213,79,.4);border-radius:12px;padding:12px;margin-bottom:14px;"><div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:8px;">🏠 コミュニティ入会の割引</div>${inner}</div>`;
+  }catch(e){ return ''; }
+}
 window.toggleJoinAllow = async function(cb){
   const uid = cb.dataset.uid;
   try{
