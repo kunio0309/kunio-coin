@@ -639,7 +639,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="distribute-participant-list" style="max-height:300px;overflow-y:auto;margin-bottom:14px;"></div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:12px;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;line-height:1.8;">
       ✅ チェックした人だけに配布されます<br>
-      🏠 配布と同時に、開催者(あなた)に1,000枚のボーナスが付与されます
+      🏠 配布と同時に、開催者にKUNIOから1,000枚のボーナスが付与されます（参加者への報酬は開催者の残高から支払われます）
     </div>
     <button class="btn-primary" onclick="confirmDistribute()">配布する</button>
     <button class="btn-secondary" onclick="closeModal('modal-distribute')">キャンセル</button>
@@ -1215,7 +1215,8 @@ const USE_ITEMS = [
   { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
   { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
   { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
-  { icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} }
+  { icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
+  { icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} }
 ];
 
 function buildCompareRow(item, rankKey) {
@@ -2193,10 +2194,27 @@ async function confirmDistribute() {
   if (!currentDistributeJob) return;
   const checked = document.querySelectorAll('.distribute-check:checked');
   if (checked.length === 0) { showToast('⚠️ 配布する参加者を選んでください'); return; }
-  if (!confirm(checked.length + '名に ' + currentDistributeJob.reward.toLocaleString() + '枚ずつ配布し、開催者(あなた)に1,000枚ボーナスを付与します。よろしいですか？')) return;
+  const totalNeeded = currentDistributeJob.reward * checked.length;
+  try {
+    const mySnap = await window._getDoc(window._doc(window._db, 'users', window._uid));
+    const myBalance = (mySnap.data() && mySnap.data().points) || 0;
+    if (myBalance < totalNeeded) {
+      showToast('⚠️ 残高が不足しています（必要：' + totalNeeded.toLocaleString() + '枚 / 残高：' + myBalance.toLocaleString() + '枚）');
+      return;
+    }
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); return; }
+  if (!confirm('開催者の残高から ' + checked.length + '名に ' + currentDistributeJob.reward.toLocaleString() + '枚ずつ(計' + totalNeeded.toLocaleString() + '枚)支払います。開催してくれたお礼にKUNIOから1,000枚のボーナスも付きます。よろしいですか？')) return;
   try {
     for (let i = 0; i < checked.length; i++) {
       const uid = checked[i].dataset.uid;
+      const name = checked[i].dataset.name || 'メンバー';
+      // 開催者から参加者へ実際に支払う（開催者の残高から減算）
+      await window._updateDoc(window._doc(window._db, 'users', window._uid), { points: window._inc(-currentDistributeJob.reward) });
+      await window._addDoc(window._collection(window._db, 'transactions'), {
+        userId: window._uid, points: -currentDistributeJob.reward,
+        description: name + 'へ作業会報酬（' + currentDistributeJob.title + '）',
+        icon: '🚛', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
+      });
       await window._updateDoc(window._doc(window._db, 'users', uid), { points: window._inc(currentDistributeJob.reward) });
       await window._addDoc(window._collection(window._db, 'transactions'), {
         userId: uid, points: currentDistributeJob.reward,
