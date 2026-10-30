@@ -461,6 +461,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <!-- 管理（KUNIO専用） -->
   <div class="screen" id="screen-admin">
     <div style="background:rgba(255,213,79,.08);border:1px solid rgba(255,213,79,.2);border-radius:12px;padding:10px 14px;margin-bottom:16px;margin-top:8px;font-size:12px;color:var(--gold);">👑 KUNIO管理画面</div>
+    <div class="section-title">● サービス公開設定</div>
+    <div class="admin-card" id="admin-services"><div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div></div>
     <div class="section-title">● 振込申請 確認待ち</div>
     <div class="admin-card" id="admin-transfers">
       <div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div>
@@ -698,7 +700,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, getDoc, updateDoc, addDoc, collection,
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
          query, where, orderBy, limit, getDocs, serverTimestamp, increment, deleteDoc
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence, sendPasswordResetEmail
@@ -805,6 +807,7 @@ async function loadUser(uid) {
     profileTypeEl.style.background = myRankInfo.bg;
     profileTypeEl.style.color = myRankInfo.color;
     profileTypeEl.style.fontWeight = '700';
+    await loadServiceConfig();
     renderUseMenu();
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
@@ -822,6 +825,7 @@ async function loadUser(uid) {
       loadApplications();
       loadGrantMembers();
       loadTransferRequests();
+      loadServiceConfig().then(renderServiceToggles);
     }
 
     // 履歴読み込み
@@ -1208,16 +1212,52 @@ function ptsForRank(basePts, rankKey) {
 
 // コインを使う：メニュー項目（基準額はゼロコストリサイクラーズ＝1円1枚）
 const USE_ITEMS = [
-  { icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', prices:{gold:10000, silver:15000, bronze:20000} },
-  { icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', prices:{gold:28000, silver:35000, bronze:50000} },
-  { icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2万〜4万の高級料理を無料でKUNIOと食べに行きます。時間はKUNIOと相談。', prices:{gold:30000, silver:45000, bronze:60000} },
-  { icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', prices:{gold:20000, silver:30000, bronze:50000} },
-  { icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
-  { icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
-  { icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
-  { icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
-  { icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} }
+  { id:'consult-30',    icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', prices:{gold:10000, silver:15000, bronze:20000} },
+  { id:'consult-work',  icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', prices:{gold:28000, silver:35000, bronze:50000} },
+  { id:'dinner',        icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2万〜4万の高級料理を無料でKUNIOと食べに行きます。時間はKUNIOと相談。', prices:{gold:30000, silver:45000, bronze:60000} },
+  { id:'manga',         icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', prices:{gold:20000, silver:30000, bronze:50000} },
+  { id:'rental-day',    icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
+  { id:'summon',        icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
+  { id:'summon-truck',  icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
+  { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
+  { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} }
 ];
+
+// サービス公開状態（Firebaseから読み込む）
+let _disabledServices = new Set();
+
+async function loadServiceConfig() {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'services'));
+    if (snap.exists()) _disabledServices = new Set(snap.data().disabled || []);
+  } catch(e) {}
+}
+
+window.toggleService = async function(id) {
+  const wasDisabled = _disabledServices.has(id);
+  if (wasDisabled) _disabledServices.delete(id); else _disabledServices.add(id);
+  try {
+    await setDoc(doc(db, 'config', 'services'), { disabled: [..._disabledServices] });
+    renderServiceToggles();
+    renderUseMenu();
+    showToast(wasDisabled ? '✅ 公開しました' : '🔒 非公開にしました');
+  } catch(e) {
+    if (wasDisabled) _disabledServices.add(id); else _disabledServices.delete(id);
+    showToast('❌ 保存できませんでした');
+  }
+};
+
+function renderServiceToggles() {
+  const el = document.getElementById('admin-services');
+  if (!el) return;
+  el.innerHTML = USE_ITEMS.map(item => {
+    const isOn = !_disabledServices.has(item.id);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;">${item.icon} ${item.name}</div>
+      <button onclick="toggleService('${item.id}')" style="padding:4px 16px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:'Noto Sans JP',sans-serif;background:${isOn ? '#4caf50' : 'var(--d4)'};color:${isOn ? '#fff' : 'var(--dim)'};">${isOn ? 'ON' : 'OFF'}</button>
+    </div>`;
+  }).join('');
+}
 
 function buildCompareRow(item, rankKey) {
   if (!item.prices) return '';
@@ -1239,7 +1279,7 @@ function renderUseMenu() {
   const kondanCard = document.getElementById('kondan-card');
   if (kondanCard) kondanCard.style.display = (rankKey === 'gold') ? 'flex' : 'none';
   // 安い順に並べる（要相談＝価格なしは一番下）
-  const sortedItems = USE_ITEMS.filter(item => !item.rankOnly || item.rankOnly === rankKey).slice().sort(function(a, b) {
+  const sortedItems = USE_ITEMS.filter(item => (!item.rankOnly || item.rankOnly === rankKey) && !_disabledServices.has(item.id)).slice().sort(function(a, b) {
     const pa = a.prices ? a.prices[rankKey] : undefined;
     const pb = b.prices ? b.prices[rankKey] : undefined;
     if (pa === undefined && pb === undefined) return 0;
