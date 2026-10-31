@@ -291,6 +291,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
 
+    <!-- 購入済みZOOMバナー -->
+    <div id="zoom-access-banner" style="display:none;margin:12px 0;"></div>
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;">
       <div style="font-size:11px;letter-spacing:3px;color:var(--dim);font-family:'Bebas Neue',sans-serif;">● 最近の履歴</div>
       <button onclick="refreshHistory()" style="background:var(--d3);border:1px solid var(--border);border-radius:20px;padding:4px 12px;color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🔄 更新</button>
@@ -855,6 +858,7 @@ async function loadUser(uid) {
     profileTypeEl.style.fontWeight = '700';
     await loadServiceConfig();
     renderUseMenu();
+    checkZoomAccessOnLoad(window._uid);
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1591,15 +1595,15 @@ async function doZoomUse(item) {
 
   const eventId = item.zoomEventId;
   const accessDocId = eventId + '_' + uid;
-  showToast('⏳ 処理中...');
   try {
     const accessSnap = await getDoc(doc(db, 'zoom_access', accessDocId));
     if (!accessSnap.exists()) {
       // 残高確認
       const userSnap = await getDoc(doc(db, 'users', uid));
-      const balance = userSnap.data().points || 0;
+      const balance = (userSnap.data() && userSnap.data().points) || 0;
       if (balance < pts) {
-        showToast('❌ コインが足りません（必要: ' + pts.toLocaleString() + '枚、残高: ' + balance.toLocaleString() + '枚）');
+        // 残高不足：目立つダイアログで表示
+        showZoomError('❌ コインが足りません', '必要: ' + pts.toLocaleString() + '枚\n現在の残高: ' + balance.toLocaleString() + '枚\n\nコインを購入してから再度お試しください。');
         return;
       }
       // 原子的にコイン消費 + アクセス権付与
@@ -1612,15 +1616,62 @@ async function doZoomUse(item) {
       });
       batch.set(doc(collection(db, 'transactions')), {
         userId: uid, type: 'spend', points: -pts,
-        description: item.name, createdAt: serverTimestamp()
+        description: item.name + '（消費）', createdAt: serverTimestamp()
       });
       await batch.commit();
+      playMinusSound();
       if (window._loadUser) await window._loadUser(uid);
     }
-    // ZOOM情報モーダルを表示
+    // ZOOM情報モーダルを表示 + ホームバナーを更新
     openModal('modal-zoom');
-    showToast('✅ Zoom情報を表示しました！');
-  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+    updateZoomBanner(item);
+  } catch(e) {
+    showZoomError('⚠️ エラーが発生しました', e.message);
+  }
+}
+
+function showZoomError(title, body) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = '<div style="background:#2a1e1e;border:1px solid #ef5350;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">'
+    + '<div style="font-size:22px;font-weight:700;margin-bottom:10px;color:#ef5350;">' + title + '</div>'
+    + '<div style="font-size:14px;color:#ddd;line-height:1.8;white-space:pre-line;">' + body + '</div>'
+    + '<button onclick="this.closest(\'div[style]\').remove()" style="margin-top:18px;padding:10px 32px;border-radius:20px;border:none;background:#ef5350;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">閉じる</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+}
+
+function updateZoomBanner(item) {
+  const banner = document.getElementById('zoom-access-banner');
+  if (!banner) return;
+  banner.style.display = 'block';
+  banner.innerHTML = '<div style="background:linear-gradient(135deg,#1a2e1a,#0d1f2d);border:1px solid #4caf50;border-radius:14px;padding:14px 16px;">'
+    + '<div style="font-size:11px;letter-spacing:2px;color:#4caf50;margin-bottom:6px;">● 参加受付済み</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">📹 ' + item.name + '</div>'
+    + '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">11/1(土) 20:00〜　※11月2日まで表示</div>'
+    + '<button onclick="openModal(\'modal-zoom\')" style="width:100%;padding:10px;border-radius:10px;border:none;background:#4caf50;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">📹 Zoom参加情報を見る</button>'
+    + '</div>';
+}
+
+async function checkZoomAccessOnLoad(uid) {
+  // ZOOM type の全アイテムをチェック
+  const zoomItems = USE_ITEMS.filter(i => i.type === 'zoom');
+  for (const item of zoomItems) {
+    try {
+      const accessDocId = item.zoomEventId + '_' + uid;
+      const snap = await getDoc(doc(db, 'zoom_access', accessDocId));
+      if (snap.exists()) {
+        const expiry = snap.data().expiresAt;
+        const now = new Date();
+        const expiryDate = expiry && expiry.toDate ? expiry.toDate() : new Date(expiry);
+        if (expiryDate > now) {
+          updateZoomBanner(item);
+          break;
+        }
+      }
+    } catch(e) {}
+  }
 }
 
 // 円→枚 変換（100枚単位で切り上げ）
