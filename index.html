@@ -1267,7 +1267,7 @@ const USE_ITEMS = [
   { id:'summon-truck',  icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
   { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
   { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} },
-  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'zerocostrecyclers.comで営業用LP・QRコードを作成', prices:{gold:3000, silver:2000, bronze:1000}, type:'lp-tool' },
+  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'zerocostrecyclers.comで営業用LP・QRコードを作成', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
   { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' }
 ];
 
@@ -1569,7 +1569,23 @@ async function doZoomUse(item) {
 
   // gold は購入不可・BAND案内を表示
   if (rankKey === 'gold') {
-    openModal('modal-zoom-gold');
+    const el = document.getElementById('modal-zoom-gold');
+    if (el) {
+      openModal('modal-zoom-gold');
+    } else {
+      // フォールバック：インライン通知
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+      overlay.innerHTML = '<div style="background:#1e2a1e;border:1px solid #4caf50;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">'
+        + '<div style="font-size:32px;margin-bottom:12px;">🚫</div>'
+        + '<div style="font-size:16px;font-weight:700;margin-bottom:10px;color:#fff;">購入できません</div>'
+        + '<div style="font-size:13px;color:#aaa;line-height:1.8;">ゼロコストリサイクラーズのメンバーはコイン不要で無料参加できます。<br><br>'
+        + '<span style="font-weight:700;color:#fff;">BANDのZOOM IDから<br>無料でお入りください。</span></div>'
+        + '<button onclick="this.closest(\'div[style]\').remove()" style="margin-top:18px;padding:10px 32px;border-radius:20px;border:none;background:#4caf50;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">閉じる</button>'
+        + '</div>';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    }
     return;
   }
 
