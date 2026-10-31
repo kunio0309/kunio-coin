@@ -570,11 +570,57 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="form-group"><label class="form-label">使い道</label>
       <div id="use-type-list" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;"></div>
       <input type="hidden" id="use-type-value">
-      <input type="hidden" id="use-type-desc"></div>
-    <div class="form-group"><label class="form-label">希望日時</label><input class="form-input" type="date"/></div>
-    <div class="form-group"><label class="form-label">メモ（任意）</label><input class="form-input" type="text" placeholder="相談内容など"/></div>
-    <button class="btn-primary" onclick="doUse()">申請する</button>
+      <input type="hidden" id="use-type-desc">
+      <input type="hidden" id="use-type-item-id"></div>
+    <div id="use-date-group" class="form-group"><label class="form-label">希望日時</label><input class="form-input" type="date"/></div>
+    <div id="use-memo-group" class="form-group"><label class="form-label">メモ（任意）</label><input class="form-input" type="text" placeholder="相談内容など"/></div>
+    <button class="btn-primary" id="use-submit-btn" onclick="doUse()">申請する</button>
     <button class="btn-secondary" onclick="closeModal('modal-use')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ZOOM gold向け案内モーダル -->
+<div class="modal-overlay" id="modal-zoom-gold" onclick="closeModal('modal-zoom-gold',event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-zoom-gold')">✕</button>
+    <div class="modal-title">📹 ダイスケさんイーベイ勉強会</div>
+    <div style="background:var(--d3);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+      <div style="font-size:28px;margin-bottom:8px;">🚫</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px;">購入できません</div>
+      <div style="font-size:13px;color:var(--dim);line-height:1.7;">
+        ゼロコストリサイクラーズのメンバーは<br>コイン不要で無料参加できます。<br><br>
+        <span style="font-weight:700;color:var(--text);">BANDのZOOM IDから<br>無料でお入りください。</span>
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="closeModal('modal-zoom-gold')">閉じる</button>
+  </div>
+</div>
+
+<!-- ZOOM情報モーダル -->
+<div class="modal-overlay" id="modal-zoom" onclick="closeModal('modal-zoom',event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-zoom')">✕</button>
+    <div class="modal-title">📹 Zoom参加情報</div>
+    <div style="background:var(--d3);border-radius:12px;padding:16px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">ダイスケさんイーベイ勉強会</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:12px;">🗓 2026年11月1日（土）20:00〜</div>
+      <a href="https://us06web.zoom.us/j/85078418089?pwd=k4JmWXS9m6L7q6vwqw1aYxW8VOfGZG.1" target="_blank"
+        style="display:block;background:var(--gb);color:#fff;text-align:center;padding:12px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;">
+        🔗 Zoomに参加する
+      </a>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;background:var(--d4);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--dim);">ミーティングID</div>
+          <div style="font-size:16px;font-weight:700;letter-spacing:2px;">850 7841 8089</div>
+        </div>
+        <div style="flex:1;background:var(--d4);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--dim);">パスコード</div>
+          <div style="font-size:16px;font-weight:700;letter-spacing:2px;">068560</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--dim);text-align:center;">※ この情報は11月2日まで表示されます</div>
+    </div>
+    <button class="btn-secondary" onclick="closeModal('modal-zoom')">閉じる</button>
   </div>
 </div>
 
@@ -701,7 +747,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
-         query, where, orderBy, limit, getDocs, serverTimestamp, increment, deleteDoc
+         query, where, orderBy, limit, getDocs, serverTimestamp, increment, deleteDoc, writeBatch
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence, sendPasswordResetEmail
        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -1221,7 +1267,8 @@ const USE_ITEMS = [
   { id:'summon-truck',  icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
   { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
   { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} },
-  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'zerocostrecyclers.comで営業用LP・QRコードを作成', prices:{gold:3000, silver:2000, bronze:1000}, type:'lp-tool' }
+  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'zerocostrecyclers.comで営業用LP・QRコードを作成', prices:{gold:3000, silver:2000, bronze:1000}, type:'lp-tool' },
+  { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' }
 ];
 
 // サービス公開状態（Firebaseから読み込む）
@@ -1268,8 +1315,9 @@ function buildCompareRow(item, rankKey) {
       if (item.prices[k] === undefined) return '';
       const info = RANK_INFO[k];
       const isMe = k === rankKey;
+      const costLabel = item.prices[k] === 0 ? '無料' : item.prices[k].toLocaleString() + '枚';
       return '<span style="font-size:11px;padding:3px 9px;border-radius:10px;font-weight:700;background:' + info.bg + ';color:' + info.color +
-        ';' + (isMe ? 'box-shadow:0 0 0 2px #fff;' : '') + '">' + info.badge + ' ' + item.prices[k].toLocaleString() + '枚' + (isMe ? '（あなた）' : '') + '</span>';
+        ';' + (isMe ? 'box-shadow:0 0 0 2px #fff;' : '') + '">' + info.badge + ' ' + costLabel + (isMe ? '（あなた）' : '') + '</span>';
     }).join('') + '</div>';
 }
 
@@ -1323,9 +1371,12 @@ function renderUseMenu() {
       const idx = USE_ITEMS.indexOf(item);
       if (firstIdx === -1) firstIdx = idx;
       const myPts = item.prices ? item.prices[rankKey] : undefined;
+      const isZoomFreeGold = item.type === 'zoom' && rankKey === 'gold';
       const myCostHtml = (myPts === undefined)
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
-        : '<div style="font-size:16px;font-weight:700;color:var(--gb);">' + myPts.toLocaleString() + ' 枚</div>';
+        : isZoomFreeGold
+          ? '<div style="font-size:14px;font-weight:700;color:#4caf50;">✨ 無料</div>'
+          : '<div style="font-size:16px;font-weight:700;color:var(--gb);">' + myPts.toLocaleString() + ' 枚</div>';
       list.innerHTML += '<div class="use-select-item" id="use-select-' + idx + '" onclick="selectUseItem(' + idx + ')" ' +
         'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -1345,9 +1396,23 @@ window.selectUseItem = function(idx) {
   const pts = myPts === undefined ? 0 : myPts;
   document.getElementById('use-type-value').value = pts;
   document.getElementById('use-type-desc').value = item.name;
+  document.getElementById('use-type-item-id').value = item.id || '';
   document.querySelectorAll('.use-select-item').forEach(function(el) { el.style.borderColor = 'var(--border)'; });
   const sel = document.getElementById('use-select-' + idx);
   if (sel) sel.style.borderColor = 'var(--gb)';
+  // ボタンテキストとフォームの表示切り替え
+  const btn = document.getElementById('use-submit-btn');
+  const dateGrp = document.getElementById('use-date-group');
+  const memoGrp = document.getElementById('use-memo-group');
+  if (item.type === 'zoom') {
+    if (btn) btn.textContent = rankKey === 'gold' ? '📹 Zoom情報を見る（無料）' : '📹 コインを使ってZoom情報を見る';
+    if (dateGrp) dateGrp.style.display = 'none';
+    if (memoGrp) memoGrp.style.display = 'none';
+  } else {
+    if (btn) btn.textContent = '申請する';
+    if (dateGrp) dateGrp.style.display = '';
+    if (memoGrp) memoGrp.style.display = '';
+  }
 };
 
 // 卒業生（bronze）の180日失効チェック。失効時は本人のコインを0にしてKUNIOへ回収する。
@@ -1423,6 +1488,24 @@ async function spendCoins(pts, desc) {
 window.doUse = async function() {
   const ptsRaw = document.getElementById('use-type-value').value;
   const desc = document.getElementById('use-type-desc').value;
+  const itemId = document.getElementById('use-type-item-id').value;
+
+  // LP ツール専用フロー
+  const lpItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'lp-tool');
+  if (lpItem) {
+    closeModal('modal-use');
+    await doLpToolUse(lpItem);
+    return;
+  }
+
+  // ZOOM セミナー専用フロー
+  const zoomItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'zoom');
+  if (zoomItem) {
+    closeModal('modal-use');
+    await doZoomUse(zoomItem);
+    return;
+  }
+
   if (ptsRaw === '0') {
     closeModal('modal-use');
     showToast('📩 KUNIOに相談リクエストを送りました！');
@@ -1437,6 +1520,92 @@ window.doUse = async function() {
     if (window._loadUser) await window._loadUser(window._uid);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
+
+async function doLpToolUse(item) {
+  const uid = window._uid;
+  const rankKey = getMyRank();
+  const pts = item.prices[rankKey];
+  showToast('⏳ 処理中...');
+  try {
+    // すでに交換済みか確認
+    const rightsSnap = await getDoc(doc(db, 'lp_rights', uid));
+    if (!rightsSnap.exists()) {
+      // 残高確認
+      const userSnap = await getDoc(doc(db, 'users', uid));
+      const balance = userSnap.data().points || 0;
+      if (balance < pts) {
+        showToast('❌ コインが足りません（必要: ' + pts.toLocaleString() + '枚、残高: ' + balance.toLocaleString() + '枚）');
+        return;
+      }
+      // 原子的にコイン消費 + 利用権付与
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', uid), { points: increment(-pts) });
+      batch.set(doc(db, 'lp_rights', uid), {
+        itemId: item.id, rank: rankKey, ptsSpent: pts, grantedAt: serverTimestamp()
+      });
+      batch.set(doc(collection(db, 'transactions')), {
+        userId: uid, type: 'spend', points: -pts,
+        description: item.name, createdAt: serverTimestamp()
+      });
+      await batch.commit();
+      if (window._loadUser) await window._loadUser(uid);
+    }
+    // 認証チケット発行（10分有効・1回限り）
+    const ticketId = crypto.randomUUID();
+    await setDoc(doc(db, 'lp_tickets', ticketId), {
+      uid, used: false,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+    });
+    // LP ツールをチケット付きで開く
+    window.open('https://zerocostrecyclers.com/api/auth.php?ticket=' + ticketId, '_blank');
+    showToast('✅ LPツールを開きました！');
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+}
+
+async function doZoomUse(item) {
+  const uid = window._uid;
+  const rankKey = getMyRank();
+  const pts = item.prices[rankKey];
+
+  // gold は購入不可・BAND案内を表示
+  if (rankKey === 'gold') {
+    openModal('modal-zoom-gold');
+    return;
+  }
+
+  const eventId = item.zoomEventId;
+  const accessDocId = eventId + '_' + uid;
+  showToast('⏳ 処理中...');
+  try {
+    const accessSnap = await getDoc(doc(db, 'zoom_access', accessDocId));
+    if (!accessSnap.exists()) {
+      // 残高確認
+      const userSnap = await getDoc(doc(db, 'users', uid));
+      const balance = userSnap.data().points || 0;
+      if (balance < pts) {
+        showToast('❌ コインが足りません（必要: ' + pts.toLocaleString() + '枚、残高: ' + balance.toLocaleString() + '枚）');
+        return;
+      }
+      // 原子的にコイン消費 + アクセス権付与
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', uid), { points: increment(-pts) });
+      batch.set(doc(db, 'zoom_access', accessDocId), {
+        uid, eventId, rank: rankKey, ptsSpent: pts,
+        grantedAt: serverTimestamp(),
+        expiresAt: new Date(item.zoomExpiry + 'T23:59:59+09:00')
+      });
+      batch.set(doc(collection(db, 'transactions')), {
+        userId: uid, type: 'spend', points: -pts,
+        description: item.name, createdAt: serverTimestamp()
+      });
+      await batch.commit();
+      if (window._loadUser) await window._loadUser(uid);
+    }
+    // ZOOM情報モーダルを表示
+    openModal('modal-zoom');
+    showToast('✅ Zoom情報を表示しました！');
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+}
 
 // 円→枚 変換（100枚単位で切り上げ）
 function yenToPts(yen, rankKey) {
