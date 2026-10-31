@@ -83,20 +83,17 @@ select option{background:var(--d3);color:var(--text);}
       </select>
     </div>
     <button class="btn" id="register-btn" onclick="doRegister()">登録申請を送る</button>
-
+    <div class="note">
+      ✅ 登録後、KUNIOの承認後にアプリが使えるようになります
+    </div>
   </div>
 
   <div class="card success-screen" id="success-screen">
     <div class="success-icon">✅</div>
     <div class="success-title">登録申請完了！</div>
     <div class="success-text">
-      登録が完了しました！<br>
-      下記URLよりログインしてください。<br><br>
-      <a href="https://kunio0309.github.io/kunio-coin/" style="color:var(--gb);font-weight:700;">https://kunio0309.github.io/kunio-coin/</a><br><br>
-      <span style="font-size:12px;color:var(--dim);line-height:1.8;">
-        📱 <strong style="color:var(--text);">iPhone</strong> の場合：Safariで上記URLを開き、下の共有ボタン（□↑）→「ホーム画面に追加」<br>
-        🤖 <strong style="color:var(--text);">Android</strong> の場合：Chromeで上記URLを開き、右上メニュー（⋮）→「ホーム画面に追加」
-      </span>
+      KUNIOの承認をお待ちください。<br>
+      承認後に <strong style="color:var(--gb)">kuniocoin.netlify.app</strong> からログインできます。
     </div>
   </div>
 </div>
@@ -105,7 +102,7 @@ select option{background:var(--d3);color:var(--text);}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -144,9 +141,19 @@ window.doRegister = async function() {
       name: name,
       email: email,
       memberType: memberType,
-      points: 0,
+      points: 1000,
       isAdmin: false,
-      isApproved: true,
+      isApproved: false,
+      createdAt: serverTimestamp()
+    });
+
+    // 初回登録ボーナス 1000枚 を履歴に記録
+    await addDoc(collection(db, 'transactions'), {
+      userId: uid,
+      type: 'grant',
+      points: 1000,
+      description: '🎉 初回登録ボーナス',
+      icon: '🎁',
       createdAt: serverTimestamp()
     });
 
