@@ -297,7 +297,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <!-- 営業ページ作成ツール（利用権がある人だけ表示） -->
     <div id="lp-tool-banner" style="display:none;margin:12px 0;">
       <button onclick="openLpTool()" style="width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#14b886,#0e9a70);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">🏢 営業ページ作成ツールを開く</button>
-      <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px;">お申し込み済みのため、コインは使いません</div>
+      <div id="lp-tool-note" style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px;">お申し込み済みのため、コインは使いません</div>
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;">
@@ -1299,6 +1299,7 @@ window.toggleService = async function(id) {
     await setDoc(doc(db, 'config', 'services'), { disabled: [..._disabledServices] });
     renderServiceToggles();
     renderUseMenu();
+    if (window._uid) checkLpRightsOnLoad(window._uid);
     showToast(wasDisabled ? '✅ 公開しました' : '🔒 非公開にしました');
   } catch(e) {
     if (wasDisabled) _disabledServices.add(id); else _disabledServices.delete(id);
@@ -1339,7 +1340,10 @@ function renderUseMenu() {
   const kondanCard = document.getElementById('kondan-card');
   if (kondanCard) kondanCard.style.display = (rankKey === 'gold') ? 'flex' : 'none';
   // 安い順に並べる（要相談＝価格なしは一番下）
-  const sortedItems = USE_ITEMS.filter(item => (!item.rankOnly || item.rankOnly === rankKey) && !_disabledServices.has(item.id)).slice().sort(function(a, b) {
+  const isAdminUser = !!(window._userData && window._userData.isAdmin);
+  const offMark = item => _disabledServices.has(item.id) ? '（🔒非公開・管理者だけに表示）' : '';
+  // 非公開（OFF）のサービスは、管理者にだけ表示する（公開前のテスト用）
+  const sortedItems = USE_ITEMS.filter(item => (!item.rankOnly || item.rankOnly === rankKey) && (!_disabledServices.has(item.id) || isAdminUser)).slice().sort(function(a, b) {
     const pa = a.prices ? a.prices[rankKey] : undefined;
     const pb = b.prices ? b.prices[rankKey] : undefined;
     if (pa === undefined && pb === undefined) return 0;
@@ -1356,7 +1360,7 @@ function renderUseMenu() {
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
         : '<div class="use-cost">' + myPts.toLocaleString() + ' 枚</div>';
       container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' +
-        item.icon + ' ' + item.name + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
+        item.icon + ' ' + item.name + offMark(item) + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
         '</div>' + buildCompareRow(item, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
     });
   }
@@ -1391,7 +1395,7 @@ function renderUseMenu() {
       list.innerHTML += '<div class="use-select-item" id="use-select-' + idx + '" onclick="selectUseItem(' + idx + ')" ' +
         'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div style="font-size:13px;font-weight:700;">' + item.icon + ' ' + item.name + '</div>' +
+        '<div><div style="font-size:13px;font-weight:700;">' + item.icon + ' ' + item.name + offMark(item) + '</div>' +
         '<div style="font-size:11px;color:var(--dim);">' + item.sub + '</div></div>' + myCostHtml + '</div>' +
         buildCompareRow(item, rankKey) + '</div>';
     });
@@ -1572,7 +1576,12 @@ async function checkLpRightsOnLoad(uid) {
   try {
     const snap = await getDoc(doc(db, 'lp_rights', uid));
     const el = document.getElementById('lp-tool-banner');
-    if (el) el.style.display = snap.exists() ? 'block' : 'none';
+    const isAdminUser = !!(window._userData && window._userData.isAdmin);
+    const isOff = _disabledServices.has('lp-real-estate');
+    // 申し込み済みの人（非公開中は出さない）と、管理者（テスト用に常に出す）にだけ表示
+    if (el) el.style.display = ((snap.exists() && !isOff) || isAdminUser) ? 'block' : 'none';
+    const note = document.getElementById('lp-tool-note');
+    if (note) note.textContent = isOff ? '🔒 非公開中（管理者だけに表示されています）' : (snap.exists() ? 'お申し込み済みのため、コインは使いません' : '管理者として開きます（コインは使いません）');
   } catch(e) {}
 }
 
