@@ -504,6 +504,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <span style="font-size:13px;color:var(--dim);">枚を自動配布</span>
       </div>
       <button class="btn-primary" onclick="saveIntroBonus()">💾 設定を保存する</button>
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;cursor:pointer;">
+          <input type="checkbox" id="intro-closed-toggle" onchange="saveIntroClosed()" style="width:20px;height:20px;accent-color:var(--gb);">
+          <span id="intro-closed-label" style="color:var(--dim);">自己紹介の新しい受付：ON（受付中）</span></label>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7;">チェックを入れると、自己紹介を新しく書けなくなります。<br>すでに投稿された自己紹介は、そのまま見られます。</div>
+      </div>
     </div>
 
     <!-- 全員配布 -->
@@ -1054,6 +1060,8 @@ async function loadAdminData(){
   if(introEl){
     introEl.value = (cfgSnap.exists() && cfgSnap.data().introBonus !== undefined) ? cfgSnap.data().introBonus : 3000;
   }
+  const icTg = document.getElementById('intro-closed-toggle');
+  if(icTg){ icTg.checked = !!(cfgSnap.exists() && cfgSnap.data().introClosed === true); setIntroClosedLabel(); }
 
   const snap = await getDocs(collection(db,'seminar_users'));
   const emailMap = {};
@@ -2454,6 +2462,19 @@ function renderIntroCard(){
       <button class="btn-text" onclick="editIntro()">✏️ 編集</button></div>`;
     return;
   }
+  if(!_myIntro){
+    if(window._introClosed === undefined){
+      getDoc(doc(db,'seminar_config','main')).then(s=>{ window._introClosed = !!(s.exists() && s.data().introClosed===true); renderIntroCard(); })
+        .catch(()=>{ window._introClosed = false; renderIntroCard(); });
+      return;
+    }
+    if(window._introClosed){
+      el.innerHTML = `<div class="intro-nudge" style="background:rgba(255,255,255,.04);border-color:var(--border);">
+        <span style="font-size:22px;">🔒</span>
+        <div style="flex:1;font-size:13px;line-height:1.6;"><strong>自己紹介の受付は終了しました</strong><br><span style="color:var(--dim);font-size:11px;">下の「みんなの投稿」で、これまでの自己紹介を見られます。</span></div></div>`;
+      return;
+    }
+  }
   const v = (_introEditing && _myIntro && _myIntro.intro) ? _myIntro.intro : {};
   const opts = (arr, sel) => arr.map(x=>`<option value="${escHtml(x)}"${x===sel?' selected':''}>${escHtml(x)}</option>`).join('');
   const radio = (name, val, cur) => `<label><input type="radio" name="${name}" value="${val}"${cur===val?' checked':''}${name==='intro-exp'?' onchange="toggleIntroExp()"':''}> ${val}</label>`;
@@ -2586,6 +2607,21 @@ window.saveIntroBonus = async function(){
   }catch(e){ showToast('❌ 保存できませんでした'); }
 };
 
+function setIntroClosedLabel(){
+  const tg = document.getElementById('intro-closed-toggle'), lb = document.getElementById('intro-closed-label');
+  if(!tg || !lb) return;
+  lb.textContent = tg.checked ? '自己紹介の新しい受付：OFF（受付を終了しました）' : '自己紹介の新しい受付：ON（受付中）';
+  lb.style.color = tg.checked ? '#ff8a80' : 'var(--dim)';
+}
+window.saveIntroClosed = async function(){
+  const tg = document.getElementById('intro-closed-toggle');
+  try{
+    await setDoc(doc(db,'seminar_config','main'),{ introClosed: tg.checked },{ merge:true });
+    setIntroClosedLabel();
+    showToast(tg.checked ? '自己紹介の新しい受付を終了しました' : '✅ 自己紹介の受付を再開しました');
+  }catch(e){ tg.checked = !tg.checked; setIntroClosedLabel(); showToast('❌ 変更できませんでした'); }
+};
+
 // コインタブの先頭に「まず自己紹介を」の案内（自己紹介が済むと消える）
 let _nudgeRunning = null;
 function refreshIntroNudge(){
@@ -2601,15 +2637,17 @@ async function _refreshIntroNudge(){
   // ① 自己紹介（未投稿の人）
   let hasIntro = false;
   try{ hasIntro = (await getDoc(doc(db,'seminar_posts','intro_'+uid))).exists(); }catch(e){}
+  let introClosed = false;
   if(!hasIntro){
     let bonus = 0;
     try{
       const [cfg, me] = await Promise.all([ getDoc(doc(db,'seminar_config','main')), getDoc(doc(db,'seminar_users',uid)) ]);
+      introClosed = cfg.exists() && cfg.data().introClosed === true; window._introClosed = introClosed;
       const given = me.exists() && me.data().introBonusGiven === true;
       const amount = (cfg.exists() && typeof cfg.data().introBonus==='number') ? cfg.data().introBonus : 3000;
       if(!given && amount>0) bonus = amount;
     }catch(e){}
-    cards.push(`<div class="intro-cta">
+    if(!introClosed) cards.push(`<div class="intro-cta">
       <div class="big">${bonus>0 ? `👋 自己紹介を書いてください！<br>コインが ${bonus.toLocaleString()}枚 もらえます` : '👋 まずは自己紹介を書いてください！'}</div>
       <div class="sub">みんなに読んでもらえます。KUNIOから返信がもらえることもあります。<br>書き終わると、すぐにコインが入ります。</div>
       <button class="btn-primary" onclick="switchTab('user','board')" style="margin-bottom:0;">自己紹介を書く</button></div>`);
