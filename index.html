@@ -25,8 +25,9 @@ html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;overflow-x:hidd
 *{box-sizing:border-box;}
 input,select,textarea,button{max-width:100%;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--dark);color:var(--text);
-  min-height:100vh;overflow-x:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
-#main-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  min-height:100vh;overflow-x:hidden;overflow-y:auto;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
+#main-content{overflow-y:visible;-webkit-overflow-scrolling:touch;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse at 20% 20%,rgba(46,125,50,.15) 0%,transparent 60%),
   radial-gradient(ellipse at 80% 80%,rgba(105,240,174,.08) 0%,transparent 60%);}
@@ -293,12 +294,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <!-- 購入済みZOOMバナー -->
     <div id="zoom-access-banner" style="display:none;margin:12px 0;"></div>
-
-    <!-- 営業ページ作成ツール（利用権がある人だけ表示） -->
-    <div id="lp-tool-banner" style="display:none;margin:12px 0;">
-      <button onclick="openLpTool()" style="width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#14b886,#0e9a70);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">🏢 営業ページ作成ツールを開く</button>
-      <div id="lp-tool-note" style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px;">お申し込み済みのため、コインは使いません</div>
-    </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;">
       <div style="font-size:11px;letter-spacing:3px;color:var(--dim);font-family:'Bebas Neue',sans-serif;">● 最近の履歴</div>
@@ -865,7 +860,6 @@ async function loadUser(uid) {
     await loadServiceConfig();
     renderUseMenu();
     checkZoomAccessOnLoad(window._uid);
-    checkLpRightsOnLoad(window._uid);
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1278,7 +1272,7 @@ const USE_ITEMS = [
   { id:'summon-truck',  icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
   { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
   { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} },
-  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'営業用ページとチラシ用QRコードを作成（初回のみコイン）', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
+  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'zerocostrecyclers.comで営業用LP・QRコードを作成', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
   { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' }
 ];
 
@@ -1299,7 +1293,6 @@ window.toggleService = async function(id) {
     await setDoc(doc(db, 'config', 'services'), { disabled: [..._disabledServices] });
     renderServiceToggles();
     renderUseMenu();
-    if (window._uid) checkLpRightsOnLoad(window._uid);
     showToast(wasDisabled ? '✅ 公開しました' : '🔒 非公開にしました');
   } catch(e) {
     if (wasDisabled) _disabledServices.add(id); else _disabledServices.delete(id);
@@ -1340,10 +1333,7 @@ function renderUseMenu() {
   const kondanCard = document.getElementById('kondan-card');
   if (kondanCard) kondanCard.style.display = (rankKey === 'gold') ? 'flex' : 'none';
   // 安い順に並べる（要相談＝価格なしは一番下）
-  const isAdminUser = !!(window._userData && window._userData.isAdmin);
-  const offMark = item => _disabledServices.has(item.id) ? '（🔒非公開・管理者だけに表示）' : '';
-  // 非公開（OFF）のサービスは、管理者にだけ表示する（公開前のテスト用）
-  const sortedItems = USE_ITEMS.filter(item => (!item.rankOnly || item.rankOnly === rankKey) && (!_disabledServices.has(item.id) || isAdminUser)).slice().sort(function(a, b) {
+  const sortedItems = USE_ITEMS.filter(item => (!item.rankOnly || item.rankOnly === rankKey) && !_disabledServices.has(item.id)).slice().sort(function(a, b) {
     const pa = a.prices ? a.prices[rankKey] : undefined;
     const pb = b.prices ? b.prices[rankKey] : undefined;
     if (pa === undefined && pb === undefined) return 0;
@@ -1360,7 +1350,7 @@ function renderUseMenu() {
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
         : '<div class="use-cost">' + myPts.toLocaleString() + ' 枚</div>';
       container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' +
-        item.icon + ' ' + item.name + offMark(item) + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
+        item.icon + ' ' + item.name + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
         '</div>' + buildCompareRow(item, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
     });
   }
@@ -1395,7 +1385,7 @@ function renderUseMenu() {
       list.innerHTML += '<div class="use-select-item" id="use-select-' + idx + '" onclick="selectUseItem(' + idx + ')" ' +
         'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div style="font-size:13px;font-weight:700;">' + item.icon + ' ' + item.name + offMark(item) + '</div>' +
+        '<div><div style="font-size:13px;font-weight:700;">' + item.icon + ' ' + item.name + '</div>' +
         '<div style="font-size:11px;color:var(--dim);">' + item.sub + '</div></div>' + myCostHtml + '</div>' +
         buildCompareRow(item, rankKey) + '</div>';
     });
@@ -1565,42 +1555,17 @@ async function doLpToolUse(item) {
       await batch.commit();
       if (window._loadUser) await window._loadUser(uid);
     }
-    checkLpRightsOnLoad(uid);
-    // ログイン証明を付けて営業ページ作成ツールを開く
-    await openLpTool();
+    // 認証チケット発行（10分有効・1回限り）
+    const ticketId = crypto.randomUUID();
+    await setDoc(doc(db, 'lp_tickets', ticketId), {
+      uid, used: false,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+    });
+    // LP ツールをチケット付きで開く
+    window.open('https://zerocostrecyclers.com/api/auth.php?ticket=' + ticketId, '_blank');
+    showToast('✅ LPツールを開きました！');
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 }
-
-// 営業ページ作成ツール：利用権がある人だけトップにボタンを出す
-async function checkLpRightsOnLoad(uid) {
-  try {
-    const snap = await getDoc(doc(db, 'lp_rights', uid));
-    const el = document.getElementById('lp-tool-banner');
-    const isAdminUser = !!(window._userData && window._userData.isAdmin);
-    const isOff = _disabledServices.has('lp-real-estate');
-    // 申し込み済みの人（非公開中は出さない）と、管理者（テスト用に常に出す）にだけ表示
-    if (el) el.style.display = ((snap.exists() && !isOff) || isAdminUser) ? 'block' : 'none';
-    const note = document.getElementById('lp-tool-note');
-    if (note) note.textContent = isOff ? '🔒 非公開中（管理者だけに表示されています）' : (snap.exists() ? 'お申し込み済みのため、コインは使いません' : '管理者として開きます（コインは使いません）');
-  } catch(e) {}
-}
-
-// 営業ページ作成ツールを開く（本人のログイン証明を、URLに載せずに送る）
-window.openLpTool = async function() {
-  try {
-    if (!auth.currentUser) { showToast('⚠️ ログインしてください'); return; }
-    showToast('⏳ ツールを開いています...');
-    const idToken = await auth.currentUser.getIdToken(true);
-    const f = document.createElement('form');
-    f.method = 'POST';
-    f.action = 'https://zerocostrecyclers.com/annai/auth.php';
-    const i = document.createElement('input');
-    i.type = 'hidden'; i.name = 'id_token'; i.value = idToken;
-    f.appendChild(i);
-    document.body.appendChild(f);
-    f.submit();
-  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
-};
 
 async function doZoomUse(item) {
   const uid = window._uid;
