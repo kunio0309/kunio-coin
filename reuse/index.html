@@ -2969,6 +2969,28 @@ function remainingText(ts){
 function renderOrderCard(o, off){
   const bank = (off && off.bankText) ? off.bankText : DEFAULT_BANK_TEXT;
   const paid = o.status==='paid' || o.status==='sent';
+  if(!o.payerName){
+    return `<div class="offer-card">
+    ${OFFER_BANNER}
+    <div class="offer-title">🎁 コインを使いました！　あと1ステップです</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escHtml(o.offerName||'')}</div>
+    <div class="offer-calc">
+      <div class="row"><span>通常価格</span><span>${yen(o.price)}</span></div>
+      <div class="row"><span>コイン値引き（${(o.coinsUsed||0).toLocaleString()}枚）</span><span>−${yen(o.discountYen)}</span></div>
+      <div class="row total"><span>お振込み金額</span><span>${yen(o.payYen)}</span></div>
+    </div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">お振込み先</div>
+    <div class="bank-box">${escHtml(bank)}</div>
+    <div class="intro-label">お届け先のメールアドレス<span class="req">必須</span></div>
+    <input class="form-input" type="email" id="offer-email" value="${escHtml(o.sendEmail||o.loginEmail||'')}" autocomplete="off" style="margin-bottom:8px;">
+    <input class="form-input" type="email" id="offer-email2" placeholder="確認のため、もう一度入力" autocomplete="off" style="margin-bottom:0;">
+    <div class="intro-label">振込名義（カタカナ）<span class="req">必須</span></div>
+    <div class="warn-box">⚠️ 注意！ オープンチャットの名前と、銀行の振込名義が違うと、入金を確認できません。<br><strong>必ず、実際に振り込む口座の名義（カタカナ）を入力してください。</strong>振込のときも、ここに書いた名義のまま振り込んでください。</div>
+    <input class="form-input" type="text" id="offer-payer" maxlength="50" placeholder="例：タナカ タロウ" autocomplete="off" style="margin-bottom:12px;">
+    <button class="btn-primary" id="offer-info-btn" onclick="submitOfferInfo()" style="margin-bottom:0;">振込の情報を送る</button>
+    <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">入力したメールアドレスに、入金の確認後、教材をお送りします。お振込みは、この入力のあとにお願いします。</div>
+  </div>`;
+  }
   return `<div class="offer-card">
     ${OFFER_BANNER}
     <div class="offer-title">🎁 参加者限定の特典　お申し込み済み</div>
@@ -3028,28 +3050,14 @@ async function loadOfferCard(){
         <div class="row"><span>コイン値引き（${used.toLocaleString()}枚）</span><span>−${yen(used)}</span></div>
         <div class="row total"><span>お振込み金額</span><span>${yen(pay)}</span></div>
       </div>
-      <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">お振込み先</div>
-      <div class="bank-box">${escHtml(bank)}</div>
-      <div class="intro-label">お届け先のメールアドレス<span class="req">必須</span></div>
-      <input class="form-input" type="email" id="offer-email" value="${escHtml(currentUser.email||'')}" autocomplete="off" style="margin-bottom:8px;">
-      <input class="form-input" type="email" id="offer-email2" placeholder="確認のため、もう一度入力" autocomplete="off" style="margin-bottom:0;">
-      <div class="intro-label">振込名義（カタカナ）<span class="req">必須</span></div>
-      <div class="warn-box">⚠️ 注意！ オープンチャットの名前と、銀行の振込名義が違うと、入金を確認できません。<br><strong>必ず、実際に振り込む口座の名義（カタカナ）を入力してください。</strong>振込のときも、ここに書いた名義のまま振り込んでください。</div>
-      <input class="form-input" type="text" id="offer-payer" maxlength="50" placeholder="例：タナカ タロウ" autocomplete="off" style="margin-bottom:12px;">
-      <button class="btn-primary" id="offer-btn" onclick="submitOffer()" style="margin-bottom:0;">特典を受け取る（${yen(pay)}を振込）</button>
-      <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">申し込むと、値引きに使った${used.toLocaleString()}枚のコインが引かれます。お振込みは申し込み後にお願いします。</div>
+      <button class="btn-primary" id="offer-btn" onclick="submitOffer()" style="margin-bottom:0;">${used>0 ? `🪙 コインを使う（${used.toLocaleString()}枚で${yen(used)}値引き）` : '申し込む'}</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7;">ボタンを押すと、${used.toLocaleString()}枚のコインが引かれます。そのあとに、お振込み先と、教材のお届け先の入力が出ます。</div>
     </div>`;
   }catch(e){ el.innerHTML = ''; }
 }
 
 window.submitOffer = async function(){
   if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
-  const email  = (document.getElementById('offer-email').value||'').trim();
-  const email2 = (document.getElementById('offer-email2').value||'').trim();
-  const payer  = (document.getElementById('offer-payer').value||'').trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showToast('メールアドレスを正しく入力してください'); return; }
-  if(email !== email2){ showToast('確認用のメールアドレスが一致しません'); return; }
-  if(!payer){ showToast('振込名義を入力してください'); return; }
   const btn = document.getElementById('offer-btn');
   btn.disabled = true;
   try{
@@ -3064,10 +3072,10 @@ window.submitOffer = async function(){
     const coins = uSnap.data().coins||0;
     const price = Number(off.price)||0, max = Number(off.maxDiscount)||0;
     const used = Math.min(coins, max, price), pay = price-used;
-    if(!confirm(`${off.name}\n\n通常価格 ${yen(price)}\nコイン値引き −${yen(used)}（${used.toLocaleString()}枚）\nお振込み金額 ${yen(pay)}\n\nこの内容で受け取りますか？`)){ btn.disabled=false; return; }
+    if(!confirm(`${off.name}\n\n通常価格 ${yen(price)}\nコイン値引き −${yen(used)}（${used.toLocaleString()}枚）\nお振込み金額 ${yen(pay)}\n\n${used.toLocaleString()}枚のコインを使いますか？\n（押すと、コインが引かれます）`)){ btn.disabled=false; return; }
     const batch = writeBatch(db);
     batch.set(orderRef,{
-      uid:currentUser.uid, name:_me.bandName, loginEmail:currentUser.email||'', sendEmail:email, payerName:payer,
+      uid:currentUser.uid, name:_me.bandName, loginEmail:currentUser.email||'', sendEmail:'', payerName:'',
       offerName:off.name, price, coinsUsed:used, discountYen:used, payYen:pay, status:'pending', createdAt:serverTimestamp()
     });
     if(used>0){
@@ -3077,10 +3085,32 @@ window.submitOffer = async function(){
     }
     await batch.commit();
     playCoinSound();
-    showToast('✅ お申し込みを受け付けました。お振込みをお願いします');
+    showToast('🪙 コインを使いました！　次に、振込の情報を入力してください');
     await refreshMyCoins();
+    await loadOfferCard();
   }catch(e){
     showToast('申し込めませんでした：'+(e.code||e.message));
+    btn.disabled = false;
+  }
+};
+
+// ステップ2：お届け先メールと振込名義を送る（コインを使ったあと）
+window.submitOfferInfo = async function(){
+  if(!currentUser || !_me){ showToast('ログインし直してください'); return; }
+  const email  = (document.getElementById('offer-email').value||'').trim();
+  const email2 = (document.getElementById('offer-email2').value||'').trim();
+  const payer  = (document.getElementById('offer-payer').value||'').trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showToast('メールアドレスを正しく入力してください'); return; }
+  if(email !== email2){ showToast('確認用のメールアドレスが一致しません'); return; }
+  if(!payer){ showToast('振込名義を入力してください'); return; }
+  const btn = document.getElementById('offer-info-btn');
+  btn.disabled = true;
+  try{
+    await updateDoc(doc(db,'seminar_offer_orders',currentUser.uid),{ sendEmail:email, payerName:payer });
+    showToast('✅ 受け付けました。お振込みをお願いします');
+    await loadOfferCard();
+  }catch(e){
+    showToast('送れませんでした：'+(e.code||e.message));
     btn.disabled = false;
   }
 };
@@ -3158,8 +3188,8 @@ async function loadOrders(){
       </div>
       <div style="font-size:11px;color:var(--dim);margin:6px 0;line-height:1.8;">
         ${fmtDT(o.createdAt)} ／ ${escHtml(o.offerName||'')}<br>
-        送付先メール：<strong style="color:var(--text);">${escHtml(o.sendEmail||'')}</strong><br>
-        振込名義：<strong style="color:var(--text);">${escHtml(o.payerName||'')}</strong>（ログイン：${escHtml(o.loginEmail||'')}）</div>
+        送付先メール：<strong style="color:var(--text);">${o.sendEmail ? escHtml(o.sendEmail) : '<span style="color:#ff8a80;">（まだ入力なし）</span>'}</strong><br>
+        振込名義：<strong style="color:var(--text);">${o.payerName ? escHtml(o.payerName) : '<span style="color:#ff8a80;">（まだ入力なし）</span>'}</strong>（ログイン：${escHtml(o.loginEmail||'')}）</div>
       <div style="font-size:13px;margin-bottom:8px;">通常 ${yen(o.price)} − 値引き ${yen(o.discountYen)}（${(o.coinsUsed||0).toLocaleString()}枚） ＝ <strong style="color:var(--gb);font-size:16px;">${yen(o.payYen)}</strong></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn-grant" onclick="setOrderStatus(this,'paid')">💰 入金確認</button>
