@@ -295,6 +295,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <!-- 購入済みZOOMバナー -->
     <div id="zoom-access-banner" style="display:none;margin:12px 0;"></div>
 
+    <!-- 営業ページ作成ツール（利用権がある人だけ表示） -->
+    <div id="lp-tool-banner" style="display:none;margin:12px 0;">
+      <button onclick="openLpTool()" style="width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#14b886,#0e9a70);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">🏢 営業ページ作成ツールを開く</button>
+      <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px;">お申し込み済みのため、コインは使いません</div>
+    </div>
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;">
       <div style="font-size:11px;letter-spacing:3px;color:var(--dim);font-family:'Bebas Neue',sans-serif;">● 最近の履歴</div>
       <button onclick="refreshHistory()" style="background:var(--d3);border:1px solid var(--border);border-radius:20px;padding:4px 12px;color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🔄 更新</button>
@@ -860,6 +866,7 @@ async function loadUser(uid) {
     await loadServiceConfig();
     renderUseMenu();
     checkZoomAccessOnLoad(window._uid);
+    checkLpRightsOnLoad(window._uid);
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1272,7 +1279,7 @@ const USE_ITEMS = [
   { id:'summon-truck',  icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
   { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
   { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} },
-  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'zerocostrecyclers.comで営業用LP・QRコードを作成', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
+  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'営業用ページとチラシ用QRコードを作成（初回のみコイン）', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
   { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' }
 ];
 
@@ -1555,17 +1562,37 @@ async function doLpToolUse(item) {
       await batch.commit();
       if (window._loadUser) await window._loadUser(uid);
     }
-    // 認証チケット発行（10分有効・1回限り）
-    const ticketId = crypto.randomUUID();
-    await setDoc(doc(db, 'lp_tickets', ticketId), {
-      uid, used: false,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-    });
-    // LP ツールをチケット付きで開く
-    window.open('https://zerocostrecyclers.com/api/auth.php?ticket=' + ticketId, '_blank');
-    showToast('✅ LPツールを開きました！');
+    checkLpRightsOnLoad(uid);
+    // ログイン証明を付けて営業ページ作成ツールを開く
+    await openLpTool();
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 }
+
+// 営業ページ作成ツール：利用権がある人だけトップにボタンを出す
+async function checkLpRightsOnLoad(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'lp_rights', uid));
+    const el = document.getElementById('lp-tool-banner');
+    if (el) el.style.display = snap.exists() ? 'block' : 'none';
+  } catch(e) {}
+}
+
+// 営業ページ作成ツールを開く（本人のログイン証明を、URLに載せずに送る）
+window.openLpTool = async function() {
+  try {
+    if (!auth.currentUser) { showToast('⚠️ ログインしてください'); return; }
+    showToast('⏳ ツールを開いています...');
+    const idToken = await auth.currentUser.getIdToken(true);
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = 'https://zerocostrecyclers.com/annai/auth.php';
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.name = 'id_token'; i.value = idToken;
+    f.appendChild(i);
+    document.body.appendChild(f);
+    f.submit();
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+};
 
 async function doZoomUse(item) {
   const uid = window._uid;
