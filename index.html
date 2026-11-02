@@ -1549,9 +1549,19 @@ async function doLpToolUse(item) {
         showToast('❌ コインが足りません（必要: ' + pts.toLocaleString() + '枚、残高: ' + balance.toLocaleString() + '枚）');
         return;
       }
-      // 原子的にコイン消費 + 利用権付与
+      // 管理者UID取得
+      const adminSnapLp = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
+      const adminUidLp = !adminSnapLp.empty ? adminSnapLp.docs[0].id : null;
+      // 原子的にコイン消費 + 利用権付与 + 管理者へ移転
       const batch = writeBatch(db);
       batch.update(doc(db, 'users', uid), { points: increment(-pts) });
+      if (adminUidLp && adminUidLp !== uid) {
+        batch.update(doc(db, 'users', adminUidLp), { points: increment(pts) });
+        batch.set(doc(collection(db, 'transactions')), {
+          userId: adminUidLp, type: 'receive', points: pts,
+          description: item.name + '（受取）', createdAt: serverTimestamp()
+        });
+      }
       batch.set(doc(db, 'lp_rights', uid), {
         itemId: item.id, rank: rankKey, ptsSpent: pts, grantedAt: serverTimestamp()
       });
@@ -1634,9 +1644,19 @@ async function doZoomUse(item) {
         showZoomError('❌ コインが足りません', '必要: ' + pts.toLocaleString() + '枚\n現在の残高: ' + balance.toLocaleString() + '枚\n\nコインを購入してから再度お試しください。');
         return;
       }
-      // 原子的にコイン消費 + アクセス権付与
+      // 管理者UID取得
+      const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
+      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : null;
+      // 原子的にコイン消費 + アクセス権付与 + 管理者へ移転
       const batch = writeBatch(db);
       batch.update(doc(db, 'users', uid), { points: increment(-pts) });
+      if (adminUid && adminUid !== uid) {
+        batch.update(doc(db, 'users', adminUid), { points: increment(pts) });
+        batch.set(doc(collection(db, 'transactions')), {
+          userId: adminUid, type: 'receive', points: pts,
+          description: item.name + '（受取）', createdAt: serverTimestamp()
+        });
+      }
       batch.set(doc(db, 'zoom_access', accessDocId), {
         uid, eventId, rank: rankKey, ptsSpent: pts,
         grantedAt: serverTimestamp(),
