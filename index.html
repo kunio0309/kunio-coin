@@ -1755,8 +1755,24 @@ window.startEventPayment = async function(itemId) {
   if (!window._uid) { showZoomError('⚠️ エラー', 'ログイン情報が取得できません。再ログインしてください。'); return; }
   const rankKey = getMyRank();
   const pts = item.prices[rankKey];
-  // 残高取得して確認ダイアログ表示
   try {
+    // 払い済みチェックを先に行う
+    const accessDocId = item.eventId + '_' + window._uid;
+    const accessSnap = await getDoc(doc(db, 'event_access', accessDocId));
+    if (accessSnap.exists()) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+      overlay.innerHTML = '<div style="background:#1a2a1a;border:1px solid #4caf50;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">'
+        + '<div style="font-size:36px;margin-bottom:10px;">✅</div>'
+        + '<div style="font-size:16px;font-weight:700;color:#4caf50;margin-bottom:8px;">参加登録済みです</div>'
+        + '<div style="font-size:13px;color:var(--dim);line-height:1.8;">すでに参加費をお支払い済みです。<br>二重払いにはなっていません。</div>'
+        + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="margin-top:18px;width:100%;padding:10px;border-radius:10px;border:none;background:#4caf50;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">閉じる</button>'
+        + '</div>';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+      return;
+    }
+    // 残高取得して確認ダイアログ表示
     const userSnap = await getDoc(doc(db, 'users', window._uid));
     const balance = (userSnap.data() && userSnap.data().points) || 0;
     const after = balance - pts;
