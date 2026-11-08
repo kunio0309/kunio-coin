@@ -295,6 +295,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <!-- 購入済みZOOMバナー -->
     <div id="zoom-access-banner" style="display:none;margin:12px 0;"></div>
 
+    <!-- 購入済みイベントバナー -->
+    <div id="event-access-banner" style="display:none;margin:12px 0;"></div>
+
     <!-- 営業ページ作成ツール（利用権がある人だけ表示） -->
     <div id="lp-tool-banner" style="display:none;margin:12px 0;">
       <button onclick="openLpTool()" style="width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#14b886,#0e9a70);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">🏢 営業ページ作成ツールを開く</button>
@@ -634,6 +637,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 </div>
 
+<!-- モーダル: 11/16二次会参加確定 -->
+<div class="modal-overlay" id="modal-event-nijikai-1116" onclick="closeModal('modal-event-nijikai-1116',event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-event-nijikai-1116')">✕</button>
+    <div class="modal-title">🍻 二次会のお支払い完了</div>
+    <div style="background:var(--d3);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+      <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:10px;">お支払いありがとうございます。<br>完了報告をお願いします。</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:14px;">🗓 2026年11月16日（日）二次会</div>
+      <a id="event-nijikai-band-link" href="#" target="_blank"
+        style="display:block;background:linear-gradient(135deg,#4caf50,#388e3c);color:#fff;text-align:center;padding:12px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;">
+        📢 BANDで完了報告する
+      </a>
+    </div>
+    <button class="btn-secondary" onclick="closeModal('modal-event-nijikai-1116')">閉じる</button>
+  </div>
+</div>
+
 <!-- モーダル: 二次会費用精算 -->
 <div class="modal-overlay" id="modal-nijikai" onclick="closeModal('modal-nijikai',event)">
   <div class="modal">
@@ -867,6 +887,7 @@ async function loadUser(uid) {
     renderUseMenu();
     checkZoomAccessOnLoad(window._uid);
     checkLpRightsOnLoad(window._uid);
+    checkEventAccessOnLoad(window._uid);
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1280,7 +1301,8 @@ const USE_ITEMS = [
   { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
   { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} },
   { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'営業用ページとチラシ用QRコードを作成（初回のみコイン）', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
-  { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' }
+  { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' },
+  { id:'nijikai-1116', icon:'🍻', name:'11/16 二次会参加費', sub:'11/16(日)｜ゼロコスト・リサイクラーズ: 2,200枚 ／ 卒業生: 4,400枚', prices:{gold:2200, silver:2200, bronze:4400}, type:'event', eventId:'nijikai-1116', eventExpiry:'2026-11-16' }
 ];
 
 // サービス公開状態（Firebaseから読み込む）
@@ -1420,6 +1442,10 @@ window.selectUseItem = function(idx) {
     if (btn) btn.textContent = rankKey === 'gold' ? '📹 Zoom情報を見る（無料）' : '📹 コインを使ってZoom情報を見る';
     if (dateGrp) dateGrp.style.display = 'none';
     if (memoGrp) memoGrp.style.display = 'none';
+  } else if (item.type === 'event') {
+    if (btn) btn.textContent = '🍻 コインを使って参加する';
+    if (dateGrp) dateGrp.style.display = 'none';
+    if (memoGrp) memoGrp.style.display = 'none';
   } else {
     if (btn) btn.textContent = '申請する';
     if (dateGrp) dateGrp.style.display = '';
@@ -1515,6 +1541,14 @@ window.doUse = async function() {
   if (zoomItem) {
     closeModal('modal-use');
     await doZoomUse(zoomItem);
+    return;
+  }
+
+  // イベント専用フロー
+  const eventItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'event');
+  if (eventItem) {
+    closeModal('modal-use');
+    await doEventUse(eventItem);
     return;
   }
 
@@ -1715,6 +1749,82 @@ async function checkZoomAccessOnLoad(uid) {
         const expiryDate = expiry && expiry.toDate ? expiry.toDate() : new Date(expiry);
         if (expiryDate > now) {
           updateZoomBanner(item);
+          break;
+        }
+      }
+    } catch(e) {}
+  }
+}
+
+async function doEventUse(item) {
+  const uid = window._uid;
+  const rankKey = getMyRank();
+  const pts = item.prices[rankKey];
+  const accessDocId = item.eventId + '_' + uid;
+  try {
+    const accessSnap = await getDoc(doc(db, 'event_access', accessDocId));
+    if (!accessSnap.exists()) {
+      const userSnap = await getDoc(doc(db, 'users', uid));
+      const balance = (userSnap.data() && userSnap.data().points) || 0;
+      if (balance < pts) {
+        showZoomError('❌ コインが足りません', '必要: ' + pts.toLocaleString() + '枚\n現在の残高: ' + balance.toLocaleString() + '枚\n\nコインを購入してから再度お試しください。');
+        return;
+      }
+      const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
+      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : null;
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', uid), { points: increment(-pts) });
+      if (adminUid && adminUid !== uid) {
+        batch.update(doc(db, 'users', adminUid), { points: increment(pts) });
+        batch.set(doc(collection(db, 'transactions')), {
+          userId: adminUid, type: 'receive', points: pts,
+          description: item.name + '（受取）', createdAt: serverTimestamp()
+        });
+      }
+      batch.set(doc(db, 'event_access', accessDocId), {
+        uid, eventId: item.eventId, rank: rankKey, ptsSpent: pts,
+        grantedAt: serverTimestamp(),
+        expiresAt: new Date(item.eventExpiry + 'T23:59:59+09:00')
+      });
+      batch.set(doc(collection(db, 'transactions')), {
+        userId: uid, type: 'spend', points: -pts,
+        description: item.name + '（消費）', createdAt: serverTimestamp()
+      });
+      await batch.commit();
+      playMinusSound();
+      if (window._loadUser) await window._loadUser(uid);
+    }
+    updateEventBanner(item);
+    openModal('modal-event-' + item.eventId);
+  } catch(e) {
+    showZoomError('⚠️ エラーが発生しました', e.message);
+  }
+}
+
+function updateEventBanner(item) {
+  const banner = document.getElementById('event-access-banner');
+  if (!banner) return;
+  banner.style.display = 'block';
+  banner.innerHTML = '<div style="background:linear-gradient(135deg,#2a1a0d,#1a1a0a);border:1px solid #ff9800;border-radius:14px;padding:14px 16px;">'
+    + '<div style="font-size:11px;letter-spacing:2px;color:#ff9800;margin-bottom:6px;">● 参加受付済み</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">' + item.icon + ' ' + item.name + '</div>'
+    + '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">2026年11月16日（日）</div>'
+    + '<button onclick="openModal(\'modal-event-' + item.eventId + '\')" style="width:100%;padding:10px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">📢 完了報告はこちら</button>'
+    + '</div>';
+}
+
+async function checkEventAccessOnLoad(uid) {
+  const eventItems = USE_ITEMS.filter(i => i.type === 'event');
+  for (const item of eventItems) {
+    try {
+      const accessDocId = item.eventId + '_' + uid;
+      const snap = await getDoc(doc(db, 'event_access', accessDocId));
+      if (snap.exists()) {
+        const expiry = snap.data().expiresAt;
+        const now = new Date();
+        const expiryDate = expiry && expiry.toDate ? expiry.toDate() : new Date(expiry);
+        if (expiryDate > now) {
+          updateEventBanner(item);
           break;
         }
       }
