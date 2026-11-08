@@ -1541,7 +1541,7 @@ window.doUse = async function() {
   const eventItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'event');
   if (eventItem) {
     closeModal('modal-use');
-    await doEventUse(eventItem);
+    await window.startEventPayment(eventItem.id);
     return;
   }
 
@@ -1751,7 +1751,37 @@ async function checkZoomAccessOnLoad(uid) {
 
 window.startEventPayment = async function(itemId) {
   const item = USE_ITEMS.find(i => i.id === itemId);
-  if (item) await doEventUse(item);
+  if (!item) return;
+  if (!window._uid) { showZoomError('⚠️ エラー', 'ログイン情報が取得できません。再ログインしてください。'); return; }
+  const rankKey = getMyRank();
+  const pts = item.prices[rankKey];
+  // 残高取得して確認ダイアログ表示
+  try {
+    const userSnap = await getDoc(doc(db, 'users', window._uid));
+    const balance = (userSnap.data() && userSnap.data().points) || 0;
+    const after = balance - pts;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = '<div style="background:#1a2a1a;border:2px solid #ff9800;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">'
+      + '<div style="font-size:28px;margin-bottom:10px;">🍻</div>'
+      + '<div style="font-size:16px;font-weight:700;margin-bottom:16px;">' + item.name + '</div>'
+      + '<div style="background:rgba(0,0,0,.3);border-radius:12px;padding:14px;margin-bottom:16px;text-align:left;">'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--dim);font-size:13px;">参加費</span><span style="font-weight:700;color:#ff9800;">' + pts.toLocaleString() + '枚</span></div>'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--dim);font-size:13px;">現在の残高</span><span style="font-size:13px;">' + balance.toLocaleString() + '枚</span></div>'
+      + '<div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;margin-top:4px;"><span style="color:var(--dim);font-size:13px;">支払い後の残高</span><span style="font-weight:700;color:#fff;">' + after.toLocaleString() + '枚</span></div>'
+      + '</div>'
+      + '<button id="event-confirm-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:10px;font-family:\'Noto Sans JP\',sans-serif;">✅ 支払う</button>'
+      + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;padding:10px;border-radius:10px;border:none;background:var(--d3);color:var(--dim);font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">キャンセル</button>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    overlay.querySelector('#event-confirm-btn').addEventListener('click', async function() {
+      overlay.remove();
+      await doEventUse(item);
+    });
+  } catch(e) {
+    showZoomError('⚠️ エラーが発生しました', e.message);
+  }
 };
 
 async function doEventUse(item) {
@@ -1841,7 +1871,7 @@ async function checkEventAccessOnLoad(uid) {
         promoEl.innerHTML = '<div style="background:linear-gradient(135deg,#2a1a0d,#1a0d00);border:2px solid #ff9800;border-radius:14px;padding:16px;">'
           + '<div style="font-size:11px;letter-spacing:2px;color:#ff9800;margin-bottom:6px;">📅 イベント開催</div>'
           + '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">🍻 11/16（日）二次会</div>'
-          + '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">参加費: <span style="color:#fff;font-weight:700;">' + ptsLabel + '</span>（ゼロコスト・リサイクラーズは2,200枚）</div>'
+          + '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">参加費: <span style="color:#fff;font-weight:700;">' + ptsLabel + '</span>' + (rankKey === 'bronze' ? ' <span style="color:#ff9800;">※ゼロコスト・リサイクラーズ・リサイクラーズは2,200枚</span>' : '') + '</div>'
           + '<button onclick="startEventPayment(\'' + item.id + '\')" '
           + 'style="width:100%;padding:12px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">🍻 コインで参加する</button>'
           + '</div>';
