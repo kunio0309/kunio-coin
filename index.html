@@ -1887,7 +1887,18 @@ async function checkEventAccessOnLoad(uid) {
         const expiry = snap.data().expiresAt;
         const expiryDate = expiry && expiry.toDate ? expiry.toDate() : new Date(expiry);
         if (expiryDate > now) {
-          if (promoEl) promoEl.style.display = 'none';
+          if (promoEl) {
+            const pts = item.prices[rankKey];
+            const ptsLabel = pts.toLocaleString() + '枚';
+            promoEl.innerHTML = '<div style="background:linear-gradient(135deg,#0d1a0d,#0a1a0a);border:2px solid #4caf50;border-radius:14px;padding:16px;">'
+              + '<div style="font-size:11px;letter-spacing:2px;color:#4caf50;margin-bottom:6px;">✅ 参加受付済み</div>'
+              + '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">🍻 11/16（日）二次会</div>'
+              + '<div style="font-size:12px;color:var(--dim);margin-bottom:10px;">参加費: <span style="color:#fff;font-weight:700;">' + ptsLabel + '</span> 支払い済み</div>'
+              + '<button disabled style="width:100%;padding:12px;border-radius:10px;border:none;background:#2a3a2a;color:#4caf50;font-weight:700;font-size:14px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;">✅ 参加登録済み</button>'
+              + '<div style="font-size:11px;color:var(--dim);text-align:center;margin-top:8px;">参加費は支払い済みです</div>'
+              + '</div>';
+            promoEl.style.display = 'block';
+          }
           updateEventBanner(item);
           continue;
         }
