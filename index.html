@@ -1515,6 +1515,34 @@ async function spendCoins(pts, desc) {
   return true;
 }
 
+// 支払い確認ダイアログ（全コイン消費の共通処理）
+function showPayConfirm(icon, name, pts, balance, onConfirm) {
+  const after = balance - pts;
+  const insufficient = after < 0;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = '<div style="background:linear-gradient(135deg,#1a1a0d,#0d0d00);border:2px solid #ff9800;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">'
+    + '<div style="font-size:36px;margin-bottom:8px;">' + icon + '</div>'
+    + '<div style="font-size:17px;font-weight:700;margin-bottom:20px;color:#fff;">' + name + '</div>'
+    + '<div style="background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.3);border-radius:10px;padding:14px;margin-bottom:16px;text-align:left;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">利用コイン</span><span style="color:#ff9800;font-weight:700;font-size:16px;">' + pts.toLocaleString() + '枚</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">現在の残高</span><span style="font-size:14px;color:#fff;">' + balance.toLocaleString() + '枚</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;"><span style="color:#aaa;font-size:13px;">支払い後の残高</span><span style="font-weight:700;font-size:15px;color:' + (insufficient ? '#ef5350' : '#fff') + ';">' + after.toLocaleString() + '枚</span></div>'
+    + '</div>'
+    + (insufficient ? '<div style="color:#ef5350;font-size:13px;margin-bottom:14px;">❌ コインが足りません</div>' : '')
+    + '<button id="_pay-confirm-btn"' + (insufficient ? ' disabled style="width:100%;padding:13px;border-radius:10px;border:none;background:#333;color:#666;font-weight:700;font-size:15px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"' : ' style="width:100%;padding:13px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"') + '>✅ 支払う</button>'
+    + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;padding:11px;border-radius:10px;border:1px solid #555;background:transparent;color:#aaa;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">キャンセル</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  if (!insufficient) {
+    overlay.querySelector('#_pay-confirm-btn').addEventListener('click', async function() {
+      overlay.remove();
+      await onConfirm();
+    });
+  }
+}
+
 // ポイント使用
 window.doUse = async function() {
   const ptsRaw = document.getElementById('use-type-value').value;
@@ -1525,7 +1553,13 @@ window.doUse = async function() {
   const lpItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'lp-tool');
   if (lpItem) {
     closeModal('modal-use');
-    await doLpToolUse(lpItem);
+    const rightsSnap = await getDoc(doc(db, 'lp_rights', window._uid));
+    if (rightsSnap.exists()) { await openLpTool(); return; }
+    const rankKey = getMyRank();
+    const pts = lpItem.prices[rankKey];
+    const userSnap = await getDoc(doc(db, 'users', window._uid));
+    const balance = (userSnap.data() && userSnap.data().points) || 0;
+    showPayConfirm(lpItem.icon, lpItem.name, pts, balance, () => doLpToolUse(lpItem));
     return;
   }
 
@@ -1533,11 +1567,16 @@ window.doUse = async function() {
   const zoomItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'zoom');
   if (zoomItem) {
     closeModal('modal-use');
-    await doZoomUse(zoomItem);
+    const rankKey = getMyRank();
+    const pts = zoomItem.prices[rankKey];
+    if (rankKey === 'gold' || pts === 0) { await doZoomUse(zoomItem); return; }
+    const userSnap = await getDoc(doc(db, 'users', window._uid));
+    const balance = (userSnap.data() && userSnap.data().points) || 0;
+    showPayConfirm(zoomItem.icon, zoomItem.name, pts, balance, () => doZoomUse(zoomItem));
     return;
   }
 
-  // イベント専用フロー
+  // イベント専用フロー（startEventPaymentが確認ダイアログ込み）
   const eventItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'event');
   if (eventItem) {
     closeModal('modal-use');
@@ -1550,13 +1589,24 @@ window.doUse = async function() {
     showToast('📩 KUNIOに相談リクエストを送りました！');
     return;
   }
+
+  // 通常コイン消費（個別面談・ディナーなど）
   const pts = parseInt(ptsRaw);
+  const item = USE_ITEMS.find(i => i.id === itemId);
+  const icon = item ? item.icon : '💸';
+  const name = item ? item.name : desc;
   try {
-    const ok = await spendCoins(pts, desc);
-    if (!ok) return;
+    const userSnap = await getDoc(doc(db, 'users', window._uid));
+    const balance = (userSnap.data() && userSnap.data().points) || 0;
     closeModal('modal-use');
-    showToast('✅ 申請を送りました！');
-    if (window._loadUser) await window._loadUser(window._uid);
+    showPayConfirm(icon, name, pts, balance, async () => {
+      try {
+        const ok = await spendCoins(pts, desc);
+        if (!ok) return;
+        showToast('✅ 申請を送りました！');
+        if (window._loadUser) await window._loadUser(window._uid);
+      } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+    });
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
