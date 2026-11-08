@@ -1821,9 +1821,21 @@ async function doEventUse(item) {
       await batch.commit();
       playMinusSound();
       if (window._loadUser) await window._loadUser(uid);
+      updateEventBanner(item);
+      openModal('modal-event-' + item.eventId);
+    } else {
+      // 支払い済み：完了モーダルではなく「済み」メッセージを表示
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+      overlay.innerHTML = '<div style="background:#1a2a1a;border:1px solid #4caf50;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;">'
+        + '<div style="font-size:36px;margin-bottom:10px;">✅</div>'
+        + '<div style="font-size:16px;font-weight:700;color:#4caf50;margin-bottom:8px;">参加登録済みです</div>'
+        + '<div style="font-size:13px;color:var(--dim);line-height:1.8;">すでに参加費をお支払い済みです。<br>二重払いにはなっていません。</div>'
+        + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="margin-top:18px;width:100%;padding:10px;border-radius:10px;border:none;background:#4caf50;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">閉じる</button>'
+        + '</div>';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
     }
-    updateEventBanner(item);
-    openModal('modal-event-' + item.eventId);
   } catch(e) {
     showZoomError('⚠️ エラーが発生しました', e.message);
   }
