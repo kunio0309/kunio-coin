@@ -1640,7 +1640,7 @@ async function doLpToolUse(item) {
         batch.update(doc(db, 'users', adminUidLp), { points: increment(pts) });
         batch.set(doc(collection(db, 'transactions')), {
           userId: adminUidLp, type: 'receive', points: pts,
-          description: item.name + '（受取）', createdAt: serverTimestamp()
+          description: item.name + '（' + (window._userData && window._userData.name ? window._userData.name : 'メンバー') + ' 受取）', createdAt: serverTimestamp()
         });
       }
       batch.set(doc(db, 'lp_rights', uid), {
@@ -1735,7 +1735,7 @@ async function doZoomUse(item) {
         batch.update(doc(db, 'users', adminUid), { points: increment(pts) });
         batch.set(doc(collection(db, 'transactions')), {
           userId: adminUid, type: 'receive', points: pts,
-          description: item.name + '（受取）', createdAt: serverTimestamp()
+          description: item.name + '（' + (window._userData && window._userData.name ? window._userData.name : 'メンバー') + ' 受取）', createdAt: serverTimestamp()
         });
       }
       batch.set(doc(db, 'zoom_access', accessDocId), {
@@ -1876,7 +1876,7 @@ async function doEventUse(item) {
         batch.update(doc(db, 'users', adminUid), { points: increment(pts) });
         batch.set(doc(collection(db, 'transactions')), {
           userId: adminUid, type: 'receive', points: pts,
-          description: item.name + '（受取）', createdAt: serverTimestamp()
+          description: item.name + '（' + (window._userData && window._userData.name ? window._userData.name : 'メンバー') + ' 受取）', createdAt: serverTimestamp()
         });
       }
       batch.set(doc(db, 'event_access', accessDocId), {
