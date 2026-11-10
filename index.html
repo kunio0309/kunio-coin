@@ -292,6 +292,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
 
+    <!-- コイン受取通知エリア -->
+    <div id="coin-notif-area" style="margin:12px 0;"></div>
+
     <!-- 購入済みZOOMバナー -->
     <div id="zoom-access-banner" style="display:none;margin:12px 0;"></div>
 
@@ -896,6 +899,7 @@ async function loadUser(uid) {
     checkZoomAccessOnLoad(window._uid);
     checkLpRightsOnLoad(window._uid);
     checkEventAccessOnLoad(window._uid);
+    loadCoinNotifications(window._uid);
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1970,6 +1974,83 @@ async function checkEventAccessOnLoad(uid) {
   }
 }
 
+// ━━ コイン受取通知システム ━━
+
+async function loadCoinNotifications(uid) {
+  const area = document.getElementById('coin-notif-area');
+  if (!area) return;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'coin_notifications'),
+      where('toUid', '==', uid),
+      where('confirmed', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    ));
+    if (snap.empty) { area.innerHTML = ''; return; }
+    area.innerHTML = snap.docs.map(d => {
+      const n = d.data();
+      const id = d.id;
+      if (n.type === 'received') {
+        return '<div id="notif-' + id + '" style="background:linear-gradient(135deg,#1a0d2a,#0d001a);border:2px solid #9c27b0;border-radius:14px;padding:16px;margin-bottom:10px;">'
+          + '<div style="font-size:11px;letter-spacing:2px;color:#ce93d8;margin-bottom:6px;">🎁 コインを受け取りました</div>'
+          + '<div style="font-size:16px;font-weight:700;margin-bottom:4px;color:#fff;">' + n.fromName + ' から <span style="color:#ce93d8;">' + n.amount.toLocaleString() + '枚</span></div>'
+          + '<div style="font-size:12px;color:var(--dim);margin-bottom:12px;padding:8px;background:rgba(156,39,176,.1);border-radius:8px;">「' + n.message + '」</div>'
+          + '<textarea id="thank-' + id + '" placeholder="お礼メッセージ（任意）" style="width:100%;padding:10px;border-radius:8px;border:1px solid #555;background:#1a1a2a;color:#fff;font-family:\'Noto Sans JP\',sans-serif;font-size:13px;resize:none;box-sizing:border-box;margin-bottom:10px;" rows="2"></textarea>'
+          + '<button onclick="confirmCoinNotif(\'' + id + '\',\'' + n.fromUid + '\',\'' + n.fromName.replace(/'/g, "\\'") + '\',' + n.amount + ')" style="width:100%;padding:12px;border-radius:10px;border:none;background:#9c27b0;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">✅ 確認する</button>'
+          + '</div>';
+      } else {
+        const msgHtml = n.message
+          ? '<div style="font-size:13px;color:#aaa;margin-bottom:12px;padding:10px;background:rgba(76,175,80,.1);border-radius:8px;border:1px solid rgba(76,175,80,.3);">「' + n.message + '」</div>'
+          : '<div style="font-size:12px;color:var(--dim);margin-bottom:12px;">（メッセージなし）</div>';
+        return '<div id="notif-' + id + '" style="background:linear-gradient(135deg,#0d1a0d,#001a00);border:2px solid #4caf50;border-radius:14px;padding:16px;margin-bottom:10px;">'
+          + '<div style="font-size:11px;letter-spacing:2px;color:#4caf50;margin-bottom:6px;">🎉 受け取りが確認されました</div>'
+          + '<div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#fff;">' + n.fromName + ' が確認しました</div>'
+          + msgHtml
+          + '<button onclick="ackCoinNotif(\'' + id + '\')" style="width:100%;padding:12px;border-radius:10px;border:none;background:#4caf50;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">確認</button>'
+          + '</div>';
+      }
+    }).join('');
+  } catch(e) {
+    console.error('loadCoinNotifications error:', e);
+    area.innerHTML = '';
+  }
+}
+window.loadCoinNotifications = loadCoinNotifications;
+
+window.confirmCoinNotif = async function(notifId, fromUid, fromName, amount) {
+  const thankEl = document.getElementById('thank-' + notifId);
+  const thankMsg = thankEl ? thankEl.value.trim() : '';
+  try {
+    await updateDoc(doc(db, 'coin_notifications', notifId), { confirmed: true });
+    await addDoc(collection(db, 'coin_notifications'), {
+      type: 'ack',
+      toUid: fromUid,
+      fromUid: window._uid,
+      fromName: window._userData ? (window._userData.name || 'メンバー') : 'メンバー',
+      amount: amount,
+      message: thankMsg,
+      confirmed: false,
+      createdAt: serverTimestamp()
+    });
+    const card = document.getElementById('notif-' + notifId);
+    if (card) card.remove();
+    showToast('✅ 確認しました' + (thankMsg ? '・お礼を送りました🎉' : ''));
+  } catch(e) {
+    showToast('⚠️ エラー: ' + e.message);
+  }
+};
+
+window.ackCoinNotif = async function(notifId) {
+  try {
+    await updateDoc(doc(db, 'coin_notifications', notifId), { confirmed: true });
+    const card = document.getElementById('notif-' + notifId);
+    if (card) card.remove();
+  } catch(e) {
+    showToast('⚠️ エラー: ' + e.message);
+  }
+};
+
 // 円→枚 変換（100枚単位で切り上げ）
 function yenToPts(yen, rankKey) {
   const raw = yen / RANK_INFO[rankKey].rate;
@@ -2407,6 +2488,19 @@ window.doSend = async function() {
       userId: toUid, points: pts,
       description: '🎁 ' + fromName + 'から（' + msg + '）',
       icon: '🎁', createdAt: now, type: 'receive'
+    });
+
+    // 受取通知を作成
+    await addDoc(collection(db, 'coin_notifications'), {
+      type: 'received',
+      toUid: toUid,
+      fromUid: window._uid,
+      fromName: fromName,
+      toName: toName,
+      amount: pts,
+      message: msg,
+      confirmed: false,
+      createdAt: now
     });
 
     closeModal('modal-send');
