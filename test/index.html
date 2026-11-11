@@ -835,7 +835,7 @@ async function coinApi(action, data) {
   const token = await auth.currentUser.getIdToken();
   let r;
   try {
-    r = await fetch(COIN_API, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: action }, data || {})) });
+    r = await fetch(COIN_API, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: action, idToken: token }, data || {})) });
   } catch(e) { throw new Error('サーバーにつながりませんでした。電波の良い所でもう一度お試しください'); }
   let j = null; try { j = await r.json(); } catch(e) {}
   if (!j) throw new Error('サーバーにつながりませんでした（' + r.status + '）');
