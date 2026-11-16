@@ -846,6 +846,7 @@ async function coinApi(action, data) {
   return j;
 }
 window._coinApi = coinApi;
+window._showPayConfirm = (...a) => showPayConfirm(...a);
 
 // loadHistory をグローバルに公開
 window._refreshHistory = null; // will be set after module loads
@@ -1117,18 +1118,19 @@ async function approveMember(uid) {
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 }
 
-async function loadAdminMembers() {
+async function loadAdminMembers(skipExpiry) {
   try {
     const snap = await getDocs(collection(db,'users'));
     const el = document.getElementById('admin-members');
-    el.innerHTML = '';
-    const docs = snap.docs.slice().filter(d => !d.data().isAdmin).sort((a,b) => (b.data().points||0) - (a.data().points||0));
+    // ランクが決まっていない人を一番上に。その下は枚数の多い順
+    const docs = snap.docs.slice().filter(d => !d.data().isAdmin).sort((a,b) => (RANK_INFO[a.data().rank] ? 1 : 0) - (RANK_INFO[b.data().rank] ? 1 : 0) || (b.data().points||0) - (a.data().points||0));
+    let html = '';
     // 卒業生の失効を一括チェック（管理画面を開くたびにスイープ）、確定データを配列に積む
     const members = [];
     for (const d of docs) {
       const u0 = d.data();
       const rk = RANK_INFO[u0.rank] ? u0.rank : '';
-      if (rk === 'bronze' && u0.points > 0) {
+      if (!skipExpiry && rk === 'bronze' && u0.points > 0) {
         const result = await checkExpiry(d.id, u0.name, 'bronze', u0.points, u0.rankChangedAt);
         if (result.expired) u0.points = 0;
       }
@@ -1143,7 +1145,7 @@ async function loadAdminMembers() {
       topAlert.innerHTML = noRank ? '<div onclick="document.getElementById(\'admin-members\').scrollIntoView({behavior:\'smooth\',block:\'start\'})" style="cursor:pointer;background:rgba(255,152,0,.15);border:2px solid #ff9800;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:14px;font-weight:700;color:#ff9800;">⚠️ ランクを決めてください：新規登録 ' + noRank + '人<div style="font-size:12px;font-weight:400;color:var(--text);margin-top:4px;">ここを押すと「メンバー一覧」へ移動します。名前の下の 🥇🥈🥉 から選んでください。</div></div>' : '';
     }
     if (noRank && !window._rankToastShown) { window._rankToastShown = true; showToast('⚠️ ランク未設定の新規登録が' + noRank + '人います（管理画面で決めてください）'); }
-    if (noRank) el.innerHTML = '<div style="background:rgba(255,152,0,.12);border:2px solid #ff9800;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700;color:#ff9800;">⚠️ ランクを決めてください：' + noRank + '人<div style="font-size:11px;font-weight:400;color:var(--dim);margin-top:2px;">ランクが決まるまで、その人はコインを使えません。下の一覧で「ランク未設定」の人のボタンを押してください。</div></div>';
+    if (noRank) html = '<div style="background:rgba(255,152,0,.12);border:2px solid #ff9800;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700;color:#ff9800;">⚠️ ランクを決めてください：' + noRank + '人<div style="font-size:11px;font-weight:400;color:var(--dim);margin-top:2px;">ランクが決まるまで、その人はコインを使えません。下の一覧で「ランク未設定」の人のボタンを押してください。</div></div>';
     members.forEach(m => {
       const d = { id: m.id };
       const u = m.u;
@@ -1156,7 +1158,7 @@ async function loadAdminMembers() {
         return '<button onclick="event.stopPropagation();setMemberRank(\'' + d.id + '\',\'' + k + '\',\'' + safeName + '\')" style="flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:' + info.bg +
           ';color:' + info.color + ';border:2px solid ' + (active ? '#fff' : 'transparent') + ';opacity:' + (active ? '1' : '.55') + ';">' + info.badge + '</button>';
       }).join('');
-      el.innerHTML += `<div class="member-row" style="cursor:pointer;flex-wrap:wrap;" onclick="loadMemberHistory('${d.id}','${safeName}')">
+      html += `<div class="member-row" style="cursor:pointer;flex-wrap:wrap;" onclick="loadMemberHistory('${d.id}','${safeName}')">
         <div class="member-avatar">👤</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">${u.name||'—'}</div>
           ${hasRank ? `<span style="font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;background:${RANK_INFO[rankKey].bg};color:${RANK_INFO[rankKey].color};">${RANK_INFO[rankKey].label}</span>` : `<span style="font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;background:#ff9800;color:#fff;">⚠️ ランク未設定</span>`}</div>
@@ -1164,6 +1166,7 @@ async function loadAdminMembers() {
         <div style="display:flex;gap:4px;width:100%;margin-top:6px;" onclick="event.stopPropagation()">${rankBtns}</div>
       </div>`;
     });
+    el.innerHTML = html;  // まとめて1回で入れ替える（画面が上下に跳ねないように）
   } catch(e) { console.error(e); }
 }
 window.setMemberRank = async function(uid, rankKey, name) {
@@ -1171,7 +1174,10 @@ window.setMemberRank = async function(uid, rankKey, name) {
   try {
     await updateDoc(doc(db,'users',uid), { rank: rankKey, rankChangedAt: serverTimestamp() });
     showToast('✅ ランクを' + RANK_INFO[rankKey].label + 'に変更しました');
-    loadAdminMembers();
+    // 押した場所から動かないように、今の位置を覚えておいて戻す
+    const y = window.scrollY;
+    await loadAdminMembers(true);  // ランクを決めたときは期限切れの確認を省いて、すぐ表示し直す
+    window.scrollTo(0, y);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
@@ -1550,7 +1556,9 @@ async function checkExpiry(uid, userName, rank, points, rankChangedAt) {
 
 
 // 支払い確認ダイアログ（全コイン消費の共通処理）
-function showPayConfirm(icon, name, pts, balance, onConfirm) {
+function showPayConfirm(icon, name, pts, balance, onConfirm, words) {
+  // words：ことばを変えたいとき（コインを送るときなど）。なければ「支払う」のまま
+  const W = Object.assign({ use: '利用コイン', after: '支払い後の残高', ok: '✅ 支払う' }, words || {});
   const after = balance - pts;
   const insufficient = after < 0;
   const overlay = document.createElement('div');
@@ -1559,12 +1567,12 @@ function showPayConfirm(icon, name, pts, balance, onConfirm) {
     + '<div style="font-size:36px;margin-bottom:8px;">' + icon + '</div>'
     + '<div style="font-size:17px;font-weight:700;margin-bottom:20px;color:#fff;">' + name + '</div>'
     + '<div style="background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.3);border-radius:10px;padding:14px;margin-bottom:16px;text-align:left;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">利用コイン</span><span style="color:#ff9800;font-weight:700;font-size:16px;">' + pts.toLocaleString() + '枚</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">' + W.use + '</span><span style="color:#ff9800;font-weight:700;font-size:16px;">' + pts.toLocaleString() + '枚</span></div>'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">現在の残高</span><span style="font-size:14px;color:#fff;">' + balance.toLocaleString() + '枚</span></div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;"><span style="color:#aaa;font-size:13px;">支払い後の残高</span><span style="font-weight:700;font-size:15px;color:' + (insufficient ? '#ef5350' : '#fff') + ';">' + after.toLocaleString() + '枚</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;"><span style="color:#aaa;font-size:13px;">' + W.after + '</span><span style="font-weight:700;font-size:15px;color:' + (insufficient ? '#ef5350' : '#fff') + ';">' + after.toLocaleString() + '枚</span></div>'
     + '</div>'
     + (insufficient ? '<div style="color:#ef5350;font-size:13px;margin-bottom:14px;">❌ コインが足りません</div>' : '')
-    + '<button id="_pay-confirm-btn"' + (insufficient ? ' disabled style="width:100%;padding:13px;border-radius:10px;border:none;background:#333;color:#666;font-weight:700;font-size:15px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"' : ' style="width:100%;padding:13px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"') + '>✅ 支払う</button>'
+    + '<button id="_pay-confirm-btn"' + (insufficient ? ' disabled style="width:100%;padding:13px;border-radius:10px;border:none;background:#333;color:#666;font-weight:700;font-size:15px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"' : ' style="width:100%;padding:13px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"') + '>' + W.ok + '</button>'
     + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;padding:11px;border-radius:10px;border:1px solid #555;background:transparent;color:#aaa;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">キャンセル</button>'
     + '</div>';
   document.body.appendChild(overlay);
@@ -2372,6 +2380,11 @@ window.doSend = async function() {
   const bal = window._userData ? window._userData.points || 0 : 0;
   if (pts > bal) { showToast('⚠️ 残高が不足しています（残高：' + bal.toLocaleString() + '枚）'); return; }
 
+  // 送る前に「〇〇さんに〇枚送りますか？」を確認する
+  window._showPayConfirm('🎁', toName + ' さんへ送る', pts, bal, () => sendNow(toUid, pts, msg, toName),
+    { use: '送る枚数', after: '送ったあとの残高', ok: '🎁 送る' });
+};
+async function sendNow(toUid, pts, msg, toName) {
   const btn = document.querySelector('#modal-send .btn-primary');
   btn.textContent = '送信中...'; btn.disabled = true;
 
