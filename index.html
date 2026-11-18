@@ -21,7 +21,9 @@
   --card:rgba(26,42,26,0.85); --border:rgba(105,240,174,0.12);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;overflow-x:hidden;}
+html,body{-webkit-text-size-adjust:100%;overflow-x:hidden;}
+/* パソコンのマウス・トラックパッドで下に動かせるように、引っぱりすぎ防止は html だけにかける */
+html{overscroll-behavior:none;}
 *{box-sizing:border-box;}
 input,select,textarea,button{max-width:100%;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--dark);color:var(--text);
@@ -480,6 +482,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <!-- 管理（KUNIO専用） -->
   <div class="screen" id="screen-admin">
     <div style="background:rgba(255,213,79,.08);border:1px solid rgba(255,213,79,.2);border-radius:12px;padding:10px 14px;margin-bottom:16px;margin-top:8px;font-size:12px;color:var(--gold);">👑 KUNIO管理画面</div>
+    <div id="admin-rank-alert" style="display:none;"></div>
     <div class="section-title">● サービス公開設定</div>
     <div class="admin-card" id="admin-services"><div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div></div>
     <div class="section-title">● 振込申請 確認待ち</div>
@@ -788,6 +791,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div class="toast" id="toast"></div>
 
 <!-- Firebase SDK -->
+<script src="items.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
@@ -826,6 +830,23 @@ window._limit = limit;
 window._ts = serverTimestamp;
 window._inc = increment;
 window._deleteDoc = deleteDoc;
+
+// コイン係（エックスサーバー）を呼ぶ。コインを増やす・減らす処理は、すべてここを通す
+const COIN_API = 'https://zerocostrecyclers.com/coin/api.php';
+async function coinApi(action, data) {
+  if (!auth.currentUser) throw new Error('ログインしてください');
+  const token = await auth.currentUser.getIdToken();
+  let r;
+  try {
+    r = await fetch(COIN_API, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: action, idToken: token }, data || {})) });
+  } catch(e) { throw new Error('サーバーにつながりませんでした。電波の良い所でもう一度お試しください'); }
+  let j = null; try { j = await r.json(); } catch(e) {}
+  if (!j) throw new Error('サーバーにつながりませんでした（' + r.status + '）');
+  if (!j.ok) { const err = new Error(j.msg || 'エラーが起きました'); err.code = j.code; throw err; }
+  return j;
+}
+window._coinApi = coinApi;
+window._showPayConfirm = (...a) => showPayConfirm(...a);
 
 // loadHistory をグローバルに公開
 window._refreshHistory = null; // will be set after module loads
@@ -1097,42 +1118,55 @@ async function approveMember(uid) {
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 }
 
-async function loadAdminMembers() {
+async function loadAdminMembers(skipExpiry) {
   try {
     const snap = await getDocs(collection(db,'users'));
     const el = document.getElementById('admin-members');
-    el.innerHTML = '';
-    const docs = snap.docs.slice().filter(d => !d.data().isAdmin).sort((a,b) => (b.data().points||0) - (a.data().points||0));
+    // ランクが決まっていない人を一番上に。その下は枚数の多い順
+    const docs = snap.docs.slice().filter(d => !d.data().isAdmin).sort((a,b) => (RANK_INFO[a.data().rank] ? 1 : 0) - (RANK_INFO[b.data().rank] ? 1 : 0) || (b.data().points||0) - (a.data().points||0));
+    let html = '';
     // 卒業生の失効を一括チェック（管理画面を開くたびにスイープ）、確定データを配列に積む
     const members = [];
     for (const d of docs) {
       const u0 = d.data();
-      const rk = RANK_INFO[u0.rank] ? u0.rank : 'gold';
-      if (rk === 'bronze' && u0.points > 0) {
+      const rk = RANK_INFO[u0.rank] ? u0.rank : '';
+      if (!skipExpiry && rk === 'bronze' && u0.points > 0) {
         const result = await checkExpiry(d.id, u0.name, 'bronze', u0.points, u0.rankChangedAt);
         if (result.expired) u0.points = 0;
       }
       members.push({ id: d.id, u: u0 });
     }
+    // ランクが決まっていない人（新規登録など）は、決めるまでコインを使えない
+    const noRank = members.filter(m => !RANK_INFO[m.u.rank]).length;
+    // 管理画面のいちばん上と、ログイン直後のお知らせにも出す
+    const topAlert = document.getElementById('admin-rank-alert');
+    if (topAlert) {
+      topAlert.style.display = noRank ? 'block' : 'none';
+      topAlert.innerHTML = noRank ? '<div onclick="document.getElementById(\'admin-members\').scrollIntoView({behavior:\'smooth\',block:\'start\'})" style="cursor:pointer;background:rgba(255,152,0,.15);border:2px solid #ff9800;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:14px;font-weight:700;color:#ff9800;">⚠️ ランクを決めてください：新規登録 ' + noRank + '人<div style="font-size:12px;font-weight:400;color:var(--text);margin-top:4px;">ここを押すと「メンバー一覧」へ移動します。名前の下の 🥇🥈🥉 から選んでください。</div></div>' : '';
+    }
+    if (noRank && !window._rankToastShown) { window._rankToastShown = true; showToast('⚠️ ランク未設定の新規登録が' + noRank + '人います（管理画面で決めてください）'); }
+    if (noRank) html = '<div style="background:rgba(255,152,0,.12);border:2px solid #ff9800;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700;color:#ff9800;">⚠️ ランクを決めてください：' + noRank + '人<div style="font-size:11px;font-weight:400;color:var(--dim);margin-top:2px;">ランクが決まるまで、その人はコインを使えません。下の一覧で「ランク未設定」の人のボタンを押してください。</div></div>';
     members.forEach(m => {
       const d = { id: m.id };
       const u = m.u;
-      const rankKey = RANK_INFO[u.rank] ? u.rank : 'gold';
+      const hasRank = !!RANK_INFO[u.rank];
+      const rankKey = hasRank ? u.rank : 'gold';
       const safeName = (u.name||'—').replace(/'/g,"\\'");
       const rankBtns = Object.keys(RANK_INFO).map(function(k) {
-        const active = k === rankKey;
+        const active = hasRank && k === rankKey;
         const info = RANK_INFO[k];
         return '<button onclick="event.stopPropagation();setMemberRank(\'' + d.id + '\',\'' + k + '\',\'' + safeName + '\')" style="flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:' + info.bg +
           ';color:' + info.color + ';border:2px solid ' + (active ? '#fff' : 'transparent') + ';opacity:' + (active ? '1' : '.55') + ';">' + info.badge + '</button>';
       }).join('');
-      el.innerHTML += `<div class="member-row" style="cursor:pointer;flex-wrap:wrap;" onclick="loadMemberHistory('${d.id}','${safeName}')">
+      html += `<div class="member-row" style="cursor:pointer;flex-wrap:wrap;" onclick="loadMemberHistory('${d.id}','${safeName}')">
         <div class="member-avatar">👤</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">${u.name||'—'}</div>
-          <span style="font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;background:${RANK_INFO[rankKey].bg};color:${RANK_INFO[rankKey].color};">${RANK_INFO[rankKey].label}</span></div>
+          ${hasRank ? `<span style="font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;background:${RANK_INFO[rankKey].bg};color:${RANK_INFO[rankKey].color};">${RANK_INFO[rankKey].label}</span>` : `<span style="font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;background:#ff9800;color:#fff;">⚠️ ランク未設定</span>`}</div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gb);">${(u.points||0).toLocaleString()} 枚</div>
         <div style="display:flex;gap:4px;width:100%;margin-top:6px;" onclick="event.stopPropagation()">${rankBtns}</div>
       </div>`;
     });
+    el.innerHTML = html;  // まとめて1回で入れ替える（画面が上下に跳ねないように）
   } catch(e) { console.error(e); }
 }
 window.setMemberRank = async function(uid, rankKey, name) {
@@ -1140,7 +1174,10 @@ window.setMemberRank = async function(uid, rankKey, name) {
   try {
     await updateDoc(doc(db,'users',uid), { rank: rankKey, rankChangedAt: serverTimestamp() });
     showToast('✅ ランクを' + RANK_INFO[rankKey].label + 'に変更しました');
-    loadAdminMembers();
+    // 押した場所から動かないように、今の位置を覚えておいて戻す
+    const y = window.scrollY;
+    await loadAdminMembers(true);  // ランクを決めたときは期限切れの確認を省いて、すぐ表示し直す
+    window.scrollTo(0, y);
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
@@ -1369,20 +1406,8 @@ function ptsForRank(basePts, rankKey) {
 }
 
 // コインを使う：メニュー項目（基準額はゼロコストリサイクラーズ＝1円1枚）
-const USE_ITEMS = [
-  { id:'consult-30',    icon:'🤝', name:'個別面談（30分）', sub:'KUNIOと1対1', prices:{gold:10000, silver:15000, bronze:20000} },
-  { id:'consult-work',  icon:'🤝', name:'個別面談＋一緒に作業（1時間）', sub:'面談後に実作業もサポート', prices:{gold:28000, silver:35000, bronze:50000} },
-  { id:'dinner',        icon:'🍽️', name:'KUNIOと高級ディナー', sub:'1人2万〜4万の高級料理を無料でKUNIOと食べに行きます。時間はKUNIOと相談。', prices:{gold:30000, silver:45000, bronze:60000} },
-  { id:'manga',         icon:'🎨', name:'漫画作成（10ページ程度）', sub:'オリジナル漫画を制作', prices:{gold:20000, silver:30000, bronze:50000} },
-  { id:'rental-day',    icon:'👑', name:'KUNIO一日レンタル', sub:'内容・地域により要相談', prices:null },
-  { id:'summon',        icon:'👑', name:'KUNIO召喚 通常（6時間）', sub:'KUNIOが直接手伝いに来る', prices:{gold:30000, silver:45000, bronze:60000} },
-  { id:'summon-truck',  icon:'🚛', name:'KUNIO召喚 トラック（6時間）', sub:'地域により要相談', prices:null },
-  { id:'youtube',       icon:'▶️', name:'YouTubeでKUNIOに無料作業員の募集を依頼', sub:'作業員が0の場合は次回の告知無料', prices:{gold:10000, silver:10000, bronze:20000} },
-  { id:'real-estate',   icon:'🏠', name:'不動産屋単体向けサイト', sub:'1タッチ不動産会社営業用専用サイト', prices:{gold:1000, silver:2000, bronze:3000} },
-  { id:'lp-real-estate', icon:'🏢', name:'不動産会社向けLP・QRツール', sub:'営業用ページとチラシ用QRコードを作成（初回のみコイン）', prices:{gold:1000, silver:2000, bronze:3000}, type:'lp-tool' },
-  { id:'zoom-ebay-1101', icon:'📹', name:'ダイスケさんイーベイ勉強会（11/1）', sub:'11/1(土) 20:00〜 Zoom参加', prices:{gold:0, silver:1000, bronze:2000}, type:'zoom', zoomEventId:'ebay-1101', zoomExpiry:'2026-11-02' },
-  { id:'nijikai-1116', icon:'🍻', name:'11/16 二次会参加費', sub:'11/16(日)｜ゼロコスト・リサイクラーズ: 2,200枚 ／ 卒業生: 4,400枚', prices:{gold:2200, silver:2200, bronze:4400}, type:'event', eventId:'nijikai-1116', eventExpiry:'2026-11-16' }
-];
+// メニューの中身は items.js にあります（コイン係のサーバーも同じファイルを読みます）
+const USE_ITEMS = window.USE_ITEMS || [];
 
 // サービス公開状態（Firebaseから読み込む）
 let _disabledServices = new Set();
@@ -1522,72 +1547,18 @@ window.selectUseItem = function(idx) {
 async function checkExpiry(uid, userName, rank, points, rankChangedAt) {
   if (rank !== 'bronze' || !points || points <= 0) return {};
   try {
-    const txSnap = await getDocs(
-      query(collection(db,'transactions'), where('userId','==',uid), orderBy('createdAt','desc'), limit(1))
-    );
-    const lastTxDate = (!txSnap.empty && txSnap.docs[0].data().createdAt && txSnap.docs[0].data().createdAt.toDate)
-      ? txSnap.docs[0].data().createdAt.toDate() : null;
-    const rankDate = (rankChangedAt && rankChangedAt.toDate) ? rankChangedAt.toDate() : null;
-    // 取引日とランク変更日、より新しい方を基準にする（卒業生になった日からもカウントできるように）
-    let lastDate = lastTxDate;
-    if (rankDate && (!lastDate || rankDate > lastDate)) lastDate = rankDate;
-    if (!lastDate) return {};
-    const diffDays = Math.floor((new Date() - lastDate) / (1000*60*60*24));
-    if (diffDays >= 180) {
-      const amount = points;
-      await updateDoc(doc(db,'users',uid), { points: 0 });
-      await addDoc(collection(db,'transactions'), {
-        userId: uid, points: -amount, description: '⏰ コイン期限切れ（180日経過）',
-        icon: '⏰', createdAt: serverTimestamp(), type: 'expire'
-      });
-      const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
-      if (!adminSnap.empty) {
-        const adminUid = adminSnap.docs[0].id;
-        if (adminUid !== uid) {
-          await updateDoc(doc(db,'users',adminUid), { points: increment(amount) });
-          await addDoc(collection(db,'transactions'), {
-            userId: adminUid, points: amount, description: (userName||'メンバー') + 'の失効コインを回収',
-            icon: '⏰', createdAt: serverTimestamp(), type: 'expire-income'
-          });
-        }
-      }
-      return { expired: true, amount };
-    } else if (diffDays >= 150) {
-      return { warning: true, daysLeft: 180 - diffDays };
-    }
+    const r = await coinApi('expire', { uid: uid });
+    if (r.expired) return { expired: true, amount: r.amount };
+    if (r.warning) return { warning: true, daysLeft: r.daysLeft };
     return {};
   } catch(e) { console.error('期限チェックエラー:', e); return {}; }
 }
 
-// コイン消費の共通処理（本人から減算し、KUNIOの残高に反映）
-async function spendCoins(pts, desc) {
-  if (!window._uid) return false;
-  const snap = await getDoc(doc(db,'users',window._uid));
-  const current = snap.data().points || 0;
-  if (current < pts) { showToast('⚠️ コインが不足しています'); return false; }
-  await updateDoc(doc(db,'users',window._uid), { points: increment(-pts) });
-  await addDoc(collection(db,'transactions'), {
-    userId: window._uid, points: -pts, description: desc,
-    icon: '💸', createdAt: serverTimestamp(), type: 'spend'
-  });
-  // 使用分をKUNIO（管理者）の残高に反映
-  const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
-  if (!adminSnap.empty) {
-    const adminUid = adminSnap.docs[0].id;
-    if (adminUid !== window._uid) {
-      const spenderName = window._userData ? (window._userData.name || 'メンバー') : 'メンバー';
-      await updateDoc(doc(db,'users',adminUid), { points: increment(pts) });
-      await addDoc(collection(db,'transactions'), {
-        userId: adminUid, points: pts, description: spenderName + 'が利用（' + desc + '）',
-        icon: '💰', createdAt: serverTimestamp(), type: 'redeem-income'
-      });
-    }
-  }
-  return true;
-}
 
 // 支払い確認ダイアログ（全コイン消費の共通処理）
-function showPayConfirm(icon, name, pts, balance, onConfirm) {
+function showPayConfirm(icon, name, pts, balance, onConfirm, words) {
+  // words：ことばを変えたいとき（コインを送るときなど）。なければ「支払う」のまま
+  const W = Object.assign({ use: '利用コイン', after: '支払い後の残高', ok: '✅ 支払う' }, words || {});
   const after = balance - pts;
   const insufficient = after < 0;
   const overlay = document.createElement('div');
@@ -1596,12 +1567,12 @@ function showPayConfirm(icon, name, pts, balance, onConfirm) {
     + '<div style="font-size:36px;margin-bottom:8px;">' + icon + '</div>'
     + '<div style="font-size:17px;font-weight:700;margin-bottom:20px;color:#fff;">' + name + '</div>'
     + '<div style="background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.3);border-radius:10px;padding:14px;margin-bottom:16px;text-align:left;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">利用コイン</span><span style="color:#ff9800;font-weight:700;font-size:16px;">' + pts.toLocaleString() + '枚</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">' + W.use + '</span><span style="color:#ff9800;font-weight:700;font-size:16px;">' + pts.toLocaleString() + '枚</span></div>'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="color:#aaa;font-size:13px;">現在の残高</span><span style="font-size:14px;color:#fff;">' + balance.toLocaleString() + '枚</span></div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;"><span style="color:#aaa;font-size:13px;">支払い後の残高</span><span style="font-weight:700;font-size:15px;color:' + (insufficient ? '#ef5350' : '#fff') + ';">' + after.toLocaleString() + '枚</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;"><span style="color:#aaa;font-size:13px;">' + W.after + '</span><span style="font-weight:700;font-size:15px;color:' + (insufficient ? '#ef5350' : '#fff') + ';">' + after.toLocaleString() + '枚</span></div>'
     + '</div>'
     + (insufficient ? '<div style="color:#ef5350;font-size:13px;margin-bottom:14px;">❌ コインが足りません</div>' : '')
-    + '<button id="_pay-confirm-btn"' + (insufficient ? ' disabled style="width:100%;padding:13px;border-radius:10px;border:none;background:#333;color:#666;font-weight:700;font-size:15px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"' : ' style="width:100%;padding:13px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"') + '>✅ 支払う</button>'
+    + '<button id="_pay-confirm-btn"' + (insufficient ? ' disabled style="width:100%;padding:13px;border-radius:10px;border:none;background:#333;color:#666;font-weight:700;font-size:15px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"' : ' style="width:100%;padding:13px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"') + '>' + W.ok + '</button>'
     + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;padding:11px;border-radius:10px;border:1px solid #555;background:transparent;color:#aaa;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">キャンセル</button>'
     + '</div>';
   document.body.appendChild(overlay);
@@ -1672,8 +1643,7 @@ window.doUse = async function() {
     closeModal('modal-use');
     showPayConfirm(icon, name, pts, balance, async () => {
       try {
-        const ok = await spendCoins(pts, desc);
-        if (!ok) return;
+        await coinApi('spend', { itemId: itemId });
         showToast('✅ 申請を送りました！');
         if (window._loadUser) await window._loadUser(window._uid);
       } catch(e) { showToast('⚠️ エラー: ' + e.message); }
@@ -1687,39 +1657,9 @@ async function doLpToolUse(item) {
   const pts = item.prices[rankKey];
   showToast('⏳ 処理中...');
   try {
-    // すでに交換済みか確認
-    const rightsSnap = await getDoc(doc(db, 'lp_rights', uid));
-    if (!rightsSnap.exists()) {
-      // 残高確認
-      const userSnap = await getDoc(doc(db, 'users', uid));
-      const balance = userSnap.data().points || 0;
-      if (balance < pts) {
-        showToast('❌ コインが足りません（必要: ' + pts.toLocaleString() + '枚、残高: ' + balance.toLocaleString() + '枚）');
-        return;
-      }
-      // 管理者UID取得
-      const adminSnapLp = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
-      const adminUidLp = !adminSnapLp.empty ? adminSnapLp.docs[0].id : null;
-      // 原子的にコイン消費 + 利用権付与 + 管理者へ移転
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'users', uid), { points: increment(-pts) });
-      if (adminUidLp && adminUidLp !== uid) {
-        batch.update(doc(db, 'users', adminUidLp), { points: increment(pts) });
-        batch.set(doc(collection(db, 'transactions')), {
-          userId: adminUidLp, type: 'receive', points: pts,
-          description: item.name + '（' + (window._userData && window._userData.name ? window._userData.name : 'メンバー') + ' 受取）', createdAt: serverTimestamp()
-        });
-      }
-      batch.set(doc(db, 'lp_rights', uid), {
-        itemId: item.id, rank: rankKey, ptsSpent: pts, grantedAt: serverTimestamp()
-      });
-      batch.set(doc(collection(db, 'transactions')), {
-        userId: uid, type: 'spend', points: -pts,
-        description: item.name, createdAt: serverTimestamp()
-      });
-      await batch.commit();
-      if (window._loadUser) await window._loadUser(uid);
-    }
+    // コイン係が「残高の確認 → コインを減らす → 利用権を付ける」をまとめて行う（交換済みなら何もしない）
+    const r = await coinApi('lp', { itemId: item.id });
+    if (!r.already && window._loadUser) await window._loadUser(uid);
     checkLpRightsOnLoad(uid);
     // ログイン証明を付けて営業ページ作成ツールを開く
     await openLpTool();
@@ -1782,39 +1722,8 @@ async function doZoomUse(item) {
   const eventId = item.zoomEventId;
   const accessDocId = eventId + '_' + uid;
   try {
-    const accessSnap = await getDoc(doc(db, 'zoom_access', accessDocId));
-    if (!accessSnap.exists()) {
-      // 残高確認
-      const userSnap = await getDoc(doc(db, 'users', uid));
-      const balance = (userSnap.data() && userSnap.data().points) || 0;
-      if (balance < pts) {
-        // 残高不足：目立つダイアログで表示
-        showZoomError('❌ コインが足りません', '必要: ' + pts.toLocaleString() + '枚\n現在の残高: ' + balance.toLocaleString() + '枚\n\nコインを購入してから再度お試しください。');
-        return;
-      }
-      // 管理者UID取得
-      const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
-      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : null;
-      // 原子的にコイン消費 + アクセス権付与 + 管理者へ移転
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'users', uid), { points: increment(-pts) });
-      if (adminUid && adminUid !== uid) {
-        batch.update(doc(db, 'users', adminUid), { points: increment(pts) });
-        batch.set(doc(collection(db, 'transactions')), {
-          userId: adminUid, type: 'receive', points: pts,
-          description: item.name + '（' + (window._userData && window._userData.name ? window._userData.name : 'メンバー') + ' 受取）', createdAt: serverTimestamp()
-        });
-      }
-      batch.set(doc(db, 'zoom_access', accessDocId), {
-        uid, eventId, rank: rankKey, ptsSpent: pts,
-        grantedAt: serverTimestamp(),
-        expiresAt: new Date(item.zoomExpiry + 'T23:59:59+09:00')
-      });
-      batch.set(doc(collection(db, 'transactions')), {
-        userId: uid, type: 'spend', points: -pts,
-        description: item.name + '（消費）', createdAt: serverTimestamp()
-      });
-      await batch.commit();
+    const r = await coinApi('zoom', { itemId: item.id });
+    if (!r.already) {
       playMinusSound();
       if (window._loadUser) await window._loadUser(uid);
     }
@@ -1927,35 +1836,8 @@ async function doEventUse(item) {
   const pts = item.prices[rankKey];
   const accessDocId = item.eventId + '_' + uid;
   try {
-    const accessSnap = await getDoc(doc(db, 'event_access', accessDocId));
-    if (!accessSnap.exists()) {
-      const userSnap = await getDoc(doc(db, 'users', uid));
-      const balance = (userSnap.data() && userSnap.data().points) || 0;
-      if (balance < pts) {
-        showZoomError('❌ コインが足りません', '必要: ' + pts.toLocaleString() + '枚\n現在の残高: ' + balance.toLocaleString() + '枚\n\nコインを購入してから再度お試しください。');
-        return;
-      }
-      const adminSnap = await getDocs(query(collection(db,'users'), where('isAdmin','==',true), limit(1)));
-      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : null;
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'users', uid), { points: increment(-pts) });
-      if (adminUid && adminUid !== uid) {
-        batch.update(doc(db, 'users', adminUid), { points: increment(pts) });
-        batch.set(doc(collection(db, 'transactions')), {
-          userId: adminUid, type: 'receive', points: pts,
-          description: item.name + '（' + (window._userData && window._userData.name ? window._userData.name : 'メンバー') + ' 受取）', createdAt: serverTimestamp()
-        });
-      }
-      batch.set(doc(db, 'event_access', accessDocId), {
-        uid, eventId: item.eventId, rank: rankKey, ptsSpent: pts,
-        grantedAt: serverTimestamp(),
-        expiresAt: new Date(item.eventExpiry + 'T23:59:59+09:00')
-      });
-      batch.set(doc(collection(db, 'transactions')), {
-        userId: uid, type: 'spend', points: -pts,
-        description: item.name + '（消費）', createdAt: serverTimestamp()
-      });
-      await batch.commit();
+    const r = await coinApi('event', { itemId: item.id });
+    if (!r.already) {
       playMinusSound();
       if (window._loadUser) await window._loadUser(uid);
       updateEventBanner(item);
@@ -2150,8 +2032,7 @@ window.doSettleNijikai = async function() {
   const rankKey = getMyRank();
   const pts = yenToPts(yen, rankKey);
   try {
-    const ok = await spendCoins(pts, '🍻 二次会（' + yen.toLocaleString() + '円精算）');
-    if (!ok) return;
+    await coinApi('spend_yen', { kind: 'nijikai', yen: yen });
     closeModal('modal-nijikai');
     document.getElementById('nijikai-yen').value = '';
     document.getElementById('nijikai-pts-preview').innerHTML = '';
@@ -2176,8 +2057,7 @@ window.doSettleKondan = async function() {
   const rankKey = getMyRank();
   const pts = yenToPts(yen, rankKey);
   try {
-    const ok = await spendCoins(pts, '🥂 懇親会追加参加（' + yen.toLocaleString() + '円精算）');
-    if (!ok) return;
+    await coinApi('spend_yen', { kind: 'kondan', yen: yen });
     closeModal('modal-kondan');
     document.getElementById('kondan-yen').value = '';
     document.getElementById('kondan-pts-preview').innerHTML = '';
@@ -2421,45 +2301,15 @@ async function postJob() {
     const recruitCount = selectedCountBtn ? parseInt(selectedCountBtn.textContent) : 0;
     if (!recruitCount) { showToast('⚠️ 募集人数を選んでください'); btn.textContent = '投稿する'; btn.disabled = false; return; }
 
-    await window._addDoc(window._collection(window._db, 'jobs'), {
+    // 投稿（YouTube募集つきなら費用の支払いも）はコイン係がまとめて行う
+    await window._coinApi('post_job', { job: {
       title, date, time, reward, duration, station, detail,
       recruitCount: recruitCount,
-      postedBy: window._uid,
-      postedByName: name,
       ytRequest: yt,
       contact: contact,
-      lineId: document.getElementById('job-line')?.value || '',
-      status: 'pending_approval',
-      createdAt: window._ts ? window._ts() : new Date()
-    });
-
-    // YT募集の場合ランクに応じたpt消費
-    if (yt && window._uid) {
-      const ytCost = getYTCost();
-      await window._updateDoc(window._doc(window._db, 'users', window._uid), {
-        points: window._inc(-ytCost)
-      });
-      await window._addDoc(window._collection(window._db, 'transactions'), {
-        userId: window._uid, points: -ytCost,
-        description: '▶️ YouTube募集依頼（' + title + '）',
-        icon: '▶️', createdAt: window._ts ? window._ts() : new Date(), type: 'spend'
-      });
-      // 使用分をKUNIO（管理者）の残高に反映
-      const adminSnap = await window._getDocs(
-        window._query(window._collection(window._db, 'users'), window._where('isAdmin', '==', true), window._limit(1))
-      );
-      if (!adminSnap.empty) {
-        const adminUid = adminSnap.docs[0].id;
-        if (adminUid !== window._uid) {
-          await window._updateDoc(window._doc(window._db, 'users', adminUid), { points: window._inc(ytCost) });
-          await window._addDoc(window._collection(window._db, 'transactions'), {
-            userId: adminUid, points: ytCost,
-            description: name + 'が利用（▶️ YouTube募集依頼（' + title + '））',
-            icon: '💰', createdAt: window._ts ? window._ts() : new Date(), type: 'redeem-income'
-          });
-        }
-      }
-    }
+      lineId: document.getElementById('job-line')?.value || ''
+    } });
+    if (yt && window._loadUser) window._loadUser(window._uid);
 
     showToast(yt ? '✅ 投稿＆YouTube募集依頼しました！' : '✅ 投稿しました！KUNIOの承認をお待ちください');
     setTimeout(() => showScreen('jobs'), 1500);
@@ -2530,45 +2380,17 @@ window.doSend = async function() {
   const bal = window._userData ? window._userData.points || 0 : 0;
   if (pts > bal) { showToast('⚠️ 残高が不足しています（残高：' + bal.toLocaleString() + '枚）'); return; }
 
+  // 送る前に「〇〇さんに〇枚送りますか？」を確認する
+  window._showPayConfirm('🎁', toName + ' さんへ送る', pts, bal, () => sendNow(toUid, pts, msg, toName),
+    { use: '送る枚数', after: '送ったあとの残高', ok: '🎁 送る' });
+};
+async function sendNow(toUid, pts, msg, toName) {
   const btn = document.querySelector('#modal-send .btn-primary');
   btn.textContent = '送信中...'; btn.disabled = true;
 
   try {
-    const db = window._db;
-    const now = window._ts();
-
-    // 送り主の残高を減らす
-    await window._updateDoc(window._doc(db, 'users', window._uid), { points: window._inc(-pts) });
-    
-    // 送り主の履歴
-    await window._addDoc(window._collection(db, 'transactions'), {
-      userId: window._uid, points: -pts,
-      description: '🎁 ' + toName + 'へ（' + msg + '）',
-      icon: '🎁', createdAt: now, type: 'send'
-    });
-
-    // 受け取り側の残高を増やす
-    await window._updateDoc(window._doc(db, 'users', toUid), { points: window._inc(pts) });
-    
-    // 受け取り側の履歴
-    await window._addDoc(window._collection(db, 'transactions'), {
-      userId: toUid, points: pts,
-      description: '🎁 ' + fromName + 'から（' + msg + '）',
-      icon: '🎁', createdAt: now, type: 'receive'
-    });
-
-    // 受取通知を作成
-    await addDoc(collection(db, 'coin_notifications'), {
-      type: 'received',
-      toUid: toUid,
-      fromUid: window._uid,
-      fromName: fromName,
-      toName: toName,
-      amount: pts,
-      message: msg,
-      confirmed: false,
-      createdAt: now
-    });
+    // 送る処理（残高の確認・両方の履歴・受取通知）はコイン係がまとめて行う
+    await window._coinApi('send', { toUid: toUid, pts: pts, msg: msg });
 
     closeModal('modal-send');
     showToast('🎁 ' + toName + 'に ' + pts.toLocaleString() + '枚 送りました！', pts);
@@ -2963,45 +2785,9 @@ async function confirmDistribute() {
   } catch(e) { showToast('⚠️ エラー: ' + e.message); return; }
   if (!confirm('開催者の残高から ' + checked.length + '名に ' + currentDistributeJob.reward.toLocaleString() + '枚ずつ(計' + totalNeeded.toLocaleString() + '枚)支払います。開催してくれたお礼にKUNIOから1,000枚のボーナスも付きます。よろしいですか？')) return;
   try {
-    for (let i = 0; i < checked.length; i++) {
-      const uid = checked[i].dataset.uid;
-      const name = checked[i].dataset.name || 'メンバー';
-      // 開催者から参加者へ実際に支払う（開催者の残高から減算）
-      await window._updateDoc(window._doc(window._db, 'users', window._uid), { points: window._inc(-currentDistributeJob.reward) });
-      await window._addDoc(window._collection(window._db, 'transactions'), {
-        userId: window._uid, points: -currentDistributeJob.reward,
-        description: name + 'へ作業会報酬（' + currentDistributeJob.title + '）',
-        icon: '🚛', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
-      });
-      await window._updateDoc(window._doc(window._db, 'users', uid), { points: window._inc(currentDistributeJob.reward) });
-      await window._addDoc(window._collection(window._db, 'transactions'), {
-        userId: uid, points: currentDistributeJob.reward,
-        description: '🚛 作業会報酬（' + currentDistributeJob.title + '）',
-        icon: '🚛', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
-      });
-    }
-    if (window._uid) {
-      const adminSnap = await window._getDocs(
-        window._query(window._collection(window._db, 'users'), window._where('isAdmin', '==', true), window._limit(1))
-      );
-      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : null;
-      if (adminUid && adminUid !== window._uid) {
-        // KUNIOの残高から-1,000して、開催者に+1,000（実際の送金として双方の履歴に残す）
-        await window._updateDoc(window._doc(window._db, 'users', adminUid), { points: window._inc(-1000) });
-        await window._addDoc(window._collection(window._db, 'transactions'), {
-          userId: adminUid, points: -1000,
-          description: (window._userData ? (window._userData.name || 'メンバー') : 'メンバー') + 'へ作業会開催ボーナス（' + currentDistributeJob.title + '）',
-          icon: '🏠', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
-        });
-      }
-      await window._updateDoc(window._doc(window._db, 'users', window._uid), { points: window._inc(1000) });
-      await window._addDoc(window._collection(window._db, 'transactions'), {
-        userId: window._uid, points: 1000,
-        description: '🏠 作業会開催ボーナス（' + currentDistributeJob.title + '）',
-        icon: '🏠', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
-      });
-    }
-    await window._updateDoc(window._doc(window._db, 'jobs', currentDistributeJob.id), { rewardDistributed: true });
+    // 参加者への支払い・開催ボーナス・配布済みの印は、コイン係がまとめて行う
+    const uids = Array.prototype.map.call(checked, function(c) { return c.dataset.uid; });
+    await window._coinApi('distribute', { jobId: currentDistributeJob.id, uids: uids });
     closeModal('modal-distribute');
     showToast('✅ 配布しました！開催者ボーナス+1,000枚も付与されました', 1000);
     if (window._loadUser) await window._loadUser(window._uid);
