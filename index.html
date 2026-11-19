@@ -1935,13 +1935,11 @@ async function loadCoinNotifications(uid) {
   const area = document.getElementById('coin-notif-area');
   if (!area) return;
   try {
-    const snap = await getDocs(query(
-      collection(db, 'coin_notifications'),
-      where('toUid', '==', uid),
-      where('confirmed', '==', false),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    ));
+    // 並べ替えはアプリ側で行う（データベースの「索引」の設定がなくても読めるように）
+    const raw = await getDocs(query(collection(db, 'coin_notifications'), where('toUid', '==', uid)));
+    const ms = d => { const t = d.data().createdAt; return t && t.toMillis ? t.toMillis() : 0; };
+    const docs = raw.docs.filter(d => d.data().confirmed === false).sort((a, b) => ms(b) - ms(a)).slice(0, 50);
+    const snap = { docs, empty: docs.length === 0 };
     if (snap.empty) { area.innerHTML = ''; return; }
     area.innerHTML = snap.docs.map(d => {
       const n = d.data();
