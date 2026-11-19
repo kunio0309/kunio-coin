@@ -576,6 +576,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -1362,6 +1363,10 @@ window.doGrantMulti = async function() {
         description: '👑 KUNIOから（' + memo + '）',
         icon: '👑', createdAt: window._ts ? window._ts() : new Date(), type: 'grant'
       });
+      await window._addDoc(window._collection(window._db, 'coin_notifications'), {
+        type: 'grant', toUid: uid, fromUid: window._uid, fromName: 'KUNIO', amount: pts, message: memo, confirmed: false,
+        createdAt: window._ts ? window._ts() : new Date()
+      });
       success++;
     }
     showToast('✅ ' + success + '名に ' + pts.toLocaleString() + '枚 配布しました！', pts);
@@ -1384,6 +1389,7 @@ window.doGrant = async function() {
       userId: uid, points: pts, description: '👑 KUNIOから ' + memo,
       icon: '👑', createdAt: serverTimestamp(), type: 'grant'
     });
+    await addDoc(collection(db,'coin_notifications'), { type: 'grant', toUid: uid, fromUid: window._uid, fromName: 'KUNIO', amount: pts, message: memo, confirmed: false, createdAt: serverTimestamp() });
     showToast('✅ ' + pts.toLocaleString() + '枚コイン付与しました！', pts);
     document.getElementById('grant-pts').value = '';
     document.getElementById('grant-memo').value = '';
@@ -1659,7 +1665,7 @@ async function doLpToolUse(item) {
   try {
     // コイン係が「残高の確認 → コインを減らす → 利用権を付ける」をまとめて行う（交換済みなら何もしない）
     const r = await coinApi('lp', { itemId: item.id });
-    if (!r.already && window._loadUser) await window._loadUser(uid);
+    if (!r.already) { playMinusSound(); if (window._loadUser) await window._loadUser(uid); }
     checkLpRightsOnLoad(uid);
     // ログイン証明を付けて営業ページ作成ツールを開く
     await openLpTool();
@@ -1946,7 +1952,14 @@ async function loadCoinNotifications(uid) {
           + '<div style="font-size:16px;font-weight:700;margin-bottom:4px;color:#fff;">' + n.fromName + ' から <span style="color:#ce93d8;">' + n.amount.toLocaleString() + '枚</span></div>'
           + '<div style="font-size:12px;color:var(--dim);margin-bottom:12px;padding:8px;background:rgba(156,39,176,.1);border-radius:8px;">「' + n.message + '」</div>'
           + '<textarea id="thank-' + id + '" placeholder="お礼メッセージ（任意）" style="width:100%;padding:10px;border-radius:8px;border:1px solid #555;background:#1a1a2a;color:#fff;font-family:\'Noto Sans JP\',sans-serif;font-size:13px;resize:none;box-sizing:border-box;margin-bottom:10px;" rows="2"></textarea>'
-          + '<button onclick="confirmCoinNotif(\'' + id + '\',\'' + n.fromUid + '\',\'' + n.fromName.replace(/'/g, "\\'") + '\',' + n.amount + ')" style="width:100%;padding:12px;border-radius:10px;border:none;background:#9c27b0;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">✅ 確認する</button>'
+          + '<button onclick="confirmCoinNotif(\'' + id + '\',\'' + n.fromUid + '\',\'' + n.fromName.replace(/'/g, "\\'") + '\',' + n.amount + ')" style="width:100%;padding:12px;border-radius:10px;border:none;background:#9c27b0;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">🎁 受け取る（お礼を送る）</button>'
+          + '</div>';
+      } else if (n.type === 'grant') {
+        return '<div id="notif-' + id + '" style="background:linear-gradient(135deg,#2a2208,#130f02);border:2px solid #ffd54f;border-radius:14px;padding:16px;margin-bottom:10px;">'
+          + '<div style="font-size:11px;letter-spacing:2px;color:#ffd54f;margin-bottom:6px;">👑 コインが届いています！</div>'
+          + '<div style="font-size:16px;font-weight:700;margin-bottom:4px;color:#fff;">' + (n.fromName || 'KUNIO') + ' から <span style="color:#ffd54f;">' + Number(n.amount || 0).toLocaleString() + '枚</span></div>'
+          + (n.message ? '<div style="font-size:12px;color:var(--dim);margin-bottom:12px;padding:8px;background:rgba(255,213,79,.08);border-radius:8px;">「' + n.message + '」</div>' : '<div style="margin-bottom:8px;"></div>')
+          + '<button onclick="receiveGrant(\'' + id + '\',' + Number(n.amount || 0) + ')" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;font-weight:900;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">🎁 受け取る</button>'
           + '</div>';
       } else {
         const msgHtml = n.message
@@ -1967,7 +1980,15 @@ async function loadCoinNotifications(uid) {
 }
 window.loadCoinNotifications = loadCoinNotifications;
 
+// KUNIOなどから届いたコインを「受け取る」（コインはもう残高に入っている。音と数字の動きで受け取りを演出する）
+window.receiveGrant = async function(notifId, amount) {
+  playSfx('receive', () => playCoinSound(amount)); animateBalance(amount);
+  const card = document.getElementById('notif-' + notifId); if (card) card.remove();
+  try { await updateDoc(doc(db, 'coin_notifications', notifId), { confirmed: true }); } catch(e) {}
+};
+
 window.confirmCoinNotif = async function(notifId, fromUid, fromName, amount) {
+  playSfx('receive', () => playCoinSound(amount)); animateBalance(amount);
   const thankEl = document.getElementById('thank-' + notifId);
   const thankMsg = thankEl ? thankEl.value.trim() : '';
   try {
@@ -2033,6 +2054,7 @@ window.doSettleNijikai = async function() {
   const pts = yenToPts(yen, rankKey);
   try {
     await coinApi('spend_yen', { kind: 'nijikai', yen: yen });
+    playMinusSound();
     closeModal('modal-nijikai');
     document.getElementById('nijikai-yen').value = '';
     document.getElementById('nijikai-pts-preview').innerHTML = '';
@@ -2058,6 +2080,7 @@ window.doSettleKondan = async function() {
   const pts = yenToPts(yen, rankKey);
   try {
     await coinApi('spend_yen', { kind: 'kondan', yen: yen });
+    playMinusSound();
     closeModal('modal-kondan');
     document.getElementById('kondan-yen').value = '';
     document.getElementById('kondan-pts-preview').innerHTML = '';
@@ -2234,7 +2257,24 @@ function playCoinSound(points) {
   }catch(e){}
 }
 
-function playMinusSound() {
+// ずんだもんの「くにおコイン」＋コインの音（増える・送る・使う）。読めないときは前の音を鳴らす
+const SFX = {};
+['receive','send','use'].forEach(k => { try { const a = new Audio('/kunio-coin/sounds/' + k + '.mp3'); a.preload = 'auto'; SFX[k] = a; } catch(e) {} });
+function playSfx(k, fallback) {
+  const a = SFX[k]; if (!a) { if (fallback) fallback(); return; }
+  try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); } catch(e) { if (fallback) fallback(); }
+}
+window.playSfx = playSfx;
+// 残高の数字を、増えた分だけチャリチャリ数えながら増やす
+function animateBalance(amount) {
+  const el = document.getElementById('balance-num'); if (!el || !window._userData) return;
+  const to = window._userData.points || 0, from = Math.max(0, to - (amount || 0)), t0 = performance.now(), dur = 1400;
+  const step = now => { const k = Math.min(1, (now - t0) / dur), v = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+    el.innerHTML = v.toLocaleString() + '<span>枚</span>'; if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+window.animateBalance = animateBalance;
+function playMinusSoundOld() {
   try {
     const ctx=new(window.AudioContext||window.webkitAudioContext)();
     [800,600,450].forEach((f,i)=>{
@@ -2246,6 +2286,8 @@ function playMinusSound() {
     });
   }catch(e){}
 }
+
+function playMinusSound() { playSfx('use', playMinusSoundOld); }
 
 // 作業会フォーム
 function toggleWork(el) {
@@ -2394,6 +2436,7 @@ async function sendNow(toUid, pts, msg, toName) {
 
     closeModal('modal-send');
     showToast('🎁 ' + toName + 'に ' + pts.toLocaleString() + '枚 送りました！', pts);
+    playSfx('send');
     document.getElementById('send-pts').value = '';
     document.getElementById('send-msg').value = '';
     if (window._loadUser) await window._loadUser(window._uid);
@@ -2951,6 +2994,7 @@ async function approveTransfer(reqId, userId, pts, userName) {
       description: '💰 振込購入（' + pts.toLocaleString() + '枚）',
       icon: '💰', createdAt: window._ts ? window._ts() : new Date(), type: 'purchase'
     });
+    await window._addDoc(window._collection(window._db,'coin_notifications'), { type: 'grant', toUid: userId, fromUid: window._uid, fromName: 'KUNIO', amount: pts, message: 'お振込みありがとうございます（' + pts.toLocaleString() + '枚）', confirmed: false, createdAt: window._ts ? window._ts() : new Date() });
     showToast('✅ コインを付与しました！', pts);
     loadTransferRequests();
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
