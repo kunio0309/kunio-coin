@@ -1940,7 +1940,7 @@ async function loadCoinNotifications(uid) {
       where('toUid', '==', uid),
       where('confirmed', '==', false),
       orderBy('createdAt', 'desc'),
-      limit(10)
+      limit(50)
     ));
     if (snap.empty) { area.innerHTML = ''; return; }
     area.innerHTML = snap.docs.map(d => {
@@ -1973,6 +1973,13 @@ async function loadCoinNotifications(uid) {
           + '</div>';
       }
     }).join('');
+    // 届いたコインが2つ以上あるときは「まとめて受け取る」を上に出す
+    const grants = snap.docs.filter(d => d.data().type === 'grant');
+    if (grants.length >= 2) {
+      const total = grants.reduce((a, d) => a + Number(d.data().amount || 0), 0);
+      area.insertAdjacentHTML('afterbegin', '<button id="grant-all" onclick="receiveAllGrants()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;font-weight:900;font-size:15px;cursor:pointer;margin-bottom:10px;font-family:\'Noto Sans JP\',sans-serif;">🎁 まとめて受け取る（' + grants.length + '件・' + total.toLocaleString() + '枚）</button>');
+      window._grantIds = grants.map(d => [d.id, Number(d.data().amount || 0)]);
+    }
   } catch(e) {
     console.error('loadCoinNotifications error:', e);
     area.innerHTML = '';
@@ -1984,7 +1991,16 @@ window.loadCoinNotifications = loadCoinNotifications;
 window.receiveGrant = async function(notifId, amount) {
   playSfx('receive', () => playCoinSound(amount)); animateBalance(amount);
   const card = document.getElementById('notif-' + notifId); if (card) card.remove();
+  const all = document.getElementById('grant-all'); if (all) all.remove();
   try { await updateDoc(doc(db, 'coin_notifications', notifId), { confirmed: true }); } catch(e) {}
+};
+
+window.receiveAllGrants = async function() {
+  const list = window._grantIds || []; const total = list.reduce((a, x) => a + x[1], 0);
+  playSfx('receive', () => playCoinSound(total)); animateBalance(total);
+  const b = document.getElementById('grant-all'); if (b) b.remove();
+  for (const [id] of list) { const c = document.getElementById('notif-' + id); if (c) c.remove(); try { await updateDoc(doc(db, 'coin_notifications', id), { confirmed: true }); } catch(e) {} }
+  window._grantIds = [];
 };
 
 window.confirmCoinNotif = async function(notifId, fromUid, fromName, amount) {
@@ -2257,12 +2273,33 @@ function playCoinSound(points) {
   }catch(e){}
 }
 
-// ずんだもんの「くにおコイン」＋コインの音（増える・送る・使う）。読めないときは前の音を鳴らす
-const SFX = {};
-['receive','send','use'].forEach(k => { try { const a = new Audio('/kunio-coin/sounds/' + k + '.mp3'); a.preload = 'auto'; SFX[k] = a; } catch(e) {} });
+// ずんだもんの「くにおコイン」＋コインの音（増える・送る・使う）
+// スマホやブラウザは「画面に触れたとき」しか音を鳴らさせないので、最初に触れたときに音の準備をしておく
+let sfxCtx = null; const sfxBuf = {};
+function sfxUnlock() {
+  try {
+    if (!sfxCtx) sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (sfxCtx.state === 'suspended') sfxCtx.resume();
+    const s = sfxCtx.createBufferSource(); s.buffer = sfxCtx.createBuffer(1, 1, 22050); s.connect(sfxCtx.destination); s.start(0);
+    ['receive','send','use'].forEach(k => {
+      if (sfxBuf[k]) return; sfxBuf[k] = 'loading';
+      fetch(location.pathname.includes('/test/') ? '../sounds/' + k + '.mp3' : 'sounds/' + k + '.mp3')
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(ab => new Promise((ok, ng) => sfxCtx.decodeAudioData(ab, ok, ng)))
+        .then(buf => { sfxBuf[k] = buf; }).catch(e => { sfxBuf[k] = null; console.warn('sound', k, e); });
+    });
+  } catch(e) {}
+}
+['pointerdown','touchend','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
 function playSfx(k, fallback) {
-  const a = SFX[k]; if (!a) { if (fallback) fallback(); return; }
-  try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); } catch(e) { if (fallback) fallback(); }
+  try {
+    const buf = sfxBuf[k];
+    if (sfxCtx && buf && buf !== 'loading') {
+      if (sfxCtx.state === 'suspended') sfxCtx.resume();
+      const s = sfxCtx.createBufferSource(); s.buffer = buf; s.connect(sfxCtx.destination); s.start(0); return;
+    }
+  } catch(e) {}
+  if (fallback) fallback();
 }
 window.playSfx = playSfx;
 // 残高の数字を、増えた分だけチャリチャリ数えながら増やす
