@@ -2045,6 +2045,8 @@ function renderAssignAdmin(){
         <input type="checkbox" ${a.active?'checked':''} onchange="toggleAssignment(this)" style="width:18px;height:18px;accent-color:var(--gb);">${a.active?'公開中':'非公開'}</label>
     </div>
     <textarea class="form-textarea assign-edit-body" maxlength="1500" style="min-height:90px;">${escHtml(a.body||'')}</textarea>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:8px;color:${a.closed?'#ff8a80':'var(--dim)'};">
+      <input type="checkbox" ${a.closed?'checked':''} onchange="toggleAssignClosed(this)" style="width:18px;height:18px;accent-color:#ff8a80;">提出の受付を終了する（課題と、みんなの投稿は、そのまま見られます）${a.closed?'：終了中':''}</label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:8px;color:${a.grantsPerk?'var(--gb)':'var(--dim)'};">
       <input type="checkbox" ${a.grantsPerk?'checked':''} onchange="toggleGrantsPerk(this)" style="width:18px;height:18px;accent-color:var(--gb);">承認すると、特典（ツール）の対象になる${a.grantsPerk?'：ON':''}</label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:10px;color:${a.approval?'var(--gold)':'var(--dim)'};">
@@ -2096,6 +2098,14 @@ window.toggleAssignment = async function(el){
     await updateDoc(doc(db,'seminar_assignments',id),{ active: el.checked });
     await fetchAssignments(true); renderAssignAdmin();
     showToast(el.checked ? '✅ 公開しました（参加者に見えます）' : '非公開にしました');
+  }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
+};
+window.toggleAssignClosed = async function(el){
+  const id = el.closest('.code-card').dataset.id;
+  try{
+    await updateDoc(doc(db,'seminar_assignments',id),{ closed: el.checked });
+    await fetchAssignments(true); renderAssignAdmin();
+    showToast(el.checked ? '提出の受付を終了しました（投稿は、そのまま見られます）' : '✅ 提出の受付を再開しました');
   }catch(e){ el.checked = !el.checked; showToast('❌ 変更できませんでした'); }
 };
 window.toggleGrantsPerk = async function(el){
@@ -2361,10 +2371,10 @@ function renderBoard(){
   const cur = _assignments.find(a=>'a:'+a.id===_boardFilter);
   document.getElementById('board-chips').innerHTML = chipsHtml(_boardFilter, 'setBoardFilter', false);
   const claimed = window._claimedAssign || new Set();
-  const rewardLine = (cur && Number(cur.reward)>0 && !claimed.has(cur.id))
+  const rewardLine = (cur && !cur.closed && Number(cur.reward)>0 && !claimed.has(cur.id))
     ? `<div style="font-size:13px;font-weight:800;color:var(--gold);margin-top:8px;">🎁 提出すると、${Number(cur.reward).toLocaleString()}枚もらえます（初回のみ・10文字以上）</div>` : '';
   document.getElementById('board-notice').innerHTML = cur
-    ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div>${rewardLine}</div>` : '';
+    ? `<div class="notice-box"><div class="notice-title">📌 ${escHtml(cur.title)}</div><div class="notice-body">${escHtml(cur.body||'')}</div>${rewardLine}${cur.closed ? '<div style="font-size:12px;color:#ff8a80;font-weight:700;margin-top:8px;">この課題の提出の受付は終了しました</div>' : ''}</div>` : '';
   document.getElementById('board-empty-note').innerHTML = (_boardFilter==='intro' && !_assignments.length)
     ? '<div style="font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.7;">📌 課題は、KUNIOから案内があったら、ここに表示されます。</div>' : '';
   const dayWrap = document.getElementById('day-wrap'); if(dayWrap) dayWrap.style.display = cur ? '' : 'none';
@@ -2404,7 +2414,10 @@ function renderBoard(){
         ${hiddenNote}
         <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">書き足したいときは、下の「✏️ 編集する」を押して、同じ文章に追記してください。</div>
         ${renderPost(mine[0], false)}
-        <button class="btn-text" onclick="showNewPost()" style="margin-top:10px;font-size:12px;">＋別の投稿として追加する</button></div>`;
+        ${cur.closed ? '' : '<button class="btn-text" onclick="showNewPost()" style="margin-top:10px;font-size:12px;">＋別の投稿として追加する</button>'}</div>`;
+    } else if(cur.closed){
+      card.style.display = 'none';
+      mySub.innerHTML = '<div class="card"><div style="font-size:13px;color:var(--dim);line-height:1.8;">この課題の提出の受付は、終了しました。<br>みんなの投稿は、下で見られます。</div></div>';
     } else {
       mySub.innerHTML = '';
       card.style.display = '';
@@ -2698,7 +2711,7 @@ async function _refreshIntroNudge(){
     const usedCodes = new Set();
     _assignments.forEach(a=>{
       const myCodes = liveCodes.filter(x=>x.assignmentId===a.id); myCodes.forEach(x=>usedCodes.add(x));
-      const needPost = !done.has(a.id);
+      const needPost = !done.has(a.id) && !a.closed;
       if(hid.has('day:'+a.id) || (!myCodes.length && !needPost)) return;
       const rw = Number(a.reward)||0;
       const lines = [];
@@ -4129,9 +4142,9 @@ window.saveExpiry = async function(){
   if(!v){ showToast('有効期限の日時を入れてください'); return; }
   const d = new Date(v);
   if(isNaN(d.getTime())){ showToast('日時が正しくありません'); return; }
-  if(d <= new Date()){ showToast('いまより先の日時を入れてください'); return; }
   const t = d.toLocaleDateString('ja-JP') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-  if(!confirm(`コインの有効期限を ${t} にします。\n\nその日時を過ぎると、コインは使えなくなり、参加者の画面は終了画面になり、特典・教材・入会割引の新しい申請はできなくなります。\n（申し込み済みの内容は、そのまま見られます）\n\nよろしいですか？`)) return;
+  const past = d <= new Date();
+  if(!confirm((past ? `【すでに過ぎた日時です】\n${t} は、もう過ぎています。設定すると、すぐに、コインが使えない状態（期限切れ）になります。\n\n` : '') + `コインの有効期限を ${t} にします。\n\nその日時を過ぎると、コインは使えなくなり、参加者の画面は終了画面になり、特典・教材・入会割引の新しい申請はできなくなります。\n（申し込み済みの内容は、そのまま見られます）\n\nよろしいですか？`)) return;
   try{
     await setDoc(doc(db,'seminar_config','main'),{ expiryDate:Timestamp.fromDate(d), startedAt:serverTimestamp(), startedBy:currentUser.email },{ merge:true });
     showToast('✅ 有効期限を設定しました');
