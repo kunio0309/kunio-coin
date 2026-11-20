@@ -2302,17 +2302,20 @@ function sfxLoad() {
 }
 sfxLoad();
 // 画面に触れたときに、音を鳴らせる状態にする
-// iPhone 用の予備：音のファイルを <audio> でも用意しておき、最初のタップで一度だけ無音で再生して「使える状態」にする
-const sfxEl = {}; let sfxElReady = false;
-['receive','send','use'].forEach(k => { try { const a = new Audio(location.pathname.includes('/test/') ? '../sounds/' + k + '.mp3' : 'sounds/' + k + '.mp3'); a.preload = 'auto'; a.setAttribute('playsinline', ''); sfxEl[k] = a; } catch(e) {} });
+// iPhone 用の予備：<audio> を1つ用意し、最初のタップで「無音のデータ」を再生して使える状態にしておく
+// （本物の音はここでは鳴らさない。あとで鳴らすときに中身だけ差し替える）
+const SFX_SRC = k => (location.pathname.includes('/test/') ? '../sounds/' : 'sounds/') + k + '.mp3';
+const SILENT = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+let sfxPlayer = null, sfxElReady = false;
 function sfxUnlock() {
   try {
     if (!sfxCtx) sfxLoad();
     if (sfxCtx.state !== 'running') sfxCtx.resume();
     const s = sfxCtx.createBufferSource(); s.buffer = sfxCtx.createBuffer(1, 1, 22050); s.connect(sfxCtx.destination); s.start(0);
   } catch(e) {}
-  if (!sfxElReady) { sfxElReady = true;
-    Object.values(sfxEl).forEach(a => { try { a.muted = true; const p = a.play(); const done = () => { a.pause(); a.currentTime = 0; a.muted = false; }; if (p && p.then) p.then(done).catch(() => { a.muted = false; sfxElReady = false; }); else done(); } catch(e) {} });
+  if (!sfxElReady) {
+    try { sfxPlayer = sfxPlayer || new Audio(); sfxPlayer.setAttribute('playsinline', ''); sfxPlayer.src = SILENT;
+      const p = sfxPlayer.play(); sfxElReady = true; if (p && p.catch) p.catch(() => { sfxElReady = false; }); } catch(e) {}
   }
 }
 ['touchend','pointerup','click','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
@@ -2321,8 +2324,8 @@ function playSfx(k, fallback) {
     const buf = sfxBuf[k];
     if (sfxCtx && sfxCtx.state !== 'running') sfxCtx.resume();
     // 音の準備ができていない・止められているときは <audio> の方で鳴らす（iPhone 対策）
-    if ((!sfxCtx || sfxCtx.state !== 'running' || !buf || buf === 'loading') && sfxEl[k]) {
-      const a = sfxEl[k]; a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); return;
+    if ((!sfxCtx || sfxCtx.state !== 'running' || !buf || buf === 'loading') && sfxPlayer) {
+      sfxPlayer.src = SFX_SRC(k); const p = sfxPlayer.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); return;
     }
     if (sfxCtx && buf && buf !== 'loading') {
       const s = sfxCtx.createBufferSource(); s.buffer = buf; s.connect(sfxCtx.destination); s.start(0); return;
