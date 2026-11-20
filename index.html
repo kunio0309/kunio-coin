@@ -283,6 +283,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="balance-label">● KUNIO-COIN残高</div>
       <div class="balance-num" id="balance-num">—<span>枚</span></div>
       <div class="balance-sub" id="balance-sub">読み込み中...</div>
+      <div id="pending-line" style="display:none;margin-top:6px;font-size:13px;font-weight:700;color:#ffd54f;"></div>
       <div id="expiry-notice" style="display:none;font-size:10px;color:var(--gold);margin-top:6px;line-height:1.6;">コインの増減が最後にあってから<br>180日経つと枚数が０になります</div>
       <div id="expiry-warning" style="display:none;font-size:12px;font-weight:700;color:var(--red);margin-top:8px;padding:8px;border-radius:8px;background:rgba(239,83,80,.12);"></div>
     </div>
@@ -1940,7 +1941,7 @@ async function loadCoinNotifications(uid) {
     const ms = d => { const t = d.data().createdAt; return t && t.toMillis ? t.toMillis() : 0; };
     const docs = raw.docs.filter(d => d.data().confirmed === false).sort((a, b) => ms(b) - ms(a)).slice(0, 50);
     const snap = { docs, empty: docs.length === 0 };
-    if (snap.empty) { area.innerHTML = ''; return; }
+    if (snap.empty) { area.innerHTML = ''; window._pending = 0; showPending(); return; }
     area.innerHTML = snap.docs.map(d => {
       const n = d.data();
       const id = d.id;
@@ -1971,12 +1972,15 @@ async function loadCoinNotifications(uid) {
           + '</div>';
       }
     }).join('');
-    // 届いたコインが2つ以上あるときは「まとめて受け取る」を上に出す
-    const grants = snap.docs.filter(d => d.data().type === 'grant');
+    // 受け取り待ちの合計を出して、残高の表示から引いておく
+    const grants = snap.docs.filter(d => d.data().type === 'grant' || d.data().type === 'received');
+    window._pending = grants.reduce((a, d) => a + Number(d.data().amount || 0), 0);
+    showPending();
+    // 受け取るものが2つ以上あるときは「まとめて受け取る」をいちばん上に出す
     if (grants.length >= 2) {
-      const total = grants.reduce((a, d) => a + Number(d.data().amount || 0), 0);
+      const total = window._pending;
       area.insertAdjacentHTML('afterbegin', '<button id="grant-all" onclick="receiveAllGrants()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;font-weight:900;font-size:15px;cursor:pointer;margin-bottom:10px;font-family:\'Noto Sans JP\',sans-serif;">🎁 まとめて受け取る（' + grants.length + '件・' + total.toLocaleString() + '枚）</button>');
-      window._grantIds = grants.map(d => [d.id, Number(d.data().amount || 0)]);
+      window._grantIds = grants.map(d => [d.id, Number(d.data().amount || 0), d.data().type, d.data().fromUid]);
     }
   } catch(e) {
     console.error('loadCoinNotifications error:', e);
@@ -1997,7 +2001,15 @@ window.receiveAllGrants = async function() {
   const list = window._grantIds || []; const total = list.reduce((a, x) => a + x[1], 0);
   playSfx('receive', () => playCoinSound(total)); animateBalance(total);
   const b = document.getElementById('grant-all'); if (b) b.remove();
-  for (const [id] of list) { const c = document.getElementById('notif-' + id); if (c) c.remove(); try { await updateDoc(doc(db, 'coin_notifications', id), { confirmed: true }); } catch(e) {} }
+  const me = window._userData ? (window._userData.name || 'メンバー') : 'メンバー';
+  for (const [id, amt, type, fromUid] of list) {
+    const c = document.getElementById('notif-' + id); if (c) c.remove();
+    try {
+      await updateDoc(doc(db, 'coin_notifications', id), { confirmed: true });
+      // メンバーから届いた分は、送った人に「受け取りました」を返す
+      if (type === 'received' && fromUid) await addDoc(collection(db, 'coin_notifications'), { type: 'ack', toUid: fromUid, fromUid: window._uid, fromName: me, amount: amt, message: '', confirmed: false, createdAt: serverTimestamp() });
+    } catch(e) {}
+  }
   window._grantIds = [];
 };
 
@@ -2019,6 +2031,7 @@ window.confirmCoinNotif = async function(notifId, fromUid, fromName, amount) {
     });
     const card = document.getElementById('notif-' + notifId);
     if (card) card.remove();
+    const all = document.getElementById('grant-all'); if (all) all.remove();
     showToast('✅ 確認しました' + (thankMsg ? '・お礼を送りました🎉' : ''));
   } catch(e) {
     showToast('⚠️ エラー: ' + e.message);
@@ -2289,29 +2302,53 @@ function sfxLoad() {
 }
 sfxLoad();
 // 画面に触れたときに、音を鳴らせる状態にする
+// iPhone 用の予備：音のファイルを <audio> でも用意しておき、最初のタップで一度だけ無音で再生して「使える状態」にする
+const sfxEl = {}; let sfxElReady = false;
+['receive','send','use'].forEach(k => { try { const a = new Audio(location.pathname.includes('/test/') ? '../sounds/' + k + '.mp3' : 'sounds/' + k + '.mp3'); a.preload = 'auto'; a.setAttribute('playsinline', ''); sfxEl[k] = a; } catch(e) {} });
 function sfxUnlock() {
   try {
     if (!sfxCtx) sfxLoad();
-    if (sfxCtx.state === 'suspended') sfxCtx.resume();
+    if (sfxCtx.state !== 'running') sfxCtx.resume();
     const s = sfxCtx.createBufferSource(); s.buffer = sfxCtx.createBuffer(1, 1, 22050); s.connect(sfxCtx.destination); s.start(0);
   } catch(e) {}
+  if (!sfxElReady) { sfxElReady = true;
+    Object.values(sfxEl).forEach(a => { try { a.muted = true; const p = a.play(); const done = () => { a.pause(); a.currentTime = 0; a.muted = false; }; if (p && p.then) p.then(done).catch(() => { a.muted = false; sfxElReady = false; }); else done(); } catch(e) {} });
+  }
 }
-['pointerdown','touchend','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
+['touchend','pointerup','click','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
 function playSfx(k, fallback) {
   try {
     const buf = sfxBuf[k];
+    if (sfxCtx && sfxCtx.state !== 'running') sfxCtx.resume();
+    // 音の準備ができていない・止められているときは <audio> の方で鳴らす（iPhone 対策）
+    if ((!sfxCtx || sfxCtx.state !== 'running' || !buf || buf === 'loading') && sfxEl[k]) {
+      const a = sfxEl[k]; a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); return;
+    }
     if (sfxCtx && buf && buf !== 'loading') {
-      if (sfxCtx.state === 'suspended') sfxCtx.resume();
       const s = sfxCtx.createBufferSource(); s.buffer = buf; s.connect(sfxCtx.destination); s.start(0); return;
     }
   } catch(e) {}
   if (fallback) fallback();
 }
 window.playSfx = playSfx;
-// 残高の数字を、増えた分だけチャリチャリ数えながら増やす
+// 受け取り待ちのコイン：本当はもう残高に入っているが、「受け取る」を押すまで表示には含めない
+window._pending = 0;
+function showPending() {
+  const el = document.getElementById('balance-num'), pl = document.getElementById('pending-line');
+  if (!el || !window._userData) return;
+  const shown = Math.max(0, (window._userData.points || 0) - window._pending);
+  el.innerHTML = shown.toLocaleString() + '<span>枚</span>';
+  if (pl) { pl.style.display = window._pending > 0 ? 'block' : 'none'; pl.textContent = '🎁 受け取り待ち ' + window._pending.toLocaleString() + '枚'; }
+}
+window.showPending = showPending;
+// 受け取った分だけ、残高の数字をチャリチャリ数えながら増やす
 function animateBalance(amount) {
   const el = document.getElementById('balance-num'); if (!el || !window._userData) return;
-  const to = window._userData.points || 0, from = Math.max(0, to - (amount || 0)), t0 = performance.now(), dur = 1400;
+  const pts = window._userData.points || 0, from = Math.max(0, pts - window._pending);
+  window._pending = Math.max(0, window._pending - (amount || 0));
+  const to = Math.max(0, pts - window._pending), t0 = performance.now(), dur = 1400;
+  const pl = document.getElementById('pending-line');
+  if (pl) { pl.style.display = window._pending > 0 ? 'block' : 'none'; pl.textContent = '🎁 受け取り待ち ' + window._pending.toLocaleString() + '枚'; }
   const step = now => { const k = Math.min(1, (now - t0) / dur), v = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
     el.innerHTML = v.toLocaleString() + '<span>枚</span>'; if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
