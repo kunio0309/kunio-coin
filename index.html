@@ -251,6 +251,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/20-E</div>
   </div>
 </div>
 
@@ -522,6 +523,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <button onclick="setGrantMemo('ウォーキング1ヶ月達成')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">ウォーキング1ヶ月達成</button>
           <button onclick="setGrantMemo('懇親会参加')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">懇親会参加</button>
           <button onclick="setGrantMemo('作業会参加')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">作業会参加</button>
+          <button onclick="setGrantMemo('課題提出')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">課題提出</button>
           <button onclick="setGrantMemo('BAND投稿ありがとう')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">BAND投稿</button>
         </div>
         <input class="form-input" id="grant-memo" type="text" placeholder="または自由入力してください"/>
@@ -577,7 +579,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/20-E</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -766,6 +768,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <button onclick="setSendMsg('ウォーキング1ヶ月達成')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">ウォーキング達成</button>
         <button onclick="setSendMsg('懇親会参加')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">懇親会参加</button>
         <button onclick="setSendMsg('作業会参加')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">作業会参加</button>
+        <button onclick="setSendMsg('課題提出')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--d3);color:var(--dim);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">課題提出</button>
       </div>
       <input class="form-input" id="send-msg" type="text" placeholder="または自由入力してください"/>
     </div>
@@ -1246,6 +1249,7 @@ window.requestOwnPasswordReset = async function() {
 
 // ログアウト
 window.doLogout = async function() {
+  if (!confirm('ログアウトしますか？')) return;
   await signOut(auth);
   showToast('ログアウトしました');
 };
@@ -2302,21 +2306,10 @@ function sfxLoad() {
 }
 sfxLoad();
 // 画面に触れたときに、音を鳴らせる状態にする
-// iPhone 用の予備：<audio> を1つ用意し、最初のタップで「無音のデータ」を再生して使える状態にしておく
-// （本物の音はここでは鳴らさない。あとで鳴らすときに中身だけ差し替える）
+// タップしたときは、音の仕組みを「起こす」だけ（何も再生しない）
 const SFX_SRC = k => (location.pathname.includes('/test/') ? '../sounds/' : 'sounds/') + k + '.mp3';
-const SILENT = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
-let sfxPlayer = null, sfxElReady = false;
 function sfxUnlock() {
-  try {
-    if (!sfxCtx) sfxLoad();
-    if (sfxCtx.state !== 'running') sfxCtx.resume();
-    const s = sfxCtx.createBufferSource(); s.buffer = sfxCtx.createBuffer(1, 1, 22050); s.connect(sfxCtx.destination); s.start(0);
-  } catch(e) {}
-  if (!sfxElReady) {
-    try { sfxPlayer = sfxPlayer || new Audio(); sfxPlayer.setAttribute('playsinline', ''); sfxPlayer.src = SILENT;
-      const p = sfxPlayer.play(); sfxElReady = true; if (p && p.catch) p.catch(() => { sfxElReady = false; }); } catch(e) {}
-  }
+  try { if (!sfxCtx) sfxLoad(); if (sfxCtx.state !== 'running') sfxCtx.resume(); } catch(e) {}
 }
 ['touchend','pointerup','click','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
 function playSfx(k, fallback) {
@@ -2324,8 +2317,8 @@ function playSfx(k, fallback) {
     const buf = sfxBuf[k];
     if (sfxCtx && sfxCtx.state !== 'running') sfxCtx.resume();
     // 音の準備ができていない・止められているときは <audio> の方で鳴らす（iPhone 対策）
-    if ((!sfxCtx || sfxCtx.state !== 'running' || !buf || buf === 'loading') && sfxPlayer) {
-      sfxPlayer.src = SFX_SRC(k); const p = sfxPlayer.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); return;
+    if (!sfxCtx || sfxCtx.state !== 'running' || !buf || buf === 'loading') {
+      const a = new Audio(SFX_SRC(k)); const p = a.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); }); return;
     }
     if (sfxCtx && buf && buf !== 'loading') {
       const s = sfxCtx.createBufferSource(); s.buffer = buf; s.connect(sfxCtx.destination); s.start(0); return;
