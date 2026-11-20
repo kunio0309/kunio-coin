@@ -262,6 +262,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .auth-tab span{font-size:11px;font-weight:500;}
 .auth-tab.on{border-color:var(--gb);color:var(--gb);background:rgba(105,240,174,.10);}
 .auth-help{max-width:320px;margin:0 auto 12px;font-size:12px;line-height:1.8;color:var(--dim);text-align:left;}
+.auth-msg{display:none;max-width:320px;margin:0 auto 12px;padding:10px 12px;border:1px solid #ff8a80;border-radius:10px;font-size:13px;line-height:1.7;color:#ff8a80;text-align:left;}
+.auth-msg.on{display:block;}
 .offer-link{display:block;text-align:center;font-size:13px;font-weight:700;color:var(--gold);border:1px solid rgba(255,213,79,.55);border-radius:10px;padding:10px 12px;margin:8px 0 10px;text-decoration:none;}
 .offer-count{font-size:12px;font-weight:700;color:var(--gb);margin-bottom:8px;}
 .offer-timer{text-align:center;background:rgba(0,0,0,.28);border:1px solid rgba(255,213,79,.4);border-radius:12px;padding:10px 8px;margin:8px 0 10px;}
@@ -296,6 +298,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <input type="email" id="login-email" class="form-input" placeholder="メールアドレス" autocomplete="email" style="max-width:320px;">
   <input type="password" id="login-password" class="form-input" placeholder="パスワード（6文字以上）" autocomplete="current-password" style="max-width:320px;">
   <button class="btn-primary" id="auth-btn" onclick="doAuth()" style="max-width:320px;">新規登録して、はじめる</button>
+  <div class="auth-msg" id="auth-msg"></div>
   <button class="btn-text" onclick="doResetPassword()">パスワードを忘れた方はこちら</button>
 </div>
 
@@ -810,41 +813,42 @@ function escHtml(s){
 // ── メール認証 ────────────────────────────────────
 // ログイン・新規登録を1つに統合
 window.doAuth = async function(){
-  if(!FIREBASE_READY){ showToast('Firebaseの設定がまだ完了していません'); return; }
+  if(!FIREBASE_READY){ showAuthMsg('Firebaseの設定がまだ完了していません'); return; }
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  if(!email || !password){ showToast('メールアドレスとパスワードを入力してください'); return; }
-  if(password.length < 6){ showToast('パスワードは6文字以上で設定してください'); return; }
-  // まずログインを試みる
+  if(!email || !password){ showAuthMsg('メールアドレスとパスワードを入力してください'); return; }
+  if(password.length < 6){ showAuthMsg('パスワードは6文字以上で設定してください'); return; }
+  showAuthMsg('');
+  const isNew = (window._authMode !== 'login');
   try{
-    await signInWithEmailAndPassword(auth, email, password);
-    return;
-  } catch(e){
-    // アカウントがない場合のみ新規登録へ
-    if(e.code==='auth/user-not-found' || e.code==='auth/invalid-credential'){
+    if(isNew){
       try{
         await createUserWithEmailAndPassword(auth, email, password);
         return;
       } catch(e2){
         if(e2.code==='auth/email-already-in-use'){
-          showToast('パスワードが違います');
-        } else if(e2.code==='auth/invalid-email'){
-          showToast('メールアドレスの形式が正しくありません');
-        } else if(e2.code==='auth/weak-password'){
-          showToast('パスワードは6文字以上で設定してください');
-        } else {
-          showToast('エラー: '+(e2.code||e2.message));
+          // すでに登録済み。パスワードが合っていれば、そのままログインさせる
+          try{ await signInWithEmailAndPassword(auth, email, password); return; }
+          catch(e3){
+            setAuthMode('login');
+            showAuthMsg('このメールアドレスは、すでに登録されています。\nパスワードを入れて、「ログイン」を押してください。（パスワードを忘れた方は、下のリンクから、設定し直せます）');
+            return;
+          }
         }
+        throw e2;
       }
-    } else if(e.code==='auth/wrong-password'){
-      showToast('パスワードが違います');
-    } else if(e.code==='auth/invalid-email'){
-      showToast('メールアドレスの形式が正しくありません');
-    } else if(e.code==='auth/too-many-requests'){
-      showToast('試行回数が多すぎます。しばらく待ってください');
     } else {
-      showToast('エラー: '+(e.code||e.message));
+      await signInWithEmailAndPassword(auth, email, password);
+      return;
     }
+  } catch(e){
+    const c = e.code;
+    if(c==='auth/invalid-email') showAuthMsg('メールアドレスの形式が正しくありません');
+    else if(c==='auth/weak-password') showAuthMsg('パスワードは6文字以上で設定してください');
+    else if(c==='auth/user-not-found' || c==='auth/invalid-credential' || c==='auth/wrong-password')
+      showAuthMsg('このメールアドレスは、登録がないか、パスワードが違います。\nはじめての方は、上の「はじめての方（新規登録）」から、登録してください。\nパスワードを忘れた方は、下のリンクから、設定し直せます。');
+    else if(c==='auth/too-many-requests') showAuthMsg('試行回数が多すぎます。しばらく待ってから、もう一度お試しください');
+    else showAuthMsg('エラー: ' + (c || e.message));
   }
 };
 // 後方互換（念のため）
@@ -4206,7 +4210,12 @@ function markCoinExpired(exp){
 }
 
 // ログイン画面：「はじめての方」と「登録済みの方」の切り替え（中の仕組みは同じ。案内の言葉とボタンだけ変える）
+window.showAuthMsg = function(msg){
+  const el = document.getElementById('auth-msg'); if(!el) return;
+  el.textContent = msg || ''; el.style.whiteSpace = 'pre-line'; el.classList.toggle('on', !!msg);
+};
 window.setAuthMode = function(mode){
+  window._authMode = (mode === 'login') ? 'login' : 'new';
   const isNew = mode !== 'login';
   const tn = document.getElementById('auth-tab-new'), tl = document.getElementById('auth-tab-login');
   if(tn) tn.classList.toggle('on', isNew);
