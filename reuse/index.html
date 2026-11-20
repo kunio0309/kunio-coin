@@ -479,7 +479,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="card">
       <div class="section-title">● コインの有効期限</div>
       <div id="admin-expiry-status" style="font-size:13px;color:var(--dim);margin-bottom:12px;line-height:1.7;">読み込み中...</div>
-      <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">この日時を過ぎると、コインは使えなくなります。参加者の画面は「ご参加ありがとうございました」の終了画面になり、特典・教材・入会割引の<strong>新しい申請</strong>はできなくなります。<br>申し込み済みの内容は、参加者の終了画面でも、KUNIOさんの管理画面でも、そのまま見られます。（コインの数字そのものは、0にはなりません）</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">この日時を過ぎると、コインは使えなくなります。教材の特典・入会割引・ツールを見られるようにする、の<strong>新しい申請</strong>ができなくなります。<br>課題ボードの閲覧や提出、申し込み済みの内容の確認は、そのまま使えます。（コインの数字そのものは、0にはなりません）</div>
       <input class="form-input" type="datetime-local" id="expiry-input" style="margin-bottom:8px;">
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
         <button class="chip" onclick="setExpiryPreset(3)">3日後</button>
@@ -893,11 +893,11 @@ onAuthStateChanged(auth, async(user)=>{
     if(cfgSnap.exists() && cfgSnap.data().expiryDate){
       const exp = cfgSnap.data().expiryDate.toDate();
       const now = new Date();
-      if(now > exp){ showScreen('screen-expired'); try{ loadExpiredRequests(); }catch(e){} return; }
+      window._coinExpired = (now > exp);   // 期限を過ぎても画面は止めない。コインを使う申請だけ止める
       const diff = exp-now;
       const days = Math.floor(diff/86400000);
       const hrs  = Math.floor((diff%86400000)/3600000);
-      startExpiryTicker(exp);
+      if(window._coinExpired) markCoinExpired(exp); else startExpiryTicker(exp);
     } else {
       document.getElementById('expiry-display').textContent = '未設定';
     }
@@ -3108,8 +3108,8 @@ async function loadOfferCard(){
     if(joinSnap.exists()){ el.innerHTML = ''; return; }   // 入会の割引を申請した人には、教材の特典を出さない（入会に教材がついてくるため）
     if(!off || off.enabled!==true || !off.name || !off.price){ el.innerHTML = ''; return; }
     const dl = (off.deadline && off.deadline.toDate) ? off.deadline.toDate() : null;
-    if(dl && dl <= new Date()){
-      el.innerHTML = `<div class="offer-card"><div class="offer-title">🎁 参加者限定の特典</div><div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escHtml(off.name)}</div><div style="font-size:13px;color:var(--dim);">受付は終了しました</div></div>`;
+    if(window._coinExpired || (dl && dl <= new Date())){
+      el.innerHTML = `<div class="offer-card"><div class="offer-title">🎁 参加者限定の特典</div><div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escHtml(off.name)}</div><div style="font-size:13px;color:var(--dim);">申し込み期限が切れました</div></div>`;
       return;
     }
     const coins = uSnap.exists() ? (uSnap.data().coins||0) : 0;
@@ -3565,7 +3565,11 @@ async function loadPerkCard(){
       </div>`;
       return;
     }
-    // まだ → コインを使って見るボタン
+    // まだ → コインを使って見るボタン（コインの有効期限が過ぎていたら、出さない）
+    if(window._coinExpired){
+      el.innerHTML = `<div class="offer-card"><div class="offer-title">🎁 ${title}</div><div style="font-size:13px;color:var(--dim);line-height:1.7;">申し込み期限が切れました。</div></div>`;
+      return;
+    }
     const price = Number(cfg.price)||0;
     const coins = uS.exists() ? (uS.data().coins||0) : 0;
     const short = coins < price;
@@ -3601,6 +3605,7 @@ window.unlockPerk = async function(){
     const [cfgS, uS, unS, acc] = await Promise.all([ getDoc(doc(db,'seminar_config','perk')), getDoc(userRef), getDoc(unRef), getDoc(doc(db,'seminar_perk_access',uid)) ]);
     if(unS.exists()){ showToast('すでに見られる状態です'); await loadPerkCard(); return; }
     if(!acc.exists()){ showToast('対象ではありません'); return; }
+    if(window._coinExpired){ showToast('コインの有効期限が終了しました'); return; }
     const cfg = cfgS.exists() ? cfgS.data() : null;
     if(!cfg || cfg.enabled===false){ showToast('現在、受け付けていません'); return; }
     if(!uS.exists() || uS.data().banned){ showToast('現在ご利用できません'); return; }
@@ -3787,6 +3792,10 @@ async function loadJoinCard(){
     const coins = uSnap.exists() ? (uSnap.data().coins||0) : 0;
     const open = (cfg && cfg.enabled===true) || allowSnap.exists();
     if(!open || coins<=0){ el.innerHTML = ''; return; }
+    if(window._coinExpired){
+      el.innerHTML = `<div class="offer-card"><div class="offer-title">🏠 コミュニティ入会の割引</div><div style="font-size:13px;color:var(--dim);">申し込み期限が切れました</div></div>`;
+      return;
+    }
     _joinLive = joinCoursesFrom(cfg, true); _joinCoins = coins;
     if(_joinLive.length){
       el.innerHTML = `<div class="offer-card">
@@ -4176,6 +4185,15 @@ window.goHome = function(group){
   try{ switchTab(group, 'coin'); }catch(e){}
   window.scrollTo({ top:0, behavior:'smooth' });
 };
+
+// 期限を過ぎたとき：画面は止めずに、「コインは使えなくなった」ことを、一番上に出す
+function markCoinExpired(exp){
+  const p = n => String(n).padStart(2,'0');
+  const until = exp.toLocaleDateString('ja-JP') + ' ' + p(exp.getHours()) + ':' + p(exp.getMinutes());
+  const bn = document.getElementById('expiry-banner');
+  if(bn) bn.innerHTML = `<div class="offer-timer" style="margin:0 0 14px;border-color:rgba(255,138,128,.55);"><div class="lbl" style="color:#ff8a80;">⏰ コインの有効期限が終了しました（${until}）</div><div style="font-size:12px;color:var(--dim);margin-top:4px;line-height:1.7;">コインは使えなくなりました。<br>課題ボードなどは、いままで通り使えます。</div></div>`;
+  const el = document.getElementById('expiry-display'); if(el) el.textContent = '有効期限が終了しました';
+}
 
 </script>
 
