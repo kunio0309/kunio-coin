@@ -448,6 +448,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div id="screen-expired" class="screen">
   <div class="end-emoji">🎉</div>
   <div class="end-title">セミナーに最後までご参加<br>いただきありがとうございました！<br>引き続きリサイクルマスターKUNIOを<br>よろしくお願いします！</div>
+  <div id="expired-requests" style="width:100%;max-width:420px;margin:0 auto 18px;"></div>
   <div class="end-sub">KUNIOの最新情報はこちらから</div>
   <a href="https://masterkunio.com/fm/31521/fGrTGvoU" target="_blank" class="btn-action">📧 メルマガに登録する</a>
   <a href="https://www.youtube.com/@KUNIO-ip2fq" target="_blank" class="btn-action">▶️ YouTubeチャンネルを見る</a>
@@ -473,11 +474,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div id="admin-tab-coin">
 
-    <!-- カウントダウン -->
+    <!-- コインの有効期限 -->
     <div class="card">
-      <div class="section-title">● カウントダウン開始</div>
-      <div id="admin-expiry-status" style="font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.6;">読み込み中...</div>
-      <button class="btn-primary" onclick="startCountdown()">🚀 カウントダウン開始（今日から10日間）</button>
+      <div class="section-title">● コインの有効期限</div>
+      <div id="admin-expiry-status" style="font-size:13px;color:var(--dim);margin-bottom:12px;line-height:1.7;">読み込み中...</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.7;">この日時を過ぎると、コインは使えなくなります。参加者の画面は「ご参加ありがとうございました」の終了画面になり、特典・教材・入会割引の<strong>新しい申請</strong>はできなくなります。<br>申し込み済みの内容は、参加者の終了画面でも、KUNIOさんの管理画面でも、そのまま見られます。（コインの数字そのものは、0にはなりません）</div>
+      <input class="form-input" type="datetime-local" id="expiry-input" style="margin-bottom:8px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="chip" onclick="setExpiryPreset(3)">3日後</button>
+        <button class="chip" onclick="setExpiryPreset(7)">7日後</button>
+        <button class="chip" onclick="setExpiryPreset(14)">14日後</button>
+      </div>
+      <button class="btn-primary" onclick="saveExpiry()">📅 この日時を有効期限にする</button>
+      <button class="btn-secondary" onclick="clearExpiry()" style="font-size:13px;padding:10px;">✕ 有効期限を解除する</button>
     </div>
 
     <!-- 特典交換 公開設定 -->
@@ -883,12 +892,11 @@ onAuthStateChanged(auth, async(user)=>{
     if(cfgSnap.exists() && cfgSnap.data().expiryDate){
       const exp = cfgSnap.data().expiryDate.toDate();
       const now = new Date();
-      if(now > exp){ showScreen('screen-expired'); return; }
+      if(now > exp){ showScreen('screen-expired'); try{ loadExpiredRequests(); }catch(e){} return; }
       const diff = exp-now;
       const days = Math.floor(diff/86400000);
       const hrs  = Math.floor((diff%86400000)/3600000);
-      document.getElementById('expiry-display').textContent =
-        `残り ${days}日 ${hrs}時間（${exp.toLocaleDateString('ja-JP')} まで）`;
+      startExpiryTicker(exp);
     } else {
       document.getElementById('expiry-display').textContent = '未設定';
     }
@@ -1048,12 +1056,7 @@ async function loadAdminData(){
   // カウントダウン状況
   const cfgSnap = await getDoc(doc(db,'seminar_config','main'));
   const stEl    = document.getElementById('admin-expiry-status');
-  if(cfgSnap.exists()&&cfgSnap.data().expiryDate){
-    const d=cfgSnap.data().expiryDate.toDate();
-    stEl.textContent = new Date()>d
-      ? `⚠️ 期限切れ（${d.toLocaleDateString('ja-JP')}）`
-      : `✅ ${d.toLocaleDateString('ja-JP')} まで有効`;
-  } else { stEl.textContent='未設定（カウントダウンはまだ始まっていません）'; }
+  renderExpiryStatus(cfgSnap);
 
   // 特典交換トグル状態を反映
   const toggleEl = document.getElementById('exchange-enabled-toggle');
@@ -1555,16 +1558,7 @@ window.saveJoinBonus = async function(){
   showToast(`✅ 参加ボーナスを ${amount.toLocaleString()} 枚に設定しました`);
 };
 
-// ── カウントダウン開始 ───────────────────────────
-window.startCountdown = async function(){
-  if(!confirm('カウントダウンを開始しますか？\n今日から10日後を有効期限に設定します。')) return;
-  const exp=new Date(); exp.setDate(exp.getDate()+10); exp.setHours(23,59,59,0);
-  await setDoc(doc(db,'seminar_config','main'),{
-    expiryDate:Timestamp.fromDate(exp), startedAt:serverTimestamp(), startedBy:currentUser.email
-  },{ merge:true });
-  showToast(`✅ ${exp.toLocaleDateString('ja-JP')} まで設定しました`);
-  await loadAdminData();
-};
+// （カウントダウン開始の関数は、日時を選べる新しい設定に置き換えました）
 
 // ── 配布履歴 ─────────────────────────────────────
 async function loadHistory(){
@@ -3192,7 +3186,8 @@ window.submitOfferInfo = async function(){
   try{
     await updateDoc(doc(db,'seminar_offer_orders',currentUser.uid),{ sendEmail:email, payerName:payer });
     showToast('✅ 受け付けました。お振込みをお願いします');
-    await loadOfferCard();
+    const ex = document.getElementById('screen-expired');
+    if(ex && ex.classList.contains('active')) await loadExpiredRequests(); else await loadOfferCard();
   }catch(e){
     showToast('送れませんでした：'+(e.code||e.message));
     btn.disabled = false;
@@ -3758,6 +3753,20 @@ window.selectJoinCourse = function(){
   if(btn){ btn.disabled = false; btn.textContent = `🪙 ${yen(_joinCoins)} 値引きで、このコースに申請する`; }
 };
 
+function renderJoinDone(r){
+  return `<div class="offer-card">
+        <div class="offer-title">🏠 コミュニティ入会　割引の申請済み</div>
+        <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:8px;">${JOIN_STATUS[r.status]||''}</div>
+        <div class="offer-calc">
+          ${r.courseName ? `<div class="row"><span>${escHtml(r.courseName)}</span><span>${yen(r.coursePrice)}</span></div>` : ''}
+          <div class="row"><span>使ったコイン</span><span>${(r.coinsUsed||0).toLocaleString()}枚</span></div>
+          <div class="row ${r.courseName?'':'total'}"><span>入会費の割引</span><span>−${yen(r.discountYen)}</span></div>
+          ${r.courseName ? `<div class="row total"><span>お支払い予定額</span><span>${yen(r.payYen)}</span></div>` : ''}
+        </div>
+        <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7;">入会の手続きのときに、この割引が引かれます。<br>申請日時：${fmtDT(r.createdAt)}</div>
+      </div>`;
+}
+
 // ── 参加者：申請のカード ───────────────────
 async function loadJoinCard(){
   const el = document.getElementById('join-card');
@@ -3770,18 +3779,7 @@ async function loadJoinCard(){
       getDoc(doc(db,'seminar_join_allow',currentUser.uid))
     ]);
     if(reqSnap.exists()){
-      const r = reqSnap.data();
-      el.innerHTML = `<div class="offer-card">
-        <div class="offer-title">🏠 コミュニティ入会　割引の申請済み</div>
-        <div style="font-size:12px;color:var(--gb);font-weight:700;margin-bottom:8px;">${JOIN_STATUS[r.status]||''}</div>
-        <div class="offer-calc">
-          ${r.courseName ? `<div class="row"><span>${escHtml(r.courseName)}</span><span>${yen(r.coursePrice)}</span></div>` : ''}
-          <div class="row"><span>使ったコイン</span><span>${(r.coinsUsed||0).toLocaleString()}枚</span></div>
-          <div class="row ${r.courseName?'':'total'}"><span>入会費の割引</span><span>−${yen(r.discountYen)}</span></div>
-          ${r.courseName ? `<div class="row total"><span>お支払い予定額</span><span>${yen(r.payYen)}</span></div>` : ''}
-        </div>
-        <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7;">入会の手続きのときに、この割引が引かれます。<br>申請日時：${fmtDT(r.createdAt)}</div>
-      </div>`;
+      el.innerHTML = renderJoinDone(reqSnap.data());
       return;
     }
     const cfg = cfgSnap.exists() ? cfgSnap.data() : null;
@@ -4074,6 +4072,91 @@ window.cancelJoin = async function(btn){
     await loadJoinRequests();
   }catch(e){ showToast('❌ 取り消せませんでした'); }
 };
+
+// ═══════════════════════════════════════════════
+//  コインの有効期限：決めた日時を過ぎると、コインは使えなくなり、参加者の画面は終了画面になる
+//  （申し込み済みの内容は、終了画面でも見られる）
+// ═══════════════════════════════════════════════
+function expiryInputValue(d){
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function renderExpiryStatus(cfgSnap){
+  const stEl = document.getElementById('admin-expiry-status'); if(!stEl) return;
+  const inp = document.getElementById('expiry-input');
+  if(cfgSnap && cfgSnap.exists() && cfgSnap.data().expiryDate){
+    const d = cfgSnap.data().expiryDate.toDate();
+    const t = d.toLocaleDateString('ja-JP') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    stEl.innerHTML = new Date() > d
+      ? `<span style="color:#ff8a80;font-weight:700;">⚠️ 有効期限が切れています（${t}）</span><br>参加者の画面は、終了画面になっています。`
+      : `<span style="color:var(--gb);font-weight:700;">✅ 有効期限：${t} まで</span><br>それまでは、いままで通り使えます。`;
+    if(inp) inp.value = expiryInputValue(d);
+  } else {
+    stEl.textContent = '未設定です（有効期限は決まっていません。いまは、ずっと使える状態です）';
+    if(inp) inp.value = '';
+  }
+}
+window.setExpiryPreset = function(days){
+  const d = new Date(); d.setDate(d.getDate()+days); d.setHours(23,59,0,0);
+  const inp = document.getElementById('expiry-input'); if(inp) inp.value = expiryInputValue(d);
+};
+window.saveExpiry = async function(){
+  const v = (document.getElementById('expiry-input')||{}).value;
+  if(!v){ showToast('有効期限の日時を入れてください'); return; }
+  const d = new Date(v);
+  if(isNaN(d.getTime())){ showToast('日時が正しくありません'); return; }
+  if(d <= new Date()){ showToast('いまより先の日時を入れてください'); return; }
+  const t = d.toLocaleDateString('ja-JP') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  if(!confirm(`コインの有効期限を ${t} にします。\n\nその日時を過ぎると、コインは使えなくなり、参加者の画面は終了画面になり、特典・教材・入会割引の新しい申請はできなくなります。\n（申し込み済みの内容は、そのまま見られます）\n\nよろしいですか？`)) return;
+  try{
+    await setDoc(doc(db,'seminar_config','main'),{ expiryDate:Timestamp.fromDate(d), startedAt:serverTimestamp(), startedBy:currentUser.email },{ merge:true });
+    showToast('✅ 有効期限を設定しました');
+    renderExpiryStatus(await getDoc(doc(db,'seminar_config','main')));
+  }catch(e){ showToast('❌ 設定できませんでした'); }
+};
+window.clearExpiry = async function(){
+  if(!confirm('コインの有効期限を解除します。\n参加者の画面は、また、ふつうに使える状態に戻ります。よろしいですか？')) return;
+  try{
+    await setDoc(doc(db,'seminar_config','main'),{ expiryDate:null },{ merge:true });
+    showToast('✅ 有効期限を解除しました');
+    renderExpiryStatus(await getDoc(doc(db,'seminar_config','main')));
+  }catch(e){ showToast('❌ 解除できませんでした'); }
+};
+
+// 終了画面の中に、申し込み済みの内容（教材の特典・入会の割引）を出す
+async function loadExpiredRequests(){
+  const el = document.getElementById('expired-requests'); if(!el || !currentUser) return;
+  try{
+    const [ord, req, off] = await Promise.all([
+      getDoc(doc(db,'seminar_offer_orders',currentUser.uid)),
+      getDoc(doc(db,'seminar_join_requests',currentUser.uid)),
+      getDoc(doc(db,'seminar_config','offer'))
+    ]);
+    let html = '';
+    if(ord.exists()) html += renderOrderCard(ord.data(), off.exists() ? off.data() : null);
+    if(req.exists()) html += renderJoinDone(req.data());
+    el.innerHTML = html
+      ? `<div style="font-size:13px;color:var(--dim);margin-bottom:10px;line-height:1.7;text-align:left;">受付は終了しました。お申し込み済みの内容は、ここで確認できます。</div>${html}`
+      : '';
+  }catch(e){ el.innerHTML = ''; }
+}
+
+// 参加者のコイン画面の「有効期限　残り…」を、1秒ごとに動かす
+let _expTick = null, _expEnd = null;
+function tickExpiry(){
+  const el = document.getElementById('expiry-display'); if(!el || !_expEnd) return;
+  const ms = _expEnd.getTime() - Date.now();
+  if(ms <= 0){ clearInterval(_expTick); _expTick = null; location.reload(); return; }
+  const p = n => String(n).padStart(2,'0');
+  const days = Math.floor(ms/86400000), h = Math.floor(ms%86400000/3600000), m = Math.floor(ms%3600000/60000), sec = Math.floor(ms%60000/1000);
+  const until = _expEnd.toLocaleDateString('ja-JP') + ' ' + p(_expEnd.getHours()) + ':' + p(_expEnd.getMinutes());
+  el.textContent = `残り ${days>0 ? days+'日 ' : ''}${p(h)}:${p(m)}:${p(sec)}（${until} まで）`;
+}
+function startExpiryTicker(exp){
+  _expEnd = exp; tickExpiry();
+  if(_expTick) clearInterval(_expTick);
+  _expTick = setInterval(tickExpiry, 1000);
+}
 
 </script>
 
