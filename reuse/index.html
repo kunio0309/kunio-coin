@@ -46,7 +46,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border-bottom:1px solid var(--border);padding:0 20px;height:60px;
   display:flex;align-items:center;justify-content:space-between;
   padding-top:env(safe-area-inset-top);}
-.header-left{display:flex;align-items:center;gap:10px;}
+.header-left{display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .header-coin{width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;}
 .header-coin img{width:100%;height:100%;object-fit:cover;}
 .header-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--gb);}
@@ -316,13 +316,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- コイン画面 -->
 <div id="screen-seminar" class="screen">
   <div class="header">
-    <div class="header-left">
+    <div class="header-left" onclick="goHome('user')" title="トップへ戻る">
       <div class="header-coin"><div class="coin-face"></div></div>
       <div class="header-title">REUSE COIN</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;"><div class="header-badge" id="user-name-badge">—</div><button class="btn-text" onclick="doSignOut()" style="font-size:11px;padding:4px 2px;white-space:nowrap;">ログアウト</button></div>
   </div>
   <div class="content">
+    <div id="expiry-banner"></div>
     <div class="tabbar">
       <button id="user-tabbtn-coin" class="tab-btn active" onclick="switchTab('user','coin')">💰 コイン</button>
       <button id="user-tabbtn-board" class="tab-btn" onclick="switchTab('user','board')">📝 課題ボード</button>
@@ -458,7 +459,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- 管理者 -->
 <div id="screen-admin" class="screen">
   <div class="header">
-    <div class="header-left">
+    <div class="header-left" onclick="goHome('admin')" title="トップへ戻る">
       <div class="header-coin"><div class="coin-face"></div></div>
       <div class="header-title">管理画面</div>
     </div>
@@ -4150,13 +4151,31 @@ function tickExpiry(){
   const p = n => String(n).padStart(2,'0');
   const days = Math.floor(ms/86400000), h = Math.floor(ms%86400000/3600000), m = Math.floor(ms%3600000/60000), sec = Math.floor(ms%60000/1000);
   const until = _expEnd.toLocaleDateString('ja-JP') + ' ' + p(_expEnd.getHours()) + ':' + p(_expEnd.getMinutes());
-  el.textContent = `残り ${days>0 ? days+'日 ' : ''}${p(h)}:${p(m)}:${p(sec)}（${until} まで）`;
+  const digits = `${days>0 ? days+'日 ' : ''}${p(h)}:${p(m)}:${p(sec)}`;
+  el.textContent = `残り ${digits}（${until} まで）`;
+  // 画面の一番上の、大きなカウントダウン
+  const bd = document.querySelector('#expiry-banner .digits');
+  if(bd){ bd.textContent = digits; const bx = document.querySelector('#expiry-banner .offer-timer'); if(bx) bx.classList.toggle('soon', ms < 6*3600000); }
 }
 function startExpiryTicker(exp){
-  _expEnd = exp; tickExpiry();
+  _expEnd = exp;
+  const bn = document.getElementById('expiry-banner');
+  if(bn){
+    const p = n => String(n).padStart(2,'0');
+    const until = exp.toLocaleDateString('ja-JP') + ' ' + p(exp.getHours()) + ':' + p(exp.getMinutes());
+    bn.innerHTML = `<div class="offer-timer" style="margin:0 0 14px;"><div class="lbl">⏰ コインの有効期限　${until} まで</div><div class="digits">--</div><div style="font-size:11px;color:var(--dim);margin-top:2px;">この時間を過ぎると、コインは使えなくなります</div></div>`;
+  }
+  tickExpiry();
   if(_expTick) clearInterval(_expTick);
   _expTick = setInterval(tickExpiry, 1000);
 }
+
+// 左上のロゴを押したとき：トップ（コインのタブの一番上）に戻る
+window.goHome = function(group){
+  try{ const m = document.getElementById('profile-modal'); if(m && m.style.display!=='none' && typeof closeProfile==='function') closeProfile(); }catch(e){}
+  try{ switchTab(group, 'coin'); }catch(e){}
+  window.scrollTo({ top:0, behavior:'smooth' });
+};
 
 </script>
 
