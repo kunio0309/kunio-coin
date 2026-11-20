@@ -251,7 +251,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/20-E</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/20-G</div>
   </div>
 </div>
 
@@ -579,7 +579,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/20-E</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/20-G</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -1375,6 +1375,7 @@ window.doGrantMulti = async function() {
       success++;
     }
     showToast('✅ ' + success + '名に ' + pts.toLocaleString() + '枚 配布しました！', pts);
+    playSfx('send');
     loadGrantMembers();
   } catch(e) {
     showToast('⚠️ エラー: ' + e.message);
@@ -1692,15 +1693,14 @@ window.openLpTool = async function() {
     if (!auth.currentUser) { showToast('⚠️ ログインしてください'); return; }
     showToast('⏳ ツールを開いています...');
     const idToken = await auth.currentUser.getIdToken(true);
-    const f = document.createElement('form');
-    f.method = 'POST';
-    f.action = 'https://zerocostrecyclers.com/annai/auth.php';
-    const i = document.createElement('input');
-    i.type = 'hidden'; i.name = 'id_token'; i.value = idToken;
-    f.appendChild(i);
-    document.body.appendChild(f);
-    f.submit();
-  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
+    // ツールのサーバーに証明を送って「使い捨ての入場券」をもらい、そのURLを開く
+    // （アプリから開くと普通のブラウザで開かれるため、証明を落とさないようにこの形にしている）
+    const r = await fetch('https://zerocostrecyclers.com/annai/auth.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_token: idToken }) });
+    let j = null; try { j = await r.json(); } catch(e) {}
+    if (!j) { showToast('⚠️ ツールのサーバーにつながりませんでした（' + r.status + '）'); return; }
+    if (!j.ok) { showToast('⚠️ ' + (j.msg || 'ツールを開けませんでした')); return; }
+    location.href = j.url;
+  } catch(e) { showToast('⚠️ ツールのサーバーにつながりませんでした。少し時間をおいてお試しください'); }
 };
 
 async function doZoomUse(item) {
