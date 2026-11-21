@@ -338,7 +338,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-V</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-W</div>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-V</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-W</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -1071,6 +1071,7 @@ async function loadUser(uid) {
     checkEventAccessOnLoad(window._uid);
     loadCoinNotifications(window._uid);
     if (window.gachaHeader) window.gachaHeader();
+    if (window.loadMyCoupons) window.loadMyCoupons();
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1635,6 +1636,20 @@ function buildCompareRow(item, rankKey) {
     }).join('') + '</div>';
 }
 
+// 持っている割引券を、使い道の一覧にも出す
+const COUPON_FOR = { 'consult-30': ['mendanFree', 'mendan50'] };
+function myCouponsFor(item) {
+  let kinds = COUPON_FOR[item.id];
+  if (!kinds && item.type === 'lp-tool' && !window._lpOwned) kinds = ['tool100', 'tool50'];
+  if (!kinds) return [];
+  return (window._myCoupons || []).filter(c => kinds.includes(c.kind));
+}
+function couponBadgeHtml(item) {
+  const list = myCouponsFor(item); if (!list.length) return '';
+  const names = [...new Set(list.map(c => c.label || c.kind))];
+  return '<div style="display:inline-block;margin-top:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:900;background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;">🎫 ' + names.join('・') + 'を持っています</div>';
+}
+window.couponBadgeHtml = couponBadgeHtml;
 function renderUseMenu() {
   const rankKey = getMyRank();
   const container = document.getElementById('use-menu-container');
@@ -1660,7 +1675,7 @@ function renderUseMenu() {
         : '<div class="use-cost">' + myPts.toLocaleString() + ' 枚</div>';
       container.innerHTML += '<div class="use-item" onclick="openModal(\'modal-use\')" style="flex-wrap:wrap;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' +
         item.icon + ' ' + item.name + '</div><div style="font-size:11px;color:var(--dim);">' + item.sub +
-        '</div>' + buildCompareRow(item, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
+        '</div>' + couponBadgeHtml(item) + buildCompareRow(item, rankKey) + '</div><div style="display:flex;align-items:center;gap:8px;">' + costHtml + '<span style="color:var(--dim);">›</span></div></div>';
     });
   }
   if (list) {
@@ -1682,7 +1697,7 @@ function renderUseMenu() {
         'style="border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<div><div style="font-size:13px;font-weight:700;">' + item.icon + ' ' + item.name + '</div>' +
-        '<div style="font-size:11px;color:var(--dim);">' + item.sub + '</div></div>' + myCostHtml + '</div>' +
+        '<div style="font-size:11px;color:var(--dim);">' + item.sub + '</div>' + couponBadgeHtml(item) + '</div>' + myCostHtml + '</div>' +
         buildCompareRow(item, rankKey) + '</div>';
     });
     if (firstIdx !== -1) selectUseItem(firstIdx);
@@ -1710,7 +1725,7 @@ window.selectUseItem = function(idx) {
     if (dateGrp) dateGrp.style.display = 'none';
     if (memoGrp) memoGrp.style.display = 'none';
   } else if (item.type === 'lp-tool') {
-    if (btn) btn.textContent = window._lpOwned ? '🏢 営業ページ作成ツールを開く（購入済み）' : '🏢 コインを使って申し込む';
+    if (btn) btn.textContent = window._lpOwned ? '🏢 営業ページ作成ツールを開く（購入済み）' : (myCouponsFor(item).length ? '🎫 割引券を使って申し込む' : '🏢 コインを使って申し込む');
     if (dateGrp) dateGrp.style.display = 'none';
     if (memoGrp) memoGrp.style.display = 'none';
   } else if (item.type === 'event') {
@@ -1718,7 +1733,7 @@ window.selectUseItem = function(idx) {
     if (dateGrp) dateGrp.style.display = 'none';
     if (memoGrp) memoGrp.style.display = 'none';
   } else {
-    if (btn) btn.textContent = '申請する';
+    if (btn) btn.textContent = myCouponsFor(item).length ? '🎫 割引券を使って申請する' : '申請する';
     if (dateGrp) dateGrp.style.display = '';
     if (memoGrp) memoGrp.style.display = '';
   }
@@ -2341,7 +2356,7 @@ window.spinGacha = async function(mode, count) {
   cap.classList.remove('go'); knob.classList.remove('turn');
   if (r.coins > 0) showToast('🪙 ' + r.coins.toLocaleString() + '枚 当たりました！');
   if (window._loadUser) await window._loadUser(window._uid);
-  gachaHeader(); loadGachaWins();
+  gachaHeader(); loadGachaWins(); loadMyCoupons();
   gachaBusy = false; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = false);
 };
 // ガチャ券のお知らせ → ガチャ画面へ
@@ -2367,6 +2382,7 @@ async function loadMyCoupons() {
     ev.forEach(c => { const b = document.createElement('button'); b.className = 'btn-secondary'; b.style.marginTop = '8px';
       b.textContent = '🎉 ' + (c.label || '') + 'を使う（その場で押してKUNIOに見せる）'; b.onclick = () => useEventCoupon(c); el.appendChild(b); });
     window._myCoupons = list;
+    const mu = document.getElementById('modal-use'); if (window.renderUseMenu && !(mu && mu.classList.contains('open'))) window.renderUseMenu();
     return list;
   } catch(e) { el.innerHTML = '<div style="color:var(--dim);">読み込めませんでした</div>'; return []; }
 }
