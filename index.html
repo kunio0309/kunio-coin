@@ -217,6 +217,53 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .loading-coin img{width:100%;height:100%;object-fit:cover;}
 #login-screen.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
 #loading.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
+/* ===== ガチャ ===== */
+.gacha-banner{width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#ffd54f,#ff9800);color:#3a2e00;font-family:'Noto Sans JP',sans-serif;font-size:16px;font-weight:900;margin:12px 0 0;box-shadow:0 6px 18px rgba(255,152,0,.25)}
+.gm{position:relative;width:250px;aspect-ratio:423/760;margin:8px auto 0}
+.gm.shake{animation:gmshake .16s linear infinite}
+@keyframes gmshake{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(-2px,1px) rotate(-.7deg)}75%{transform:translate(2px,-1px) rotate(.7deg)}}
+.gm-img{display:block;width:100%;height:100%;filter:drop-shadow(0 14px 26px rgba(0,0,0,.65))}
+.gm-shine{position:absolute;left:2%;top:2%;width:96%;height:44%;border-radius:50% 50% 42% 42%;pointer-events:none;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.45) 45%,transparent 60%);background-size:250% 100%;background-position:120% 0;opacity:0}
+.gm.shake .gm-shine{opacity:1;animation:gmshine .7s linear infinite}
+@keyframes gmshine{to{background-position:-120% 0}}
+.gm-handle{position:absolute;left:50.1%;top:68.7%;width:34.6%;transform:translate(-50%,-50%) rotate(0)}
+.gm-handle.turn{animation:gmturn 1.5s cubic-bezier(.45,0,.3,1) forwards}
+@keyframes gmturn{to{transform:translate(-50%,-50%) rotate(720deg)}}
+.gm-cap{position:absolute;left:50%;top:86.4%;width:17%;opacity:0;z-index:3;transform:translate(-50%,-50%);filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))}
+.gm-cap.go{animation:gmcap 1s cubic-bezier(.3,1.5,.5,1) forwards}
+@keyframes gmcap{0%{opacity:0;transform:translate(-50%,-90%) scale(.4)}25%{opacity:1}100%{opacity:1;transform:translate(-50%,20%) scale(1.35)}}
+.gmr{position:fixed;inset:0;z-index:400;background:rgba(0,0,12,.9);display:none;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;cursor:pointer}
+.gmr.show{display:flex}
+.gmr-lw{position:absolute;left:50%;top:44%;width:0;height:0}
+.gmr-light{position:absolute;left:0;top:0;width:240vmax;-webkit-mask-image:radial-gradient(closest-side,#000 55%,transparent 100%);mask-image:radial-gradient(closest-side,#000 55%,transparent 100%);max-width:none;transform:translate(-50%,-50%) scale(.2);opacity:0;mix-blend-mode:screen;pointer-events:none}
+.gmr.open.win .gmr-light{animation:gmrlight .9s ease-out forwards}
+.gmr.open.big .gmr-lw{animation:gmrspin 10s linear infinite}
+@keyframes gmrlight{to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes gmrspin{to{transform:rotate(360deg)}}
+.gmr-cap{position:relative;width:170px;height:174px;animation:gmrshake .45s ease-in-out 2}
+@keyframes gmrshake{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}
+.gmr-cap img{position:absolute;inset:0;width:100%;height:100%}
+.gmr-top{clip-path:inset(0 0 50% 0)}
+.gmr-bot{clip-path:inset(50% 0 0 0)}
+.gmr.open .gmr-top{animation:gmrtop .6s ease-out forwards}
+.gmr.open .gmr-bot{animation:gmrbot .6s ease-out forwards}
+@keyframes gmrtop{to{transform:translate(-70px,-170px) rotate(-40deg);opacity:0}}
+@keyframes gmrbot{to{transform:translate(50px,170px) rotate(30deg);opacity:0}}
+.gmr-text{position:relative;margin-top:-110px;padding:0 20px;text-align:center;color:#fff;font-weight:900;font-size:30px;line-height:1.35;font-size:34px;text-shadow:0 0 8px #000,0 0 22px rgba(255,140,0,.95),0 2px 4px #000;opacity:0}
+.gmr-text small{display:block;font-size:20px;color:#fff3c4;margin-top:8px;text-shadow:0 0 6px #000,0 0 14px #000,0 2px 3px #000}
+.gmr.lose .gmr-text{text-shadow:0 2px 4px #000;color:#cfd8dc}
+.gmr.open .gmr-text{animation:gpop .5s .2s both}
+.gmr-tap{position:absolute;bottom:40px;left:0;right:0;text-align:center;color:#bbb;font-size:13px;opacity:0}
+.gmr.open .gmr-tap{animation:gpop .4s 1.2s both}
+.gres{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:14px}
+.gres div{border-radius:12px;padding:12px 6px;text-align:center;font-weight:900;font-size:13px;background:var(--d3);color:var(--dim);border:1px solid var(--border);animation:gpop .35s both}
+.gres div.win{background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;border:none}
+.gres div.big{background:linear-gradient(135deg,#ff8a80,#ff1744);color:#fff;border:none;box-shadow:0 0 18px rgba(255,23,68,.6)}
+@keyframes gpop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+.gbtn{padding:14px 8px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.gbtn:disabled{opacity:.4;cursor:not-allowed}
+.gwins div{display:flex;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px}
+.gwins b{color:#ffd54f}
 </style>
 </head>
 <body>
@@ -251,7 +298,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-H</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-L</div>
   </div>
 </div>
 
@@ -309,6 +356,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="event-access-banner" style="display:none;margin:12px 0;"></div>
 
     <!-- 営業ページ作成ツール（利用権がある人だけ表示） -->
+    <button class="gacha-banner" style="display:none;" onclick="showScreen('gacha')">🎰 KUNIO-COIN ガチャ <span id="gacha-banner-tickets" style="font-size:12px;font-weight:700;"></span><div id="gacha-banner-note" style="font-size:11px;font-weight:700;"></div></button>
     <div id="lp-tool-banner" style="display:none;margin:12px 0;">
       <button onclick="openLpTool()" style="width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#14b886,#0e9a70);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">🏢 営業ページ作成ツールを開く</button>
       <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px;">お申し込み済みのため、コインは使いません</div>
@@ -539,12 +587,55 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
       </div>
       <button class="btn-primary" onclick="doGrantMulti()">選択したメンバーに配布する</button>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">🎟 選んだメンバーにガチャ券を配る</div>
+        <div style="display:flex;gap:8px;align-items:center;"><input class="form-input" id="ticket-count" type="number" min="1" max="100" value="10" style="flex:1;"/><span style="font-size:13px;">枚</span></div>
+        <button class="btn-secondary" onclick="giveTickets()" style="margin-top:8px;">🎟 ガチャ券を配る（メモは上の欄を使います）</button>
+      </div>
     </div>
   </div>
 
 
 
   <!-- ランキング -->
+  <div class="screen" id="screen-gacha">
+    <div class="section-title">● KUNIO-COIN ガチャ</div>
+    <div style="display:flex;gap:8px;justify-content:center;font-size:13px;font-weight:700;margin-top:4px;">
+      <span style="background:var(--d3);padding:6px 12px;border-radius:20px;">🎟 ガチャ券 <b id="g-tickets">0</b>枚</span>
+      <span style="background:var(--d3);padding:6px 12px;border-radius:20px;">🪙 <b id="g-points">0</b>枚</span>
+    </div>
+    <div class="gm" id="gm">
+      <img class="gm-img" src="gacha/machine.webp" alt="KUNIO-COIN ガチャマシン">
+      <div class="gm-shine"></div>
+      <img class="gm-handle" id="gm-knob" src="gacha/handle.webp" alt="">
+      <img class="gm-cap" id="gm-cap" alt="">
+    </div>
+    <div class="gmr" id="gm-reveal" onclick="closeGachaReveal()">
+      <div class="gmr-lw"><img class="gmr-light" src="gacha/light.jpg" alt=""></div>
+      <div class="gmr-cap"><img class="gmr-top" id="gmr-top" alt=""><img class="gmr-bot" id="gmr-bot" alt=""></div>
+      <div class="gmr-text" id="gmr-text"></div>
+      <div class="gmr-tap">タップでとじる</div>
+    </div>
+    <div id="g-msg" style="text-align:center;font-weight:900;font-size:18px;min-height:28px;margin-top:6px;"></div>
+    <div class="gres" id="g-res"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+      <button class="gbtn js-gbtn" style="background:linear-gradient(135deg,#69f0ae,#2e7d32);color:#00210c;" onclick="spinGacha('ticket',1)">🎟 券で1回</button>
+      <button class="gbtn js-gbtn" style="background:linear-gradient(135deg,#69f0ae,#2e7d32);color:#00210c;" onclick="spinGacha('ticket',10)">🎟 券で10回<br><small style="font-weight:700;">必ず1つ以上当たり</small></button>
+      <button class="gbtn js-gbtn" style="background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;" onclick="spinGacha('coin',1)">🪙 <span id="g-price1">500</span>枚で1回</button>
+      <button class="gbtn js-gbtn" style="background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;" onclick="spinGacha('coin',10)">🪙 <span id="g-price10">5,000</span>枚で10回<br><small style="font-weight:700;">必ず1つ以上当たり</small></button>
+    </div>
+    <div class="section-title" style="margin-top:22px;">● 最近の当選者</div>
+    <div class="gwins" id="g-wins"><div style="color:var(--dim);">読み込み中...</div></div>
+    <div class="section-title" style="margin-top:22px;">● 当たりと確率</div>
+    <div style="font-size:12px;color:var(--dim);line-height:1.9;background:var(--d3);border-radius:12px;padding:12px 14px;">
+      ハズレ 約65%／100枚 12%／300枚 3%／1,000枚 0.5%／3,000枚 0.2%／10,000枚 0.05%<br>
+      全ツール50%割引券 8%／全ツール100%割引券 4%／個別面談 半額券 3.5%／個別面談（30分）無料券 4%<br>
+      ※ 営業ツールをすべて持っている人には、ツールの割引券は出ません（その分ほかの結果になります）<br>
+      ※ 10回まとめて回すと、必ず1つ以上当たります<br>
+      ※ 当たった券は、マイページの「持っている券」で見られます。売ったり、ほかの人に渡したりはできません
+    </div>
+  </div>
+
   <div class="screen" id="screen-ranking">
     <div style="font-size:11px;letter-spacing:3px;color:var(--dim);margin:8px 0 4px;font-family:'Bebas Neue',sans-serif;">● 枚数ランキング</div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:12px;">現在の保有枚数（管理者除く）</div>
@@ -572,6 +663,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="section-title" style="margin-top:20px;">● アカウント</div>
     <button class="btn-secondary" onclick="requestOwnPasswordReset()">パスワードを変更する</button>
 
+    <div class="section-title" style="margin-top:20px;">● 持っている券</div>
+    <div id="my-coupons" style="font-size:13px;"><div style="color:var(--dim);">読み込み中...</div></div>
+
     <div class="section-title" style="margin-top:20px;">● 履歴</div>
     <button class="btn-secondary" onclick="loadMemberHistory(window._uid, window._userData ? window._userData.name : '—')">すべての履歴を見る</button>
 
@@ -579,7 +673,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-H</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-L</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -929,6 +1023,7 @@ async function loadUser(uid) {
     checkLpRightsOnLoad(window._uid);
     checkEventAccessOnLoad(window._uid);
     loadCoinNotifications(window._uid);
+    if (window.gachaHeader) window.gachaHeader();
     const buyTypeEl = document.getElementById('buy-member-type');
     const buyDescEl = document.getElementById('buy-member-desc');
     if (buyTypeEl) buyTypeEl.textContent = window._userData.rank === 'bronze' ? 'リサイクラーズ価格' : 'ゼロコストリサイクラーズ価格';
@@ -1427,15 +1522,33 @@ let _disabledServices = new Set();
 async function loadServiceConfig() {
   try {
     const snap = await getDoc(doc(db, 'config', 'services'));
-    if (snap.exists()) _disabledServices = new Set(snap.data().disabled || []);
+    if (snap.exists()) { _disabledServices = new Set(snap.data().disabled || []); window._gachaOpen = !!snap.data().gachaOpen; }
+    showGachaBanner();
   } catch(e) {}
 }
+// ガチャは「公開」にするまで、管理者にしか見えない
+function showGachaBanner() {
+  const b = document.querySelector('.gacha-banner'); if (!b) return;
+  const admin = !!(window._userData && window._userData.isAdmin);
+  b.style.display = (window._gachaOpen || admin) ? '' : 'none';
+  const note = document.getElementById('gacha-banner-note');
+  if (note) note.textContent = (!window._gachaOpen && admin) ? '（非公開：管理者だけ見えています）' : '';
+}
+window.toggleGacha = async function() {
+  const next = !window._gachaOpen;
+  if (!confirm(next ? 'ガチャを会員さんに公開しますか？' : 'ガチャを非公開にしますか？')) return;
+  try {
+    await setDoc(doc(db, 'config', 'services'), { disabled: [..._disabledServices], gachaOpen: next });
+    window._gachaOpen = next; renderServiceToggles(); showGachaBanner();
+    showToast(next ? '✅ ガチャを公開しました' : '🔒 ガチャを非公開にしました');
+  } catch(e) { showToast('❌ 保存できませんでした'); }
+};
 
 window.toggleService = async function(id) {
   const wasDisabled = _disabledServices.has(id);
   if (wasDisabled) _disabledServices.delete(id); else _disabledServices.add(id);
   try {
-    await setDoc(doc(db, 'config', 'services'), { disabled: [..._disabledServices] });
+    await setDoc(doc(db, 'config', 'services'), { disabled: [..._disabledServices], gachaOpen: !!window._gachaOpen });
     renderServiceToggles();
     renderUseMenu();
     showToast(wasDisabled ? '✅ 公開しました' : '🔒 非公開にしました');
@@ -1448,7 +1561,11 @@ window.toggleService = async function(id) {
 function renderServiceToggles() {
   const el = document.getElementById('admin-services');
   if (!el) return;
-  el.innerHTML = USE_ITEMS.map(item => {
+  const g = !!window._gachaOpen;
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;">🎰 ガチャ（ホームの入口）</div>
+      <button onclick="toggleGacha()" style="padding:4px 16px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:'Noto Sans JP',sans-serif;background:${g ? '#4caf50' : 'var(--d4)'};color:${g ? '#fff' : 'var(--dim)'};">${g ? 'ON' : 'OFF'}</button>
+    </div>` + USE_ITEMS.map(item => {
     const isOn = !_disabledServices.has(item.id);
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
       <div style="font-size:13px;">${item.icon} ${item.name}</div>
@@ -1618,12 +1735,15 @@ window.doUse = async function() {
     const rightsSnap = await getDoc(doc(db, 'lp_rights', window._uid));
     if (rightsSnap.exists()) { closeModal('modal-use'); await openLpTool(); return; }
     const rankKey = getMyRank();
-    const pts = lpItem.prices[rankKey];
+    let pts = lpItem.prices[rankKey];
+    const cp = await chooseCoupon(['tool50', 'tool100'], pts, lpItem.name);
+    if (cp === false) return;
+    if (cp) pts = cp.kind === 'tool100' ? 0 : Math.floor(pts / 2);
     const userSnap = await getDoc(doc(db, 'users', window._uid));
     const balance = (userSnap.data() && userSnap.data().points) || 0;
     if (balance < pts) { showToast('⚠️ コインが足りません（必要 ' + pts.toLocaleString() + '枚・残高 ' + balance.toLocaleString() + '枚）'); return; }
     closeModal('modal-use');
-    showPayConfirm(lpItem.icon, lpItem.name, pts, balance, () => doLpToolUse(lpItem), { returnTo: 'modal-use' });
+    showPayConfirm(lpItem.icon, lpItem.name + (cp ? '（' + cp.label + '）' : ''), pts, balance, () => doLpToolUse(lpItem, cp ? cp.id : ''), { returnTo: 'modal-use' });
     return;
   }
 
@@ -1656,7 +1776,13 @@ window.doUse = async function() {
   }
 
   // 通常コイン消費（個別面談・ディナーなど）
-  const pts = parseInt(ptsRaw);
+  let pts = parseInt(ptsRaw);
+  let cp = null;
+  if (itemId === 'consult-30') {
+    cp = await chooseCoupon(['mendan50', 'mendanFree'], pts, '個別面談（30分）');
+    if (cp === false) return;
+    if (cp) pts = cp.kind === 'mendanFree' ? 0 : Math.floor(pts / 2);
+  }
   const item = USE_ITEMS.find(i => i.id === itemId);
   const icon = item ? item.icon : '💸';
   const name = item ? item.name : desc;
@@ -1665,9 +1791,9 @@ window.doUse = async function() {
     const balance = (userSnap.data() && userSnap.data().points) || 0;
     if (balance < pts) { showToast('⚠️ コインが足りません（必要 ' + pts.toLocaleString() + '枚・残高 ' + balance.toLocaleString() + '枚）'); return; }
     closeModal('modal-use');
-    showPayConfirm(icon, name, pts, balance, async () => {
+    showPayConfirm(icon, name + (cp ? '（' + cp.label + '）' : ''), pts, balance, async () => {
       try {
-        await coinApi('spend', { itemId: itemId });
+        await coinApi('spend', { itemId: itemId, couponId: cp ? cp.id : '' });
         showToast('✅ 申請を送りました！');
         if (window._loadUser) await window._loadUser(window._uid);
       } catch(e) { showToast('⚠️ エラー: ' + e.message); }
@@ -1675,14 +1801,14 @@ window.doUse = async function() {
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
-async function doLpToolUse(item) {
+async function doLpToolUse(item, couponId) {
   const uid = window._uid;
   const rankKey = getMyRank();
   const pts = item.prices[rankKey];
   showToast('⏳ 処理中...');
   try {
     // コイン係が「残高の確認 → コインを減らす → 利用権を付ける」をまとめて行う（交換済みなら何もしない）
-    const r = await coinApi('lp', { itemId: item.id });
+    const r = await coinApi('lp', { itemId: item.id, couponId: couponId || '' });
     if (!r.already) { playMinusSound(); if (window._loadUser) await window._loadUser(uid); }
     checkLpRightsOnLoad(uid);
     // ログイン証明を付けて営業ページ作成ツールを開く
@@ -1963,6 +2089,14 @@ async function loadCoinNotifications(uid) {
     area.innerHTML = snap.docs.map(d => {
       const n = d.data();
       const id = d.id;
+      if (n.type === 'ticket') {
+        return '<div id="notif-' + id + '" style="background:linear-gradient(135deg,#0d2a1a,#00140a);border:2px solid #69f0ae;border-radius:14px;padding:16px;margin-bottom:10px;">'
+          + '<div style="font-size:11px;letter-spacing:2px;color:#69f0ae;margin-bottom:6px;">🎟 ガチャ券が届きました！</div>'
+          + '<div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#fff;">' + (n.fromName || 'KUNIO') + ' から <span style="color:#69f0ae;">' + Number(n.amount || 0) + '枚</span></div>'
+          + (n.message ? '<div style="font-size:12px;color:var(--dim);margin-bottom:12px;padding:8px;background:rgba(105,240,174,.08);border-radius:8px;">「' + n.message + '」</div>' : '')
+          + '<button onclick="openTicketNotif(\'' + id + '\')" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#69f0ae,#2e7d32);color:#00210c;font-weight:900;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">🎰 ガチャを回しに行く</button>'
+          + '</div>';
+      }
       if (n.type === 'received') {
         return '<div id="notif-' + id + '" style="background:linear-gradient(135deg,#1a0d2a,#0d001a);border:2px solid #9c27b0;border-radius:14px;padding:16px;margin-bottom:10px;">'
           + '<div style="font-size:11px;letter-spacing:2px;color:#ce93d8;margin-bottom:6px;">🎁 コインを受け取りました</div>'
@@ -2013,6 +2147,164 @@ window.receiveGrant = async function(notifId, amount) {
   const card = document.getElementById('notif-' + notifId); if (card) card.remove();
   const all = document.getElementById('grant-all'); if (all) all.remove();
   try { await updateDoc(doc(db, 'coin_notifications', notifId), { confirmed: true }); } catch(e) {}
+};
+
+// ---------- ガチャ ----------
+const GACHA_PRICE = { gold: 500, silver: 625, bronze: 1000 };
+const COIN_KINDS = ['c100','c300','c1000','c3000','c10000'];
+function gachaHeader() {
+  const u = window._userData || {}; const t = Number(u.gachaTickets || 0);
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('g-tickets', t); set('g-points', Number(u.points || 0).toLocaleString());
+  const pr = GACHA_PRICE[getMyRank()] || 500; set('g-price1', pr.toLocaleString()); set('g-price10', (pr * 10).toLocaleString());
+  set('gacha-banner-tickets', t > 0 ? '（ガチャ券 ' + t + '枚）' : '');
+}
+window.gachaHeader = gachaHeader;
+window.gachaBalls = () => gachaBalls();
+const GACHA_IMGS = ['machine.webp','handle.webp','light.jpg','cap_gold.webp','cap_silver.webp','cap_red.webp','cap_blue.webp','cap_purple.webp'];
+let gachaPreloaded = false;
+function gachaBalls() {
+  if (gachaPreloaded) return; gachaPreloaded = true;
+  GACHA_IMGS.forEach(f => { const im = new Image(); im.src = 'gacha/' + f; });
+}
+// 当たりの大きさ → カプセルの色（金＝大当たり、銀＝当たり、赤＝小当たり、青・紫＝ハズレ）
+const GACHA_ORDER = ['c10000','c3000','tool100','mendanFree','c1000','tool50','mendan50','c300','c100','none'];
+const GACHA_BIG = ['c1000','c3000','c10000','tool100','mendanFree'];
+function gachaCapColor(kind) {
+  if (GACHA_BIG.includes(kind)) return 'gold';
+  if (['tool50','mendan50','c300'].includes(kind)) return 'silver';
+  if (kind === 'c100') return 'red';
+  return Math.random() < .5 ? 'blue' : 'purple';
+}
+let gachaRevealDone = null;
+window.closeGachaReveal = function() {
+  const ov = document.getElementById('gm-reveal');
+  if (!ov.classList.contains('open')) return;
+  ov.className = 'gmr'; if (gachaRevealDone) { const f = gachaRevealDone; gachaRevealDone = null; f(); }
+};
+async function loadGachaWins() {
+  const el = document.getElementById('g-wins'); if (!el) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'gacha_wins'), orderBy('createdAt', 'desc'), limit(20)));
+    if (snap.empty) { el.innerHTML = '<div style="color:var(--dim);">まだ当選者はいません。最初の当選者になろう！</div>'; return; }
+    el.innerHTML = '';
+    snap.forEach(d => { const w = d.data(); const t = w.createdAt && w.createdAt.toDate ? w.createdAt.toDate() : null;
+      const row = document.createElement('div'); const a = document.createElement('span'); const b = document.createElement('b');
+      a.textContent = (w.name || 'メンバー') + (t ? '（' + (t.getMonth()+1) + '/' + t.getDate() + '）' : ''); b.textContent = w.label || '';
+      row.append(a, b); el.appendChild(row); });
+  } catch(e) { el.innerHTML = '<div style="color:var(--dim);">読み込めませんでした</div>'; }
+}
+window.loadGachaWins = loadGachaWins;
+let gachaBusy = false;
+window.spinGacha = async function(mode, count) {
+  if (gachaBusy) return;
+  const u = window._userData || {};
+  if (mode === 'ticket' && Number(u.gachaTickets || 0) < count) { showToast('⚠️ ガチャ券が足りません（持っている券：' + Number(u.gachaTickets || 0) + '枚）'); return; }
+  if (mode === 'coin') {
+    const price = (GACHA_PRICE[getMyRank()] || 500) * count;
+    if (Number(u.points || 0) < price) { showToast('⚠️ コインが足りません（必要 ' + price.toLocaleString() + '枚）'); return; }
+    if (!confirm(price.toLocaleString() + '枚を使って、ガチャを' + count + '回まわしますか？')) return;
+  }
+  gachaBusy = true; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = true);
+  const msg = document.getElementById('g-msg'), res = document.getElementById('g-res');
+  msg.textContent = ''; res.innerHTML = '';
+  const gm = document.getElementById('gm'), knob = document.getElementById('gm-knob'), cap = document.getElementById('gm-cap');
+  [knob, cap].forEach(e => { e.classList.remove('turn', 'go'); void e.offsetWidth; });
+  gm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (window.playGachaSound) window.playGachaSound('start');
+  let r = null, err = null;
+  const wait = ms => new Promise(ok => setTimeout(ok, ms));
+  const call = coinApi('gacha', { mode, count }).then(x => r = x).catch(e => err = e);
+  knob.classList.add('turn'); await wait(300); gm.classList.add('shake');
+  await Promise.all([call, wait(1500)]);
+  gm.classList.remove('shake');
+  if (err) { knob.classList.remove('turn'); msg.textContent = ''; showToast('⚠️ ' + err.message); gachaBusy = false; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = false); return; }
+  const wins = r.results.filter(x => x.kind !== 'none');
+  const big = r.results.some(x => GACHA_BIG.includes(x.kind));
+  const best = r.results.slice().sort((x, y) => GACHA_ORDER.indexOf(x.kind) - GACHA_ORDER.indexOf(y.kind))[0];
+  const capSrc = 'gacha/cap_' + gachaCapColor(best.kind) + '.webp';
+  cap.src = capSrc; cap.classList.add('go'); if (window.playGachaSound) window.playGachaSound('pop'); await wait(1000);
+  // 真ん中で大きなカプセルがゆれて、パカッと開く
+  const ov = document.getElementById('gm-reveal');
+  document.getElementById('gmr-top').src = capSrc; document.getElementById('gmr-bot').src = capSrc;
+  const tx = document.getElementById('gmr-text'); tx.textContent = '';
+  tx.append(wins.length ? (big ? '🎉 大当たり！' : '✨ 当たり！') : 'ハズレ…');
+  const sm = document.createElement('small');
+  sm.textContent = wins.length ? best.label + (wins.length > 1 ? '　ほか ' + (wins.length - 1) + 'つ当たり' : '') : 'また挑戦してね';
+  tx.appendChild(sm);
+  ov.className = 'gmr show'; if (window.playGachaSound) window.playGachaSound('shake'); await wait(900);
+  if (window.playGachaSound) window.playGachaSound('open');
+  ov.classList.add('open', wins.length ? 'win' : 'lose'); if (big) ov.classList.add('big');
+  if (window.playGachaSound) window.playGachaSound(wins.length ? (big ? 'big' : 'win') : 'lose');
+  msg.textContent = wins.length ? (big ? '🎉 大当たり！' : '✨ 当たり！') : 'ハズレ…また挑戦してね';
+  r.results.forEach((x, i) => { const d = document.createElement('div'); d.textContent = x.label;
+    if (x.kind !== 'none') d.className = GACHA_BIG.includes(x.kind) ? 'big' : 'win';
+    d.style.animationDelay = (i * 0.08) + 's'; res.appendChild(d); });
+  await new Promise(ok => { gachaRevealDone = ok; setTimeout(() => { if (gachaRevealDone === ok) window.closeGachaReveal(); }, 6000); });
+  cap.classList.remove('go'); knob.classList.remove('turn');
+  if (r.coins > 0) showToast('🪙 ' + r.coins.toLocaleString() + '枚 当たりました！');
+  if (window._loadUser) await window._loadUser(window._uid);
+  gachaHeader(); loadGachaWins();
+  gachaBusy = false; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = false);
+};
+// ガチャ券のお知らせ → ガチャ画面へ
+window.openTicketNotif = async function(id) {
+  const c = document.getElementById('notif-' + id); if (c) c.remove();
+  try { await updateDoc(doc(db, 'coin_notifications', id), { confirmed: true }); } catch(e) {}
+  showScreen('gacha');
+};
+// 持っている券（マイページ）
+async function loadMyCoupons() {
+  const el = document.getElementById('my-coupons'); if (!el || !window._uid) return [];
+  try {
+    const snap = await getDocs(query(collection(db, 'user_coupons'), where('uid', '==', window._uid)));
+    const list = snap.docs.filter(d => !d.data().used).map(d => ({ id: d.id, ...d.data() }));
+    const t = Number((window._userData || {}).gachaTickets || 0);
+    const rows = [];
+    if (t > 0) rows.push('🎟 ガチャ券 ' + t + '枚');
+    const cnt = {}; list.forEach(c => { cnt[c.label || c.kind] = (cnt[c.label || c.kind] || 0) + 1; });
+    Object.entries(cnt).forEach(([k, v]) => rows.push('🎫 ' + k + ' × ' + v));
+    el.innerHTML = rows.length ? rows.map(x => '<div style="padding:8px 2px;border-bottom:1px solid var(--border);"></div>').join('') : '<div style="color:var(--dim);">持っている券はありません</div>';
+    if (rows.length) el.querySelectorAll('div').forEach((d, i) => d.textContent = rows[i]);
+    window._myCoupons = list;
+    return list;
+  } catch(e) { el.innerHTML = '<div style="color:var(--dim);">読み込めませんでした</div>'; return []; }
+}
+window.loadMyCoupons = loadMyCoupons;
+// 割引券を選ぶ（営業ツール・個別面談）。選んだ券を返す（使わないなら null、やめたら false）
+function chooseCoupon(kinds, basePts, title) {
+  return new Promise(async resolve => {
+    const list = (await loadMyCoupons()).filter(c => kinds.includes(c.kind));
+    if (!list.length) return resolve(null);
+    const disc = k => (k === 'tool100' || k === 'mendanFree') ? 0 : Math.floor(basePts / 2);
+    const seen = {}; const opts = list.filter(c => !seen[c.kind] && (seen[c.kind] = true));
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;';
+    ov.innerHTML = '<div style="background:linear-gradient(135deg,#1a1a0d,#0d0d00);border:2px solid #ffd54f;border-radius:16px;padding:24px 20px;max-width:340px;width:100%;text-align:center;">'
+      + '<div style="font-size:28px;">🎫</div><div style="font-size:16px;font-weight:700;margin:6px 0 14px;color:#fff;"></div><div class="cc-list" style="display:flex;flex-direction:column;gap:8px;"></div></div>';
+    ov.querySelector('div > div:nth-child(2)').textContent = title + '：割引券を使いますか？';
+    const box = ov.querySelector('.cc-list');
+    const btn = (label, sub, val, gold) => { const b = document.createElement('button');
+      b.style.cssText = 'padding:12px;border-radius:10px;border:' + (gold ? 'none' : '1px solid #555') + ';background:' + (gold ? 'linear-gradient(135deg,#ffe082,#ffb300)' : 'transparent') + ';color:' + (gold ? '#3a2e00' : '#ddd') + ';font-weight:900;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;';
+      b.textContent = label; if (sub) { const s = document.createElement('div'); s.style.cssText = 'font-size:12px;font-weight:700;'; s.textContent = sub; b.appendChild(s); }
+      b.onclick = () => { ov.remove(); resolve(val); }; box.appendChild(b); };
+    opts.forEach(c => btn((c.label || c.kind) + 'を使う', basePts.toLocaleString() + '枚 → ' + disc(c.kind).toLocaleString() + '枚', c, true));
+    btn('券を使わない', basePts.toLocaleString() + '枚', null, false);
+    btn('やめる', '', false, false);
+    document.body.appendChild(ov);
+  });
+}
+window.chooseCoupon = chooseCoupon;
+// 管理：ガチャ券を配る
+window.giveTickets = async function() {
+  const n = parseInt(document.getElementById('ticket-count').value);
+  const memo = document.getElementById('grant-memo').value || 'ガチャ券';
+  const uids = Array.prototype.map.call(document.querySelectorAll('.grant-check:checked'), c => c.dataset.uid);
+  if (!n || n < 1) { showToast('⚠️ 枚数を入力してください'); return; }
+  if (!uids.length) { showToast('⚠️ メンバーを選んでください'); return; }
+  if (!confirm(uids.length + '名に、ガチャ券を' + n + '枚ずつ配りますか？')) return;
+  try { const r = await coinApi('give_tickets', { uids, count: n, memo }); showToast('🎟 ' + r.given + '名にガチャ券を' + n + '枚ずつ配りました'); playSfx('send'); }
+  catch(e) { showToast('⚠️ ' + e.message); }
 };
 
 window.receiveAllGrants = async function() {
@@ -2229,7 +2521,8 @@ function showScreen(name, btn) {
   window.scrollTo(0, 0);
   if (name === 'jobs') loadJobs();
   if (name === 'buy' || name === 'transfer') renderBuyPlans();
-  if (name === 'profile') loadMyParticipations();
+  if (name === 'profile') { loadMyParticipations(); if (window.loadMyCoupons) window.loadMyCoupons(); }
+  if (name === 'gacha') { if (window.gachaHeader) window.gachaHeader(); if (window.gachaBalls) window.gachaBalls(); if (window.loadGachaWins) window.loadGachaWins(); }
   if (name === 'post-job') {
     const ytText = document.getElementById('yt-cost-text');
     if (ytText) ytText.textContent = '一般の方が作業に来てくれる可能性あり（' + getYTCost().toLocaleString() + '枚・募集0人の場合は全額返還）';
@@ -2378,6 +2671,29 @@ function playMinusSoundOld() {
 }
 
 function playMinusSound() { playSfx('use', playMinusSoundOld); }
+// ガチャの音：start＝コロコロ、win＝キラン、big＝ジャキーン！、lose＝ポン
+window.playGachaSound = function(kind) {
+  try {
+    if (!sfxCtx) sfxLoad(); if (sfxCtx.state !== 'running') sfxCtx.resume();
+    const c = sfxCtx, t0 = c.currentTime, out = c.createGain(); out.gain.value = 0.35; out.connect(c.destination);
+    const tone = (f, t, d, type, v, f2) => { const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0 + t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + t + d);
+      g.gain.setValueAtTime(0, t0 + t); g.gain.linearRampToValueAtTime(v, t0 + t + .01); g.gain.exponentialRampToValueAtTime(.0008, t0 + t + d); o.connect(g).connect(out); o.start(t0 + t); o.stop(t0 + t + d + .05); };
+    if (kind === 'start') { for (let i = 0; i < 14; i++) tone(500 + (i % 3) * 120, i * .14, .06, 'square', .12); }
+    if (kind === 'pop') { tone(180, 0, .12, 'sine', .7, 90); tone(900, .02, .08, 'triangle', .25, 1400); tone(140, .28, .1, 'sine', .45, 80); }
+    if (kind === 'shake') { for (let i = 0; i < 6; i++) tone(260 + (i % 2) * 60, i * .15, .05, 'square', .1); }
+    if (kind === 'open') { tone(1200, 0, .06, 'square', .2, 600); tone(300, 0, .15, 'sine', .5, 900); }
+    if (kind === 'lose') { tone(392, 0, .25, 'triangle', .4); tone(330, .2, .4, 'triangle', .35); }
+    if (kind === 'win') { [784, 988, 1175, 1568].forEach((f, i) => tone(f, i * .07, .3, 'square', .14)); tone(2093, .3, .6, 'sine', .2); }
+    if (kind === 'big') {
+      const n = c.createBufferSource(), b = c.createBuffer(1, c.sampleRate * .5, c.sampleRate), a = b.getChannelData(0);
+      for (let i = 0; i < a.length; i++) a[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / a.length, 2);
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1800; const g = c.createGain(); g.gain.value = .5;
+      n.buffer = b; n.connect(hp).connect(g).connect(out); n.start(t0);
+      tone(220, 0, .5, 'sawtooth', .25, 1760); [1047, 1319, 1568, 2093].forEach(f => tone(f, .12, 1.2, 'square', .1));
+      setTimeout(() => playSfx('receive'), 700);
+    }
+  } catch(e) {}
+};
 
 // 作業会フォーム
 function toggleWork(el) {
