@@ -290,6 +290,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .gp-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;font-weight:700;border-top:1px solid rgba(255,255,255,.06)}
 .gp-row small{color:var(--dim);font-weight:400;font-size:11px}
 .gp-row.dim{color:var(--dim)}
+.gp-badge{margin-left:auto;font-size:11px;font-weight:900;padding:3px 10px;border-radius:20px;background:linear-gradient(135deg,#eceff1,#90a4ae);color:#263238;letter-spacing:1px}
+.gp-badge.gold{background:linear-gradient(135deg,#fff3c4,#ffb300);color:#3a2e00;box-shadow:0 0 10px rgba(255,179,0,.5)}
 .gp-tag{margin-left:auto;font-size:11px;font-weight:700;color:var(--dim)}
 .gp-grp.gold .gp-tag{color:#ffe082}
 .gp-note{font-size:12px;color:var(--dim);line-height:1.8;padding:4px 2px}
@@ -336,7 +338,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-S</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-U</div>
   </div>
 </div>
 
@@ -666,8 +668,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="section-title" style="margin-top:22px;">● 当たるもの</div>
     <div class="gp">
-      <div class="gp-grp gold"><div class="gp-head"><img src="gacha/cap_gold.webp" alt="">金のカプセル（大当たり）<small class="gp-tag">めったに出ない！</small></div><div class="gp-row"><span>🚛 KUNIO召喚トラック 半額券</span></div><div class="gp-row"><span>🍻 懇親会 無料券</span></div><div class="gp-row"><span>🪙 10,000枚</span></div><div class="gp-row"><span>🪙 5,000枚</span></div><div class="gp-row"><span>💬 個別面談（30分）無料券</span></div></div>
-      <div class="gp-grp "><div class="gp-head"><img src="gacha/cap_silver.webp" alt="">銀のカプセル（当たり）</div><div class="gp-row"><span>🪙 3,000枚</span></div><div class="gp-row"><span>🍺 二次会 会費無料券</span></div><div class="gp-row"><span>🪙 2,000枚</span></div><div class="gp-row"><span>🪙 1,000枚</span></div><div class="gp-row"><span>💬 個別面談 半額券</span></div><div class="gp-row"><span>🛠 全ツール100%割引券</span></div></div>
+      <div class="gp-grp gold"><div class="gp-head"><img src="gacha/cap_gold.webp" alt="">金のカプセル（大当たり）<span class="gp-badge gold">激レア</span></div><div class="gp-row"><span>🚛 KUNIO召喚トラック 半額券</span></div><div class="gp-row"><span>🍻 懇親会 無料券</span></div><div class="gp-row"><span>🪙 10,000枚</span></div><div class="gp-row"><span>🪙 5,000枚</span></div><div class="gp-row"><span>💬 個別面談（30分）無料券</span></div></div>
+      <div class="gp-grp "><div class="gp-head"><img src="gacha/cap_silver.webp" alt="">銀のカプセル（当たり）<span class="gp-badge">レア</span></div><div class="gp-row"><span>🪙 3,000枚</span></div><div class="gp-row"><span>🍺 二次会 会費無料券</span></div><div class="gp-row"><span>🪙 2,000枚</span></div><div class="gp-row"><span>🪙 1,000枚</span></div><div class="gp-row"><span>💬 個別面談 半額券</span></div><div class="gp-row"><span>🛠 全ツール100%割引券</span></div></div>
       <div class="gp-grp "><div class="gp-head"><img src="gacha/cap_red.webp" alt="">赤のカプセル（小当たり）</div><div class="gp-row"><span>🪙 500枚</span></div><div class="gp-row"><span>🛠 全ツール50%割引券</span></div><div class="gp-row"><span>🪙 300枚</span></div></div>
       <div class="gp-grp "><div class="gp-head"><img src="gacha/cap_blue.webp" alt="">青・紫のカプセル<small class="gp-tag">開けるまでわからない</small></div><div class="gp-row"><span>🪙 100枚</span></div><div class="gp-row dim"><span>ハズレ</span></div></div>
       <div class="gp-note">
@@ -718,7 +720,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-S</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-U</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
