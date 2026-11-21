@@ -338,7 +338,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-U</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-V</div>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-U</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-V</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2225,6 +2225,14 @@ function gachaCapColor(kind) {
 }
 // 10回：カプセルを10個ならべて、1個ずつ／まとめて開ける
 const GACHA_SHORT = { c100:'100枚', c300:'300枚', c500:'500枚', c1000:'1,000枚', c2000:'2,000枚', c3000:'3,000枚', c5000:'5,000枚', c10000:'10,000枚', tool50:'ツール\n50%OFF', tool100:'ツール\n無料', mendan50:'面談\n半額', mendanFree:'面談\n無料', nijikai:'二次会\n無料', konshinkai:'懇親会\n無料', truck50:'トラック\n半額', none:'ハズレ' };
+function gachaCapSound(k) {
+  if (!window.playGachaSound) return;
+  if (k === 'none') return window.playGachaSound('open');
+  if (k === 'c100') return window.playGachaSound('blue');
+  return window.playGachaSound(gachaCapColor(k));
+}
+// コインが当たったら、最後に「く〜に〜お〜コ〜イ〜ン〜」（増える音）
+function gachaCoinVoice(r, delay) { if (r && r.coins > 0 && typeof playSfx === 'function') setTimeout(() => playSfx('receive'), delay); }
 function gachaMulti(results) {
   return new Promise(done => {
     const ov = document.getElementById('gm-reveal'), grid = document.getElementById('gmr-grid'), title = document.getElementById('gmr-mtitle'), btns = document.getElementById('gmr-btns');
@@ -2242,12 +2250,12 @@ function gachaMulti(results) {
       const k = results[i].kind, isBig = GACHA_BIG.includes(k);
       sl.classList.add('opened'); if (k !== 'none') sl.classList.add(isBig ? 'big' : 'win');
       left--; setTitle();
-      if (window.playGachaSound) { if (batch || k === 'none') window.playGachaSound('open'); else window.playGachaSound(isBig ? 'big' : 'win', k.charAt(0) === 'c'); }
+      gachaCapSound(k);
       if (!left) { btns.style.display = 'none'; setTimeout(() => done(batch), 450); }
     }
     document.getElementById('gmr-one').onclick = e => { e.stopPropagation(); const i = slots.findIndex(x => !x.classList.contains('opened')); if (i >= 0) open(i); };
     document.getElementById('gmr-all').onclick = e => { e.stopPropagation(); if (batch) return; batch = true; let n = 0;
-      slots.forEach((x, i) => { if (!x.classList.contains('opened')) setTimeout(() => open(i), (n++) * 140); }); };
+      slots.forEach((x, i) => { if (!x.classList.contains('opened')) setTimeout(() => open(i), (n++) * 330); }); };
     setTitle(); ov.className = 'gmr show multi';
   });
 }
@@ -2310,7 +2318,7 @@ window.spinGacha = async function(mode, count) {
     ov.classList.add('open', wins.length ? 'win' : 'lose'); if (big) ov.classList.add('big');
     const mt = document.getElementById('gmr-mtitle'); mt.textContent = (big ? '🎉 大当たり！' : wins.length ? '✨ 当たり！' : 'ハズレ…') + '　' + wins.length + 'つ当たり';
     if (r.bonus > 0) { const bn = document.createElement('div'); bn.style.cssText = 'font-size:18px;color:#ffe082;margin-top:4px;'; bn.textContent = '🎁 10連ボーナス ＋' + r.bonus.toLocaleString() + '枚'; mt.appendChild(bn); }
-    if (batch && window.playGachaSound) window.playGachaSound(wins.length ? (big ? 'big' : 'win') : 'lose', r.coins > 0);
+    gachaCoinVoice(r, big ? 1600 : 500);
   } else {
   // 真ん中で大きなカプセルがゆれて、パカッと開く
   document.getElementById('gmr-top').src = capSrc; document.getElementById('gmr-bot').src = capSrc;
@@ -2322,7 +2330,8 @@ window.spinGacha = async function(mode, count) {
   ov.className = 'gmr show'; if (window.playGachaSound) window.playGachaSound('shake'); await wait(900);
   if (window.playGachaSound) window.playGachaSound('open');
   ov.classList.add('open', wins.length ? 'win' : 'lose'); if (big) ov.classList.add('big');
-  if (window.playGachaSound) window.playGachaSound(wins.length ? (big ? 'big' : 'win') : 'lose', r.coins > 0);
+  if (window.playGachaSound) { if (best.kind === 'none') window.playGachaSound('lose'); else gachaCapSound(best.kind); }
+  gachaCoinVoice(r, big ? 1600 : 700);
   }
   msg.textContent = wins.length ? (big ? '🎉 大当たり！' : '✨ 当たり！') : 'ハズレ…また挑戦してね';
   r.results.forEach((x, i) => { const d = document.createElement('div'); d.textContent = x.label;
@@ -2794,6 +2803,10 @@ window.playGachaSound = function(kind, voice) {
     if (kind === 'shake') { for (let i = 0; i < 6; i++) tone(260 + (i % 2) * 60, i * .15, .05, 'square', .1); }
     if (kind === 'open') { tone(1200, 0, .06, 'square', .2, 600); tone(300, 0, .15, 'sine', .5, 900); }
     if (kind === 'lose') { tone(392, 0, .25, 'triangle', .4); tone(330, .2, .4, 'triangle', .35); }
+    if (kind === 'blue') { tone(1568, 0, .12, 'sine', .35); tone(2093, .07, .35, 'sine', .3); }   // 100枚：チャリン
+    if (kind === 'red') { [659, 784, 1047].forEach((f, i) => tone(f, i * .08, .25, 'triangle', .45)); }   // 赤：ピロリン
+    if (kind === 'silver') { [784, 988, 1175, 1568].forEach((f, i) => tone(f, i * .07, .3, 'square', .14)); tone(2093, .3, .6, 'sine', .2); for (let i = 0; i < 6; i++) tone(2637 + i * 120, .35 + i * .05, .12, 'sine', .08); }   // 銀：キラキラーン
+    if (kind === 'gold') { kind = 'big'; voice = false; }   // 金：ジャキーン！＋ファンファーレ
     if (kind === 'win') { [784, 988, 1175, 1568].forEach((f, i) => tone(f, i * .07, .3, 'square', .14)); tone(2093, .3, .6, 'sine', .2); }
     if (kind === 'big') {
       const n = c.createBufferSource(), b = c.createBuffer(1, c.sampleRate * .5, c.sampleRate), a = b.getChannelData(0);
