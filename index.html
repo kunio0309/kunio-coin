@@ -251,7 +251,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/20-G</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/21-H</div>
   </div>
 </div>
 
@@ -579,7 +579,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/20-G</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/21-H</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -1507,7 +1507,9 @@ function renderUseMenu() {
       if (firstIdx === -1) firstIdx = idx;
       const myPts = item.prices ? item.prices[rankKey] : undefined;
       const isZoomFreeGold = item.type === 'zoom' && rankKey === 'gold';
-      const myCostHtml = (myPts === undefined)
+      const myCostHtml = (item.type === 'lp-tool' && window._lpOwned)
+        ? '<div style="font-size:13px;font-weight:700;color:#4caf50;">✅ 購入済み</div>'
+        : (myPts === undefined)
         ? '<div style="font-size:13px;font-weight:700;color:var(--gb);">要相談</div>'
         : isZoomFreeGold
           ? '<div style="font-size:14px;font-weight:700;color:#4caf50;">✨ 無料</div>'
@@ -1541,6 +1543,10 @@ window.selectUseItem = function(idx) {
   const memoGrp = document.getElementById('use-memo-group');
   if (item.type === 'zoom') {
     if (btn) btn.textContent = rankKey === 'gold' ? '📹 Zoom情報を見る（無料）' : '📹 コインを使ってZoom情報を見る';
+    if (dateGrp) dateGrp.style.display = 'none';
+    if (memoGrp) memoGrp.style.display = 'none';
+  } else if (item.type === 'lp-tool') {
+    if (btn) btn.textContent = window._lpOwned ? '🏢 営業ページ作成ツールを開く（購入済み）' : '🏢 コインを使って申し込む';
     if (dateGrp) dateGrp.style.display = 'none';
     if (memoGrp) memoGrp.style.display = 'none';
   } else if (item.type === 'event') {
@@ -1585,10 +1591,13 @@ function showPayConfirm(icon, name, pts, balance, onConfirm, words) {
     + '</div>'
     + (insufficient ? '<div style="color:#ef5350;font-size:13px;margin-bottom:14px;">❌ コインが足りません</div>' : '')
     + '<button id="_pay-confirm-btn"' + (insufficient ? ' disabled style="width:100%;padding:13px;border-radius:10px;border:none;background:#333;color:#666;font-weight:700;font-size:15px;cursor:not-allowed;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"' : ' style="width:100%;padding:13px;border-radius:10px;border:none;background:#ff9800;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;margin-bottom:10px;"') + '>' + W.ok + '</button>'
-    + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;padding:11px;border-radius:10px;border:1px solid #555;background:transparent;color:#aaa;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">キャンセル</button>'
+    + '<button class="_pay-cancel" style="width:100%;padding:11px;border-radius:10px;border:1px solid #555;background:transparent;color:#aaa;font-weight:700;font-size:14px;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">キャンセル</button>'
     + '</div>';
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  // キャンセルしたら、元の画面（コインを使う など）に戻る
+  const back = () => { overlay.remove(); if (W.returnTo) openModal(W.returnTo); };
+  overlay.querySelector('._pay-cancel').addEventListener('click', back);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) back(); });
   if (!insufficient) {
     overlay.querySelector('#_pay-confirm-btn').addEventListener('click', async function() {
       overlay.remove();
@@ -1606,14 +1615,15 @@ window.doUse = async function() {
   // LP ツール専用フロー
   const lpItem = USE_ITEMS.find(i => i.id === itemId && i.type === 'lp-tool');
   if (lpItem) {
-    closeModal('modal-use');
     const rightsSnap = await getDoc(doc(db, 'lp_rights', window._uid));
-    if (rightsSnap.exists()) { await openLpTool(); return; }
+    if (rightsSnap.exists()) { closeModal('modal-use'); await openLpTool(); return; }
     const rankKey = getMyRank();
     const pts = lpItem.prices[rankKey];
     const userSnap = await getDoc(doc(db, 'users', window._uid));
     const balance = (userSnap.data() && userSnap.data().points) || 0;
-    showPayConfirm(lpItem.icon, lpItem.name, pts, balance, () => doLpToolUse(lpItem));
+    if (balance < pts) { showToast('⚠️ コインが足りません（必要 ' + pts.toLocaleString() + '枚・残高 ' + balance.toLocaleString() + '枚）'); return; }
+    closeModal('modal-use');
+    showPayConfirm(lpItem.icon, lpItem.name, pts, balance, () => doLpToolUse(lpItem), { returnTo: 'modal-use' });
     return;
   }
 
@@ -1626,7 +1636,8 @@ window.doUse = async function() {
     if (rankKey === 'gold' || pts === 0) { await doZoomUse(zoomItem); return; }
     const userSnap = await getDoc(doc(db, 'users', window._uid));
     const balance = (userSnap.data() && userSnap.data().points) || 0;
-    showPayConfirm(zoomItem.icon, zoomItem.name, pts, balance, () => doZoomUse(zoomItem));
+    if (balance < pts) { openModal('modal-use'); showToast('⚠️ コインが足りません（必要 ' + pts.toLocaleString() + '枚・残高 ' + balance.toLocaleString() + '枚）'); return; }
+    showPayConfirm(zoomItem.icon, zoomItem.name, pts, balance, () => doZoomUse(zoomItem), { returnTo: 'modal-use' });
     return;
   }
 
@@ -1652,6 +1663,7 @@ window.doUse = async function() {
   try {
     const userSnap = await getDoc(doc(db, 'users', window._uid));
     const balance = (userSnap.data() && userSnap.data().points) || 0;
+    if (balance < pts) { showToast('⚠️ コインが足りません（必要 ' + pts.toLocaleString() + '枚・残高 ' + balance.toLocaleString() + '枚）'); return; }
     closeModal('modal-use');
     showPayConfirm(icon, name, pts, balance, async () => {
       try {
@@ -1659,7 +1671,7 @@ window.doUse = async function() {
         showToast('✅ 申請を送りました！');
         if (window._loadUser) await window._loadUser(window._uid);
       } catch(e) { showToast('⚠️ エラー: ' + e.message); }
-    });
+    }, { returnTo: 'modal-use' });
   } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 };
 
@@ -1684,6 +1696,8 @@ async function checkLpRightsOnLoad(uid) {
     const snap = await getDoc(doc(db, 'lp_rights', uid));
     const el = document.getElementById('lp-tool-banner');
     if (el) el.style.display = snap.exists() ? 'block' : 'none';
+    const was = window._lpOwned; window._lpOwned = snap.exists();
+    if (was !== window._lpOwned && window.renderUseMenu) window.renderUseMenu();
   } catch(e) {}
 }
 
