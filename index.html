@@ -218,7 +218,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 #login-screen.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
 #loading.hidden{display:none!important;pointer-events:none!important;z-index:-1!important;}
 /* ===== ガチャ ===== */
-.gacha-banner{width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#ffd54f,#ff9800);color:#3a2e00;font-family:'Noto Sans JP',sans-serif;font-size:16px;font-weight:900;margin:12px 0 0;box-shadow:0 6px 18px rgba(255,152,0,.25)}
+.gacha-banner{position:relative;display:flex;align-items:center;width:100%;height:118px;margin:14px 0;padding:0 14px 0 108px;border:2px solid transparent;border-radius:18px;cursor:pointer;overflow:hidden;text-align:left;font-family:'Noto Sans JP',sans-serif;
+  background:linear-gradient(120deg,#060a24,#0b1236 55%,#1a1200) padding-box,linear-gradient(120deg,#fff3c4,#ffb300 30%,#8a6512 60%,#ffd54f) border-box;box-shadow:0 8px 26px rgba(255,179,0,.25),inset 0 0 30px rgba(255,179,0,.12);animation:gbpulse 2.4s ease-in-out infinite}
+@keyframes gbpulse{0%,100%{box-shadow:0 8px 26px rgba(255,179,0,.22),inset 0 0 30px rgba(255,179,0,.1)}50%{box-shadow:0 8px 34px rgba(255,179,0,.5),inset 0 0 40px rgba(255,179,0,.22)}}
+.gacha-banner:active{transform:scale(.98)}
+.gb-light{position:absolute;left:-40px;top:-60px;width:220px;height:240px;background:radial-gradient(circle,rgba(255,213,79,.45),transparent 65%);pointer-events:none}
+.gb-shine{position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.28) 48%,transparent 60%);background-size:250% 100%;animation:gbshine 3.2s ease-in-out infinite;pointer-events:none}
+@keyframes gbshine{0%,55%{background-position:130% 0}100%{background-position:-130% 0}}
+.gb-machine{position:absolute;left:12px;top:6px;height:150px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.7))}
+.gb-txt{position:relative;display:flex;flex-direction:column;flex:1;min-width:0;z-index:1}
+.gb-kicker{font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:12px;margin-top:10px;color:#ffd54f;opacity:.85}
+.gb-title{font-size:22px;white-space:nowrap;font-weight:900;line-height:1.1;letter-spacing:1px;background:linear-gradient(180deg,#fff8e1,#ffd54f 45%,#c98a00);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+.gb-sub{font-size:11px;font-weight:700;color:#fff;margin-top:5px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gb-go{position:relative;z-index:1;flex:none;margin-left:8px;padding:9px 14px;border-radius:30px;background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;font-weight:900;font-size:15px;box-shadow:0 4px 14px rgba(255,179,0,.5)}
+.gb-go span{margin-left:4px}
+.gb-caps{position:absolute;right:10px;bottom:6px;display:flex;gap:2px;opacity:.9}
+.gb-caps img{width:16px;height:16px}
+.gb-tk{position:absolute;top:7px;right:10px;padding:3px 10px;border-radius:20px;background:#69f0ae;color:#00210c;font-size:11px;font-weight:900;z-index:2}
+.gb-tk:empty,.gb-note:empty{display:none}
+.gb-note{position:absolute;left:108px;bottom:6px;font-size:10px;font-weight:700;color:#ffab91;z-index:2}
 .gm{position:relative;width:250px;aspect-ratio:423/760;margin:8px auto 0}
 .gm.shake{animation:gmshake .16s linear infinite}
 @keyframes gmshake{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(-2px,1px) rotate(-.7deg)}75%{transform:translate(2px,-1px) rotate(.7deg)}}
@@ -390,7 +408,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-D</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-E</div>
   </div>
 </div>
 
@@ -427,6 +445,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="expiry-notice" style="display:none;font-size:10px;color:var(--gold);margin-top:6px;line-height:1.6;">コインの増減が最後にあってから<br>180日経つと枚数が０になります</div>
       <div id="expiry-warning" style="display:none;font-size:12px;font-weight:700;color:var(--red);margin-top:8px;padding:8px;border-radius:8px;background:rgba(239,83,80,.12);"></div>
     </div>
+    <button class="gacha-banner" style="display:none;" onclick="showScreen('gacha')">
+      <span class="gb-light"></span><span class="gb-shine"></span>
+      <img class="gb-machine" src="gacha/machine.webp" alt="">
+      <span class="gb-txt"><span class="gb-kicker">KUNIO-COIN</span><span class="gb-title">KUNIO ガチャ</span><span class="gb-sub">懇親会や10,000枚が当たる！</span></span>
+      <span class="gb-go">回す<span>›</span></span>
+      <span class="gb-caps"><img src="gacha/cap_gold.webp" alt=""><img src="gacha/cap_silver.webp" alt=""><img src="gacha/cap_red.webp" alt=""></span>
+      <span id="gacha-banner-tickets" class="gb-tk"></span>
+      <span id="gacha-banner-note" class="gb-note"></span>
+    </button>
     <div class="quick-actions">
       <div class="qa-btn" onclick="showScreen('buy')"><div class="qa-icon">💳</div><div class="qa-label">コイン購入</div><div class="qa-sub">1,000〜10,000枚</div></div>
       <div class="qa-btn" onclick="openModal('modal-use')"><div class="qa-icon">🎯</div><div class="qa-label">コインを使う</div><div class="qa-sub">面談・懇親会など</div></div>
@@ -448,7 +475,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="event-access-banner" style="display:none;margin:12px 0;"></div>
 
     <!-- 営業ページ作成ツール（利用権がある人だけ表示） -->
-    <button class="gacha-banner" style="display:none;" onclick="showScreen('gacha')">🎰 KUNIO-COIN ガチャ <span id="gacha-banner-tickets" style="font-size:12px;font-weight:700;"></span><div id="gacha-banner-note" style="font-size:11px;font-weight:700;"></div></button>
     <div id="lp-tool-banner" style="display:none;margin:12px 0;">
       <button onclick="openLpTool()" style="width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,#14b886,#0e9a70);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">🏢 営業ページ作成ツールを開く</button>
       <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px;">お申し込み済みのため、コインは使いません</div>
@@ -793,7 +819,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-D</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-E</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2303,7 +2329,7 @@ function gachaHeader() {
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   set('g-tickets', t); set('g-points', Number(u.points || 0).toLocaleString());
   const pr = GACHA_PRICE[getMyRank()] || 500; set('g-price1', pr.toLocaleString()); set('g-price10', (pr * 10).toLocaleString());
-  set('gacha-banner-tickets', t > 0 ? '（ガチャ券 ' + t + '枚）' : '');
+  set('gacha-banner-tickets', t > 0 ? '🎟 ガチャ券 ' + t + '枚' : '');
 }
 window.gachaHeader = gachaHeader;
 window.gachaBalls = () => gachaBalls();
