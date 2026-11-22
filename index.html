@@ -310,13 +310,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .gmr.open .gmr-tap{animation:gpop .4s 1.2s both}
 .gp{display:flex;flex-direction:column;gap:10px}
 .gtiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.gprice{margin-top:10px;background:var(--d3);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.gprice{margin-top:6px;padding:8px 2px;opacity:.75}
 .gprice .ttl{font-size:11px;color:var(--dim);font-weight:700;margin-bottom:6px}
-.gprice .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:10px;font-size:13px;font-weight:700;margin-top:4px}
-.gprice .row b{font-size:14px;white-space:nowrap}
-.gprice .row span{white-space:nowrap;font-size:12.5px}
+.gprice .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;margin-top:3px}
+.gprice .row b{font-size:12px;white-space:nowrap}
+.gprice .row span{white-space:nowrap;font-size:11px}
 .gprice .row em{font-style:normal;font-size:10px;margin-left:6px;padding:2px 7px;border-radius:10px;background:rgba(0,0,0,.65);color:#fff;vertical-align:1px}
-.gprice .row.me{box-shadow:0 0 0 2px #fff}
+.gprice .row.me{box-shadow:0 0 0 1px #fff}
 .gt{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;padding:14px 8px 12px;border-radius:14px;background:var(--d3);border:1px solid var(--border);min-height:118px}
 .gt img{height:46px;max-width:80%;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .gt .gt-em{font-size:34px;line-height:46px}
@@ -431,7 +431,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-O</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-Q</div>
   </div>
 </div>
 
@@ -790,7 +790,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="gbtn js-gbtn" style="background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;" onclick="spinGacha('coin',1)">🪙 <span id="g-price1">500</span>枚で1回</button>
       <button class="gbtn js-gbtn" style="background:linear-gradient(135deg,#ffe082,#ffb300);color:#3a2e00;" onclick="spinGacha('coin',10)">🪙 <span id="g-price10">5,000</span>枚で10回<br><small style="font-weight:700;">40%以上コインが戻る</small></button>
     </div>
-    <div class="gprice" id="g-price-table"></div>
     <div class="section-title" style="margin-top:22px;">● 最近の当選者</div>
     <div class="gwins" id="g-wins"><div style="color:var(--dim);">読み込み中...</div></div>
     <div class="section-title" style="margin-top:22px;">● 当たるもの</div>
@@ -802,6 +801,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         ・当たった券は、マイページの「持っている券」に入ります。売ったり、ほかの人に渡したりはできません<br>
         ・営業ツールをすべて持っている人には、ツールの割引券は出ません（その分ほかのものになります）
       </div>
+      <div class="gprice" id="g-price-table"></div>
     </div>
   </div>
 
@@ -842,7 +842,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-O</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-Q</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2510,8 +2510,17 @@ async function loadGachaWins() {
 }
 window.loadGachaWins = loadGachaWins;
 let gachaBusy = false;
+// 何があっても最後は「回せる状態」に戻す（スマホで通信が止まっても固まらないように）
 window.spinGacha = async function(mode, count, fake) {
   if (gachaBusy) return;
+  try { await spinGachaInner(mode, count, fake); }
+  catch (e) { console.error('gacha', e); showToast('⚠️ ' + (e && e.message ? e.message : 'もう一度お試しください'));
+    const ov = document.getElementById('gm-reveal'); if (ov) ov.className = 'gmr'; document.querySelectorAll('.glt').forEach(x => x.remove()); }
+  finally { gachaBusy = false; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = false); }
+  if (gachaAgainWanted && gachaLast && !fake) { gachaAgainWanted = false; const [m, c] = gachaLast; setTimeout(() => window.spinGacha(m, c), 200); }
+  gachaAgainWanted = false;
+};
+async function spinGachaInner(mode, count, fake) {
   const u = window._userData || {};
   if (fake) mode = 'demo';
   if (mode === 'ticket' && Number(u.gachaTickets || 0) < count) { showToast('⚠️ ガチャ券が足りません（持っている券：' + Number(u.gachaTickets || 0) + '枚）'); return; }
@@ -2521,7 +2530,7 @@ window.spinGacha = async function(mode, count, fake) {
     if (!confirm(price.toLocaleString() + '枚を使って、ガチャを' + count + '回まわしますか？')) return;
   }
   const gPaid = mode === 'coin' ? (GACHA_PRICE[getMyRank()] || 500) * count : 0;
-  gachaBusy = true; gachaLast = [mode, count]; gachaAgainWanted = false; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = true);
+  gachaBusy = true; gachaLast = [mode, count]; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = true);
   { const o = document.getElementById('gm-reveal'); if (o.parentNode !== document.body) document.body.appendChild(o); }
   const msg = document.getElementById('g-msg'), res = document.getElementById('g-res');
   msg.textContent = ''; res.innerHTML = '';
@@ -2577,12 +2586,10 @@ window.spinGacha = async function(mode, count, fake) {
   await new Promise(ok => { gachaRevealDone = ok; });
   cap.classList.remove('go'); knob.classList.remove('turn');
   if (r.coins > 0) showToast('🪙 ' + r.coins.toLocaleString() + '枚 当たりました！' + (fake ? '（演出テストなので、本当には増えません）' : ''));
-  if (!fake && window._loadUser) await window._loadUser(window._uid);
-  gachaHeader(); loadGachaWins(); loadMyCoupons();
-  gachaBusy = false; document.querySelectorAll('.js-gbtn').forEach(b => b.disabled = false);
-  if (gachaAgainWanted && gachaLast && !fake) { gachaAgainWanted = false; setTimeout(() => window.spinGacha(gachaLast[0], gachaLast[1]), 200); }
-  gachaAgainWanted = false;
-};
+  // 残高などの読み直し。失敗しても、ガチャは止めない（最大8秒待つ）
+  if (!fake && window._loadUser) { try { await Promise.race([window._loadUser(window._uid), new Promise(ok => setTimeout(ok, 8000))]); } catch (e) { console.error('reload', e); } }
+  try { gachaHeader(); loadGachaWins(); loadMyCoupons(); } catch (e) { console.error(e); }
+}
 // ガチャ券のお知らせ → ガチャ画面へ
 window.openTicketNotif = async function(id) {
   const c = document.getElementById('notif-' + id); if (c) c.remove();
