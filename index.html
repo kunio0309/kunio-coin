@@ -342,7 +342,20 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .gbtn{padding:14px 8px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
 .gbtn:disabled{opacity:.4;cursor:not-allowed}
 .gwins div{display:flex;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px}
-.gwins b{color:#ffd54f}
+.gwins b{color:#ffd54f;display:flex;align-items:center;gap:6px;text-align:right}
+.gwins b img{width:22px;height:22px;flex:none}
+.gwins div.g-gold{background:linear-gradient(90deg,rgba(255,179,0,.18),rgba(255,213,79,.04));border-radius:10px;padding-left:8px;padding-right:8px}
+.gwins div.g-gold b{color:#ffe082;text-shadow:0 0 8px rgba(255,179,0,.6);font-size:15px}
+.gwins div.g-gold{border:1px solid rgba(255,213,79,.6);margin:4px 0}
+.gwins div.g-silver{background:rgba(236,239,241,.06);border-radius:10px;padding-left:8px;padding-right:8px}
+.gwins .wb{font-size:10px;font-weight:900;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:1px;text-shadow:none}
+.gwins .wb.gold{background:linear-gradient(135deg,#fff3c4,#ffb300);color:#3a2e00}
+.gwins .wb.silver{background:linear-gradient(135deg,#eceff1,#90a4ae);color:#263238}
+.gwins div.g-blue{font-size:12px;opacity:.7}
+.gwins div.g-blue b img{width:18px;height:18px}
+.gwins div.g-silver b{color:#eceff1}
+.gwins div.g-red b{color:#ffab91}
+.gwins div.g-blue b{color:#90caf9}
 </style>
 </head>
 <body>
@@ -377,7 +390,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-C</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-D</div>
   </div>
 </div>
 
@@ -780,7 +793,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-C</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-D</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2435,6 +2448,8 @@ async function loadGachaWins() {
     docs.forEach(d => { const w = d.data(); const t = w.createdAt && w.createdAt.toDate ? w.createdAt.toDate() : null;
       const row = document.createElement('div'); const a = document.createElement('span'); const b = document.createElement('b');
       a.textContent = (w.name || 'メンバー') + (t ? '（' + (t.getMonth()+1) + '/' + t.getDate() + '）' : ''); b.textContent = w.label || '';
+      if (w.kind && w.kind !== 'none') { const col = gachaCapColor(w.kind); row.className = 'g-' + col; const im = document.createElement('img'); im.src = 'gacha/cap_' + col + '.webp'; im.alt = ''; b.prepend(im);
+        if (col === 'gold' || col === 'silver') { const bd = document.createElement('span'); bd.className = 'wb ' + col; bd.textContent = col === 'gold' ? '激レア' : 'レア'; a.appendChild(bd); } }
       row.append(a, b); el.appendChild(row); });
   } catch(e) { el.innerHTML = '<div style="color:var(--dim);">読み込めませんでした</div>'; }
 }
