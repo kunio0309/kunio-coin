@@ -431,7 +431,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-Q</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-S</div>
   </div>
 </div>
 
@@ -694,6 +694,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <button class="btn-secondary" style="margin-top:6px;" onclick="gachaDemo(['none','c100','c300','c1000','none','ytm50','c100','none','c3000','none'])">🎰 10回まとめての演出</button>
     </div>
+    <div class="section-title">● 🎰 ガチャの記録（最新30件・管理者だけ）</div>
+    <div class="admin-card">
+      <button class="btn-secondary" onclick="loadGachaLog()">📋 だれが回したかを見る</button>
+      <div id="gacha-log" style="margin-top:8px;"></div>
+    </div>
     <div class="section-title">● サービス公開設定</div>
     <div class="admin-card" id="admin-services"><div style="text-align:center;color:var(--dim);font-size:12px;padding:8px;">読み込み中...</div></div>
     <div class="section-title">● 振込申請 確認待ち</div>
@@ -842,7 +847,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-Q</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-S</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2483,6 +2488,24 @@ function gachaBalAdd(n) {
     el.innerHTML = '<small>残高</small>🪙 ' + v.toLocaleString() + '枚<span class="plus">＋' + n.toLocaleString() + '</span>'; if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
+// 管理者：ガチャの記録（ボタンを押したときだけ、最新30件を読む）
+window.loadGachaLog = async function() {
+  const el = document.getElementById('gacha-log'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--dim);font-size:12px;">読み込み中...</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'gacha_log'), orderBy('createdAt', 'desc'), limit(30)));
+    if (snap.empty) { el.innerHTML = '<div style="color:var(--dim);font-size:12px;">まだ記録はありません</div>'; return; }
+    el.innerHTML = '';
+    snap.forEach(d => { const g = d.data(); const t = g.createdAt && g.createdAt.toDate ? g.createdAt.toDate() : null;
+      const row = document.createElement('div'); row.style.cssText = 'padding:8px 2px;border-bottom:1px solid var(--border);font-size:12px;line-height:1.6;';
+      const head = document.createElement('div'); head.style.fontWeight = '700';
+      head.textContent = (t ? (t.getMonth() + 1) + '/' + t.getDate() + ' ' + t.getHours() + ':' + String(t.getMinutes()).padStart(2, '0') + '　' : '') + (g.name || '—') + '　'
+        + (g.mode === 'coin' ? '🪙' + Number(g.paid || 0).toLocaleString() + '枚で' : '🎟券で') + (g.count || 1) + '回';
+      const body = document.createElement('div'); body.style.color = 'var(--dim)';
+      body.textContent = '→ ' + (g.summary || '') + (g.coins ? '（コイン計 ' + Number(g.coins).toLocaleString() + '枚' + (g.bonus ? '・うちボーナス ' + Number(g.bonus).toLocaleString() + '枚' : '') + '）' : '');
+      row.append(head, body); el.appendChild(row); });
+  } catch (e) { el.innerHTML = '<div style="color:var(--red);font-size:12px;">読み込めませんでした</div>'; console.error(e); }
+};
 let gachaRevealDone = null;
 window.closeGachaReveal = function() {
   const ov = document.getElementById('gm-reveal');
@@ -2890,6 +2913,7 @@ function showScreen(name, btn) {
   if (name === 'jobs') loadJobs();
   if (name === 'buy' || name === 'transfer') renderBuyPlans();
   if (name === 'profile') { loadMyParticipations(); if (window.loadMyCoupons) window.loadMyCoupons(); }
+  if (window.gachaAudioWarm) window.gachaAudioWarm(name === 'gacha');
   if (name === 'gacha') { if (window.gachaHeader) window.gachaHeader(); if (window.gachaBalls) window.gachaBalls(); if (window.loadGachaWins) window.loadGachaWins(); }
   if (name === 'post-job') {
     const ytText = document.getElementById('yt-cost-text');
@@ -2986,7 +3010,16 @@ const SFX_SRC = k => (location.pathname.includes('/test/') ? '../sounds/' : 'sou
 function sfxUnlock() {
   try { if (!sfxCtx) sfxLoad(); if (sfxCtx.state !== 'running') sfxCtx.resume(); } catch(e) {}
 }
-['touchend','pointerup','click','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
+['touchstart','pointerdown','touchend','pointerup','click','keydown'].forEach(ev => document.addEventListener(ev, sfxUnlock, { passive: true }));
+// ガチャ画面を開いている間だけ、音の仕組みを眠らせない（スマホで最初の音が遅れないように）。無音なので何も聞こえない
+let sfxKeep = null;
+window.gachaAudioWarm = function(on) {
+  try {
+    if (on && !sfxKeep) { if (!sfxCtx) sfxLoad(); const o = sfxCtx.createOscillator(), g = sfxCtx.createGain(); g.gain.value = 0; o.connect(g).connect(sfxCtx.destination); o.start(); sfxKeep = o; if (sfxCtx.state !== 'running') sfxCtx.resume(); }
+    if (!on && sfxKeep) { sfxKeep.stop(); sfxKeep.disconnect(); sfxKeep = null; }
+  } catch(e) {}
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && sfxKeep && sfxCtx && sfxCtx.state !== 'running') { try { sfxCtx.resume(); } catch(e) {} } });
 function playSfx(k, fallback) {
   try {
     const buf = sfxBuf[k];
