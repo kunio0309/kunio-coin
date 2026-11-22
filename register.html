@@ -102,8 +102,8 @@ select option{background:var(--d3);color:var(--text);}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, setDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCcWAmMcQgb5PmeuUr7OHlcd7Jlpw3oDhw",
@@ -133,10 +133,8 @@ window.doRegister = async function() {
   const btn = document.getElementById('register-btn');
   btn.textContent = '送信中...'; btn.disabled = true;
 
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pw);
-    const uid = cred.user.uid;
-
+  // KUNIO-COINの会員データを作る（新しく登録した人も、セミナーアプリなどで同じメールをもう使っている人も）
+  const makeProfile = async (uid) => {
     await setDoc(doc(db, 'users', uid), {
       name: name,
       email: email,
@@ -156,14 +154,35 @@ window.doRegister = async function() {
       icon: '🎁',
       createdAt: serverTimestamp()
     });
-
+  };
+  const done = () => {
     document.getElementById('register-form').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
+  };
 
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pw);
+    await makeProfile(cred.user.uid);
+    done();
   } catch(e) {
     console.error(e);
     if (e.code === 'auth/email-already-in-use') {
-      showToast('⚠️ このメールアドレスはすでに登録されています');
+      // セミナーアプリなどで、同じメールアドレスをもう使っている人
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, pw);
+        const snap = await getDoc(doc(db, 'users', cred.user.uid));
+        if (snap.exists()) {
+          alert('このメールアドレスは、もうKUNIO-COINに登録されています。\nアプリのログイン画面から、このメールアドレスとパスワードでログインしてください。');
+          location.href = './';
+          return;
+        }
+        await makeProfile(cred.user.uid);
+        done();
+        return;
+      } catch(e2) {
+        console.error(e2);
+        alert('このメールアドレスは、セミナーアプリなどですでに使われています。\n\nそのときのパスワードを入れて、もう一度「登録申請を送る」を押してください。\n\nパスワードを忘れた場合は、KUNIO-COINのログイン画面の「パスワードを忘れた」から再設定できます。');
+      }
     } else {
       showToast('⚠️ エラー: ' + e.message);
     }
