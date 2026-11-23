@@ -373,6 +373,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .glt-cnt{font-size:11px;font-weight:900;color:#b71c1c;margin-top:2px}
 .glt-name{font-size:10px;font-weight:700;margin-top:4px}
 .glt-foot{font-size:7px;color:#8a7650;margin-top:6px;line-height:1.5;padding:0 18%}
+.gtk-img{width:min(70vw,300px);opacity:0;transform:scale(.1) rotate(-30deg);filter:drop-shadow(0 0 30px rgba(255,213,79,.8));transition:transform .8s cubic-bezier(.2,.9,.3,1.2),opacity .3s}
+.gtk.fly .gtk-img{opacity:1;transform:none;animation:gtkfloat 2.4s ease-in-out .9s infinite}
+@keyframes gtkfloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
+.gtk-t{margin-top:18px;font-size:30px;font-weight:900;color:#ffe082;text-shadow:0 0 18px rgba(255,179,0,.9),0 2px 4px #000;opacity:0;font-family:'Noto Sans JP',sans-serif}
+.gtk-s{margin-top:6px;font-size:15px;font-weight:700;color:#fff;opacity:0;font-family:'Noto Sans JP',sans-serif}
+.gtk.done .gtk-t,.gtk.done .gtk-s{animation:gpop .4s both}
 .glt-tap{position:absolute;bottom:40px;left:0;right:0;text-align:center;color:#bbb;font-size:13px;opacity:0;transition:opacity .4s}
 .glt.done .glt-tap{opacity:1}
 .gres{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:14px}
@@ -433,7 +439,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/23-B</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/23-C</div>
   </div>
 </div>
 
@@ -693,6 +699,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <button class="btn-secondary" onclick="gachaDemo(['c6000'])">🟡 6,000枚</button>
         <button class="btn-secondary" onclick="gachaDemo(['konshinkai'])">🟡 懇親会 無料券</button>
         <button class="btn-secondary" onclick="gachaDemo(['truck50'])">🟡 KUNIO召喚 半額券</button>
+        <button class="btn-secondary" onclick="gachaDemo(['tk3'])">🔴 ガチャ券3枚</button>
       </div>
       <button class="btn-secondary" style="margin-top:6px;" onclick="gachaDemo(['none','c100','c300','c1000','none','ytm50','c100','none','c3000','none'])">🎰 10回まとめての演出</button>
     </div>
@@ -849,7 +856,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/23-B</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/23-C</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2375,7 +2382,7 @@ function gachaHeader() {
 }
 window.gachaHeader = gachaHeader;
 window.gachaBalls = () => gachaBalls();
-const GACHA_IMGS = ['ic_truck.webp','ic_konshinkai.webp','ic_nijikai.webp','ic_mendan.webp','machine.webp','handle.webp','light.jpg','cap_gold.webp','cap_silver.webp','cap_red.webp','cap_blue.webp','env_closed.webp','env_open.webp','card.webp'];
+const GACHA_IMGS = ['ic_ticket.webp','ic_truck.webp','ic_konshinkai.webp','ic_nijikai.webp','ic_mendan.webp','machine.webp','handle.webp','light.jpg','cap_gold.webp','cap_silver.webp','cap_red.webp','cap_blue.webp','env_closed.webp','env_open.webp','card.webp'];
 let gachaPreloaded = false;
 function gachaBalls() {
   document.querySelectorAll('.gt-coin').forEach(im => { if (!im.src && window.COIN_B64) im.src = window.COIN_B64; });
@@ -2383,10 +2390,10 @@ function gachaBalls() {
   GACHA_IMGS.forEach(f => { const im = new Image(); im.src = 'gacha/' + f; });
 }
 // 当たりの大きさ → カプセルの色（金＝大当たり、銀＝当たり、赤＝小当たり、青＝500枚以下かハズレ）
-const GACHA_ORDER = ['truck50','konshinkai','ytmFree','mendanFree','c10000','c9000','c8000','c7000','c6000','c5500','konshinkai50','sankaken','ytm50','nijikai','mailFree','c5000','c4500','c4000','c3500','mendan50','tool100','tool50','c3000','c2500','c2000','c1500','c1000','c500','c400','c300','c200','c100','none'];
-const GACHA_BIG = ['truck50','konshinkai','ytmFree','mendanFree','c10000','c9000','c8000','c7000','c6000','c5500'];
-const GACHA_SILVER = ['konshinkai50','sankaken','ytm50','nijikai','mailFree','c5000','c4500','c4000','c3500'];
-const GACHA_RED = ['mendan50','tool100','tool50','c3000','c2500','c2000','c1500','c1000'];
+const GACHA_ORDER = ['truck50','konshinkai','ytmFree','mendanFree','c10000','c9000','c8000','c7000','c6000','c5500','tk10','konshinkai50','sankaken','ytm50','nijikai','mailFree','c5000','c4500','c4000','c3500','tk5','mendan50','tool100','tool50','c3000','c2500','c2000','c1500','c1000','tk3','tk2','c500','tk1','c400','c300','c200','c100','none'];
+const GACHA_BIG = ['truck50','konshinkai','ytmFree','mendanFree','c10000','c9000','c8000','c7000','c6000','c5500','tk10'];
+const GACHA_SILVER = ['konshinkai50','sankaken','ytm50','nijikai','mailFree','c5000','c4500','c4000','c3500','tk5'];
+const GACHA_RED = ['mendan50','tool100','tool50','c3000','c2500','c2000','c1500','c1000','tk3','tk2'];
 function gachaCapColor(kind) {
   if (GACHA_BIG.includes(kind)) return 'gold';
   if (GACHA_SILVER.includes(kind)) return 'silver';
@@ -2395,7 +2402,7 @@ function gachaCapColor(kind) {
   return 'blue';
 }
 // 10回：カプセルを10個ならべて、1個ずつ／まとめて開ける
-const GACHA_SHORT = { c10000:'10,000枚', c9000:'9,000枚', c8000:'8,000枚', c7000:'7,000枚', c6000:'6,000枚', c5500:'5,500枚', c5000:'5,000枚', c4500:'4,500枚', c4000:'4,000枚', c3500:'3,500枚', c3000:'3,000枚', c2500:'2,500枚', c2000:'2,000枚', c1500:'1,500枚', c1000:'1,000枚', c500:'500枚', c400:'400枚', c300:'300枚', c200:'200枚', c100:'100枚', tool50:'ツール\n50%OFF', tool100:'ツール\n無料', mendan50:'面談\n半額', mendanFree:'面談\n無料', nijikai:'二次会\n無料', konshinkai:'懇親会\n無料', konshinkai50:'懇親会\n半額', sankaken:'懇親会\n参加権', truck50:'召喚\n半額', ytmFree:'YouTube\n無料', ytm50:'YouTube\n半額', mailFree:'メルマガ\n無料', none:'ハズレ' };
+const GACHA_SHORT = { tk1:'ガチャ券\n1枚', tk2:'ガチャ券\n2枚', tk3:'ガチャ券\n3枚', tk5:'ガチャ券\n5枚', tk10:'ガチャ券\n10枚', c10000:'10,000枚', c9000:'9,000枚', c8000:'8,000枚', c7000:'7,000枚', c6000:'6,000枚', c5500:'5,500枚', c5000:'5,000枚', c4500:'4,500枚', c4000:'4,000枚', c3500:'3,500枚', c3000:'3,000枚', c2500:'2,500枚', c2000:'2,000枚', c1500:'1,500枚', c1000:'1,000枚', c500:'500枚', c400:'400枚', c300:'300枚', c200:'200枚', c100:'100枚', tool50:'ツール\n50%OFF', tool100:'ツール\n無料', mendan50:'面談\n半額', mendanFree:'面談\n無料', nijikai:'二次会\n無料', konshinkai:'懇親会\n無料', konshinkai50:'懇親会\n半額', sankaken:'懇親会\n参加権', truck50:'召喚\n半額', ytmFree:'YouTube\n無料', ytm50:'YouTube\n半額', mailFree:'メルマガ\n無料', none:'ハズレ' };
 // 当たりの大きさで音を変える（コインは枚数で、券は色で）
 const GACHA_COIN_VAL = { c10000: 10000, c9000: 9000, c8000: 8000, c7000: 7000, c6000: 6000, c5500: 5500, c5000: 5000, c4500: 4500, c4000: 4000, c3500: 3500, c3000: 3000, c2500: 2500, c2000: 2000, c1500: 1500, c1000: 1000, c500: 500, c400: 400, c300: 300, c200: 200, c100: 100 };
 function gachaCapSound(k) {
@@ -2434,9 +2441,10 @@ function gachaMulti(results) {
       opening = true;
       const k = results[i].kind, isBig = GACHA_BIG.includes(k);
       if (LETTER_TEXT[k]) { if (window.playGachaSound) window.playGachaSound('open'); await gachaLetter(k, 1); }   // 券は、先に招待状が届いて開く
+      else if (GACHA_TK[k]) { if (window.playGachaSound) window.playGachaSound('open'); await gachaTicketWin(GACHA_TK[k]); }   // ガチャ券も、先に券が出てくる
       sl.classList.add('opened'); if (k !== 'none') sl.classList.add(isBig ? 'big' : 'win');
       left--; setTitle();
-      if (!LETTER_TEXT[k]) gachaCapSound(k);
+      if (!LETTER_TEXT[k] && !GACHA_TK[k]) gachaCapSound(k);
       if (results[i].coins) gachaBalAdd(results[i].coins);
       opening = false;
       if (!left) { btns.style.display = 'none'; setTimeout(() => done(batch), 450); }
@@ -2482,7 +2490,7 @@ async function gachaLetters(results) {
 let gachaLast = null, gachaAgainWanted = false;
 window.gachaAgain = function() { gachaAgainWanted = true; window.closeGachaReveal(); };
 // 管理者用：コインや券を使わずに、演出と音だけ見る
-const GACHA_DEMO_LABEL = { c10000:'10,000枚', c9000:'9,000枚', c8000:'8,000枚', c7000:'7,000枚', c6000:'6,000枚', c5500:'5,500枚', c5000:'5,000枚', c4500:'4,500枚', c4000:'4,000枚', c3500:'3,500枚', c3000:'3,000枚', c2500:'2,500枚', c2000:'2,000枚', c1500:'1,500枚', c1000:'1,000枚', c500:'500枚', c400:'400枚', c300:'300枚', c200:'200枚', c100:'100枚', tool50:'全ツール50%割引券', tool100:'全ツール100%割引券', mendan50:'個別面談 半額券', mendanFree:'個別面談（30分）無料券', nijikai:'二次会 会費無料券', konshinkai:'懇親会 無料券', konshinkai50:'懇親会 半額券', truck50:'KUNIO召喚 半額券', sankaken:'懇親会 参加権（会費は自分で払う）', ytmFree:'YouTube＋メルマガで作業員募集 無料券', ytm50:'YouTube＋メルマガで作業員募集 半額券', mailFree:'メルマガで作業員募集 無料券', none:'ハズレ' };
+const GACHA_DEMO_LABEL = { tk1:'ガチャ券1枚', tk2:'ガチャ券2枚', tk3:'ガチャ券3枚', tk5:'ガチャ券5枚', tk10:'ガチャ券10枚', c10000:'10,000枚', c9000:'9,000枚', c8000:'8,000枚', c7000:'7,000枚', c6000:'6,000枚', c5500:'5,500枚', c5000:'5,000枚', c4500:'4,500枚', c4000:'4,000枚', c3500:'3,500枚', c3000:'3,000枚', c2500:'2,500枚', c2000:'2,000枚', c1500:'1,500枚', c1000:'1,000枚', c500:'500枚', c400:'400枚', c300:'300枚', c200:'200枚', c100:'100枚', tool50:'全ツール50%割引券', tool100:'全ツール100%割引券', mendan50:'個別面談 半額券', mendanFree:'個別面談（30分）無料券', nijikai:'二次会 会費無料券', konshinkai:'懇親会 無料券', konshinkai50:'懇親会 半額券', truck50:'KUNIO召喚 半額券', sankaken:'懇親会 参加権（会費は自分で払う）', ytmFree:'YouTube＋メルマガで作業員募集 無料券', ytm50:'YouTube＋メルマガで作業員募集 半額券', mailFree:'メルマガで作業員募集 無料券', none:'ハズレ' };
 window.gachaDemo = function(kinds) {
   const results = kinds.map(k => ({ kind: k, label: GACHA_DEMO_LABEL[k] || k, coins: GACHA_COIN_VAL[k] || 0 }));
   const coins = results.reduce((t, x) => t + x.coins, 0);
@@ -2519,6 +2527,22 @@ window.loadGachaLog = async function() {
       row.append(head, body); el.appendChild(row); });
   } catch (e) { el.innerHTML = '<div style="color:var(--red);font-size:12px;">読み込めませんでした</div>'; console.error(e); }
 };
+// ガチャ券が当たったら、券の絵が「キラーン」と出てくる
+const GACHA_TK = { tk1: 1, tk2: 2, tk3: 3, tk5: 5, tk10: 10 };
+function gachaTicketWin(n) {
+  return new Promise(done => {
+    const ov = document.createElement('div'); ov.className = 'glt gtk';
+    ov.innerHTML = '<div class="glt-flash"></div><img class="gtk-img" src="gacha/ic_ticket.webp" alt=""><div class="gtk-t"></div><div class="gtk-s">もう1回まわせます！</div><div class="glt-tap">タップでとじる</div>';
+    ov.querySelector('.gtk-t').textContent = '🎟 ガチャ券 ' + n + '枚！';
+    document.body.appendChild(ov);
+    const snd = k => { if (window.playGachaSound) window.playGachaSound(k); };
+    setTimeout(() => { ov.classList.add('show'); snd('kiran'); }, 30);
+    setTimeout(() => { ov.classList.add('fly'); }, 350);
+    setTimeout(() => { ov.classList.add('done'); snd(n >= 10 ? 'gold' : n >= 5 ? 'silver' : 'red'); }, 1300);
+    ov.onclick = e => { e.stopPropagation(); if (!ov.classList.contains('done')) { ov.classList.add('show', 'fly', 'done'); return; } ov.remove(); done(); };
+  });
+}
+window.gachaTicketWin = gachaTicketWin;
 let gachaRevealDone = null;
 window.closeGachaReveal = function() {
   const ov = document.getElementById('gm-reveal');
@@ -2526,7 +2550,7 @@ window.closeGachaReveal = function() {
   ov.className = 'gmr'; if (gachaRevealDone) { const f = gachaRevealDone; gachaRevealDone = null; f(); }
 };
 // 当選者の一覧では、短い名前で出す（スマホで変なところで改行しないように）
-const WIN_SHORT = { mendanFree:'個別面談 無料券', mendan50:'個別面談 半額券', sankaken:'懇親会 参加権', konshinkai:'懇親会 無料券', konshinkai50:'懇親会 半額券', nijikai:'二次会 無料券',
+const WIN_SHORT = { tk1:'ガチャ券 1枚', tk2:'ガチャ券 2枚', tk3:'ガチャ券 3枚', tk5:'ガチャ券 5枚', tk10:'ガチャ券 10枚', mendanFree:'個別面談 無料券', mendan50:'個別面談 半額券', sankaken:'懇親会 参加権', konshinkai:'懇親会 無料券', konshinkai50:'懇親会 半額券', nijikai:'二次会 無料券',
   truck50:'KUNIO召喚 半額券', ytmFree:'YouTube＋メルマガ 無料券', ytm50:'YouTube＋メルマガ 半額券', mailFree:'メルマガ募集 無料券', tool100:'ツール 無料券', tool50:'ツール 半額券' };
 async function loadGachaWins() {
   const el = document.getElementById('g-wins'); if (!el) return;
@@ -2611,6 +2635,10 @@ async function spinGachaInner(mode, count, fake) {
     ov.classList.add('open', 'pending', 'win'); if (big) ov.classList.add('big');
     await wait(350); await gachaLetter(best.kind, 1);
     ov.classList.remove('pending');
+  } else if (GACHA_TK[best.kind]) {   // ガチャ券
+    ov.classList.add('open', 'pending', 'win'); if (big) ov.classList.add('big');
+    await wait(300); await gachaTicketWin(GACHA_TK[best.kind]);
+    ov.classList.remove('pending');
   } else {
     ov.classList.add('open', wins.length ? 'win' : 'lose'); if (big) ov.classList.add('big');
     if (window.playGachaSound) { if (best.kind === 'none') window.playGachaSound('lose'); else gachaCapSound(best.kind); }
@@ -2622,6 +2650,8 @@ async function spinGachaInner(mode, count, fake) {
   r.results.forEach((x, i) => { const d = document.createElement('div'); d.textContent = x.label;
     if (x.kind !== 'none') d.className = GACHA_BIG.includes(x.kind) ? 'big' : 'win';
     d.style.animationDelay = (i * 0.08) + 's'; res.appendChild(d); });
+  { const ab = document.querySelector('#gmr-again .ag');
+    if (ab) { if (mode === 'ticket') { ab.textContent = '🎟 券でもう1回まわす'; } else if (r.tickets > 0) { gachaLast = ['ticket', 1]; ab.textContent = '🎟 当たった券でもう1回まわす'; } else { ab.textContent = '🎰 もう1回まわす'; } } }
   await new Promise(ok => { gachaRevealDone = ok; });
   cap.classList.remove('go'); knob.classList.remove('turn');
   if (r.coins > 0) showToast('🪙 ' + r.coins.toLocaleString() + '枚 当たりました！' + (fake ? '（演出テストなので、本当には増えません）' : ''));
