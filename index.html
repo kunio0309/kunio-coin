@@ -389,7 +389,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .gwins div.g-gold b{color:#ffe082;text-shadow:0 0 8px rgba(255,179,0,.6);font-size:15px}
 .gwins div.g-gold{border:1px solid rgba(255,213,79,.6);margin:4px 0}
 .gwins div.g-silver{background:rgba(236,239,241,.06);border-radius:10px;padding-left:8px;padding-right:8px}
-.gwins .wb{font-size:10px;font-weight:900;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:1px;text-shadow:none}
+.gwins .wb{display:inline-block;white-space:nowrap;font-size:10px;font-weight:900;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:1px;text-shadow:none}
+.gwins div > span{flex:1 1 auto;min-width:0;line-height:1.5}
+.gwins div > b{flex:0 1 auto;max-width:58%;justify-content:flex-end;word-break:keep-all;overflow-wrap:anywhere}
 .gwins .wb.gold{background:linear-gradient(135deg,#fff3c4,#ffb300);color:#3a2e00}
 .gwins .wb.silver{background:linear-gradient(135deg,#eceff1,#90a4ae);color:#263238}
 .gwins div.g-blue{font-size:12px;opacity:.7}
@@ -431,7 +433,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="btn-secondary" onclick="doPasswordReset()" style="margin-top:8px;">リセット用メールを送る</button>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--dim);">アカウントはKUNIOから発行されます</div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/22-U</div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--dim);opacity:.6;">版 11/23-A</div>
   </div>
 </div>
 
@@ -847,7 +849,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="my-participations"><div style="text-align:center;color:var(--dim);font-size:12px;padding:16px;">読み込み中...</div></div>
     <button class="btn-secondary" onclick="doLogout()" style="margin-top:16px;">ログアウト</button>
 
-    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/22-U</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);margin-top:24px;">効果音の声：VOICEVOX:ずんだもん　／　版 11/23-A</div>
     <div class="section-title" style="margin-top:28px;color:var(--red);">● 退会</div>
     <button onclick="startDeleteAccount()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-weight:700;font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">🗑 アカウントを削除する</button>
   </div>
@@ -2502,7 +2504,9 @@ window.loadGachaLog = async function() {
   const el = document.getElementById('gacha-log'); if (!el) return;
   el.innerHTML = '<div style="color:var(--dim);font-size:12px;">読み込み中...</div>';
   try {
-    const snap = await getDocs(query(collection(db, 'gacha_log'), orderBy('createdAt', 'desc'), limit(30)));
+    const all = await getDocs(query(collection(db, 'gacha_log'), orderBy('createdAt', 'desc'), limit(80)));
+    // 自分（KUNIO）の記録は出さない
+    const docs = all.docs.filter(d => d.data().uid !== window._uid).slice(0, 30); const snap = { empty: !docs.length, forEach: f => docs.forEach(f) };
     if (snap.empty) { el.innerHTML = '<div style="color:var(--dim);font-size:12px;">まだ記録はありません</div>'; return; }
     el.innerHTML = '';
     snap.forEach(d => { const g = d.data(); const t = g.createdAt && g.createdAt.toDate ? g.createdAt.toDate() : null;
@@ -2521,6 +2525,9 @@ window.closeGachaReveal = function() {
   if (!ov.classList.contains('open')) return;
   ov.className = 'gmr'; if (gachaRevealDone) { const f = gachaRevealDone; gachaRevealDone = null; f(); }
 };
+// 当選者の一覧では、短い名前で出す（スマホで変なところで改行しないように）
+const WIN_SHORT = { mendanFree:'個別面談 無料券', mendan50:'個別面談 半額券', sankaken:'懇親会 参加権', konshinkai:'懇親会 無料券', konshinkai50:'懇親会 半額券', nijikai:'二次会 無料券',
+  truck50:'KUNIO召喚 半額券', ytmFree:'YouTube＋メルマガ 無料券', ytm50:'YouTube＋メルマガ 半額券', mailFree:'メルマガ募集 無料券', tool100:'ツール 無料券', tool50:'ツール 半額券' };
 async function loadGachaWins() {
   const el = document.getElementById('g-wins'); if (!el) return;
   try {
@@ -2534,7 +2541,7 @@ async function loadGachaWins() {
     el.innerHTML = '';
     docs.forEach(d => { const w = d.data(); const t = w.createdAt && w.createdAt.toDate ? w.createdAt.toDate() : null;
       const row = document.createElement('div'); const a = document.createElement('span'); const b = document.createElement('b');
-      a.textContent = (w.name || 'メンバー') + (t ? '（' + (t.getMonth()+1) + '/' + t.getDate() + '）' : ''); b.textContent = w.label || '';
+      a.textContent = (w.name || 'メンバー') + (t ? '（' + (t.getMonth()+1) + '/' + t.getDate() + '）' : ''); b.textContent = WIN_SHORT[w.kind] || w.label || '';
       if (w.kind && w.kind !== 'none') { const col = gachaCapColor(w.kind); row.className = 'g-' + col; const im = document.createElement('img'); im.src = 'gacha/cap_' + col + '.webp'; im.alt = ''; b.prepend(im);
         if (col === 'gold' || col === 'silver') { const bd = document.createElement('span'); bd.className = 'wb ' + col; bd.textContent = col === 'gold' ? '激レア' : 'レア'; a.appendChild(bd); } }
       row.append(a, b); el.appendChild(row); });
